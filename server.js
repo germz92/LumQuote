@@ -357,38 +357,42 @@ async function generateQuoteHTML(quoteData) {
       <style>
         body {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          line-height: 1.6;
+          line-height: 1.4;
           color: #333;
           max-width: 900px;
           margin: 0 auto;
-          padding: 20px;
+          padding: 15px;
+          font-size: 12px;
         }
         .header {
           text-align: center;
-          margin-bottom: 40px;
+          margin-bottom: 25px;
           border-bottom: 2px solid #4F46E5;
-          padding-bottom: 20px;
+          padding-bottom: 15px;
         }
         .header h1 {
           color: #4F46E5;
           margin: 0;
-          font-size: 28px;
+          font-size: 22px;
         }
         .header p {
           color: #666;
-          margin: 10px 0 0 0;
+          margin: 8px 0 0 0;
+          font-size: 11px;
         }
         table {
           width: 100%;
           border-collapse: collapse;
-          margin: 20px 0;
+          margin: 15px 0;
+          font-size: 11px;
         }
         th {
           background-color: #f8fafc;
-          padding: 16px 12px;
+          padding: 10px 8px;
           font-weight: 600;
           border-bottom: 1px solid #e2e8f0;
           color: #374151;
+          font-size: 11px;
         }
         th:first-child {
           width: 140px;
@@ -403,9 +407,10 @@ async function generateQuoteHTML(quoteData) {
           width: 120px;
         }
         td {
-          padding: 16px 12px;
+          padding: 8px 8px;
           border-bottom: 1px solid #f1f5f9;
           vertical-align: middle;
+          font-size: 11px;
         }
         td:first-child {
           width: 140px;
@@ -426,26 +431,29 @@ async function generateQuoteHTML(quoteData) {
           margin-bottom: 8px;
         }
         .totals {
-          margin-top: 30px;
+          margin-top: 20px;
           text-align: right;
+          page-break-inside: avoid;
         }
         .totals div {
-          margin: 10px 0;
-          font-size: 18px;
+          margin: 6px 0;
+          font-size: 14px;
         }
         .total-final {
           font-weight: bold;
-          font-size: 24px;
+          font-size: 18px;
           color: #4F46E5;
           border-top: 2px solid #4F46E5;
-          padding-top: 10px;
-          margin-top: 20px;
+          padding-top: 8px;
+          margin-top: 15px;
         }
         .footer {
-          margin-top: 40px;
+          margin-top: 25px;
           text-align: center;
           color: #666;
-          font-size: 14px;
+          font-size: 11px;
+          page-break-inside: avoid;
+          page-break-before: avoid;
         }
         .contact {
           color: #4F46E5;
@@ -453,6 +461,22 @@ async function generateQuoteHTML(quoteData) {
         }
         .bold {
           font-weight: bold;
+        }
+        
+        /* Page break control */
+        .totals-and-footer {
+          page-break-inside: avoid;
+          page-break-before: avoid;
+        }
+        
+        /* Ensure table rows don't break awkwardly */
+        tr {
+          page-break-inside: avoid;
+        }
+        
+        /* Keep day groups together when possible */
+        .day-group {
+          page-break-inside: avoid;
         }
       </style>
     </head>
@@ -478,19 +502,21 @@ async function generateQuoteHTML(quoteData) {
         </tbody>
       </table>
       
-      <div class="totals">
-        ${discountPercentage > 0 ? `
-          <div>Subtotal: ${formatCurrency(subtotal)}</div>
-          <div>Discount (${discountPercentage}%): -${formatCurrency(discountAmount)}</div>
-          <div class="total-final">Total: ${formatCurrency(total)}</div>
-        ` : `
-          <div class="total-final">Total: ${formatCurrency(total)}</div>
-        `}
-      </div>
-      
-      <div class="footer">
-        <p><strong>* Pricing may change. This is a quote, not an official invoice</strong></p>
-        <p class="contact">Contact us for any questions - sales@lumetrymedia.com</p>
+      <div class="totals-and-footer">
+        <div class="totals">
+          ${discountPercentage > 0 ? `
+            <div>Subtotal: ${formatCurrency(subtotal)}</div>
+            <div>Discount (${discountPercentage}%): -${formatCurrency(discountAmount)}</div>
+            <div class="total-final">Total: ${formatCurrency(total)}</div>
+          ` : `
+            <div class="total-final">Total: ${formatCurrency(total)}</div>
+          `}
+        </div>
+        
+        <div class="footer">
+          <p><strong>* Pricing may change. This is a quote, not an official invoice</strong></p>
+          <p class="contact">Contact us for any questions - sales@lumetrymedia.com</p>
+        </div>
       </div>
     </body>
     </html>
