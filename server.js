@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const htmlPdf = require('html-pdf-node');
+const ExcelJS = require('exceljs');
 const fs = require('fs');
 require('dotenv').config();
 
@@ -19,6 +20,7 @@ console.log('Environment check:');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('MONGODB_URI exists:', !!process.env.MONGODB_URI);
 console.log('MONGODB_URI (masked):', process.env.MONGODB_URI ? process.env.MONGODB_URI.replace(/\/\/.*@/, '//***:***@') : 'Not found');
+console.log('All environment variables:', Object.keys(process.env).filter(key => key.includes('MONGO')));
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/LumetryMedia';
 
@@ -493,6 +495,227 @@ async function generateQuoteHTML(quoteData) {
     </body>
     </html>
   `;
+}
+
+// Generate Excel quote
+app.post('/api/generate-excel', async (req, res) => {
+  try {
+    const { quoteData, quoteName } = req.body;
+    const { days, subtotal, total, discountPercentage, discountAmount } = quoteData;
+    
+    console.log('🔄 Starting Excel generation...');
+    
+    // Get all services for subservice checking
+    const allServices = await Service.find();
+    
+    // Create workbook and worksheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Quote');
+    
+    // Set column widths
+    worksheet.columns = [
+      { header: 'Date', key: 'date', width: 25 },
+      { header: 'Item', key: 'item', width: 40 },
+      { header: 'Qty', key: 'qty', width: 8 },
+      { header: 'Rate', key: 'rate', width: 15 },
+      { header: 'Price', key: 'price', width: 15 },
+      { header: '', key: 'label', width: 15 }
+    ];
+    
+    // Style the header row (only columns A-E)
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, name: 'Arial', size: 11 };
+    headerRow.alignment = { horizontal: 'center' };
+    
+    // Apply gray background only to columns A-E
+    for (let col = 1; col <= 5; col++) {
+      headerRow.getCell(col).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD3D3D3' } // Light gray background
+      };
+    }
+    
+    let currentRow = 2;
+    
+    // Process each day
+    days.forEach((day, dayIndex) => {
+      if (day.services.length > 0) {
+        day.services.forEach((service, serviceIndex) => {
+          const serviceName = service.name; // No indentation
+          
+          // Show date only on first service of each day
+          const dateDisplay = serviceIndex === 0 && day.date 
+            ? formatDateForExcel(parseStoredDate(day.date))
+            : '';
+          
+          const rate = formatCurrency(service.price);
+          const price = formatCurrency(service.price * service.quantity);
+          
+          const row = worksheet.addRow({
+            date: dateDisplay,
+            item: serviceName,
+            qty: service.quantity,
+            rate: rate,
+            price: price,
+            label: ''
+          });
+          
+          // Set Arial font for all cells first
+          row.font = { name: 'Arial', size: 11 };
+          
+          // Make dates bold and right-aligned (override after base font)
+          if (dateDisplay) {
+            row.getCell('date').font = { bold: true, name: 'Arial', size: 11 };
+            row.getCell('date').alignment = { horizontal: 'right' };
+          }
+          
+          currentRow++;
+        });
+      } else {
+        // Empty day
+        const dateDisplay = day.date 
+          ? formatDateForExcel(parseStoredDate(day.date))
+          : `Day ${dayIndex + 1}`;
+        
+        const row = worksheet.addRow({
+          date: dateDisplay,
+          item: 'No services selected',
+          qty: 0,
+          rate: '$0',
+          price: '$0',
+          label: ''
+        });
+        
+        // Set Arial font for all cells first
+        row.font = { name: 'Arial', size: 11 };
+        
+        // Make dates bold and right-aligned (override after base font)
+        row.getCell('date').font = { bold: true, name: 'Arial', size: 11 };
+        row.getCell('date').alignment = { horizontal: 'right' };
+        currentRow++;
+      }
+    });
+    
+    // Add empty row
+    worksheet.addRow({});
+    currentRow++;
+    
+    // Add summary rows based on discount
+    if (discountPercentage > 0) {
+      // Subtotal row
+      const subtotalRow = worksheet.addRow({
+        date: '',
+        item: '',
+        qty: '',
+        rate: '',
+        price: formatCurrency(subtotal),
+        label: 'Subtotal'
+      });
+      subtotalRow.getCell('label').alignment = { horizontal: 'left' };
+      subtotalRow.font = { name: 'Arial', size: 11 };
+      
+      // Discount row
+      const discountRow = worksheet.addRow({
+        date: '',
+        item: `${discountPercentage}% Discount`,
+        qty: '',
+        rate: '',
+        price: formatCurrency(discountAmount),
+        label: 'Discount'
+      });
+      discountRow.getCell('label').alignment = { horizontal: 'left' };
+      discountRow.font = { name: 'Arial', size: 11 };
+      
+      // Grand Total row
+      const grandTotalRow = worksheet.addRow({
+        date: '',
+        item: '',
+        qty: '',
+        rate: '',
+        price: formatCurrency(total),
+        label: 'Grand Total'
+      });
+      grandTotalRow.getCell('label').alignment = { horizontal: 'left' };
+      // Set base font first, then override specific cells
+      grandTotalRow.font = { name: 'Arial', size: 11 };
+      grandTotalRow.getCell('label').font = { bold: true, name: 'Arial', size: 11 };
+      grandTotalRow.getCell('price').font = { bold: true, name: 'Arial', size: 11 };
+      grandTotalRow.getCell('label').fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD3D3D3' } // Light gray background
+      };
+      grandTotalRow.getCell('price').fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD3D3D3' } // Light gray background
+      };
+    } else {
+      // Grand Total row only
+      const grandTotalRow = worksheet.addRow({
+        date: '',
+        item: '',
+        qty: '',
+        rate: '',
+        price: formatCurrency(total),
+        label: 'Grand Total'
+      });
+      grandTotalRow.getCell('label').alignment = { horizontal: 'left' };
+      // Set base font first, then override specific cells
+      grandTotalRow.font = { name: 'Arial', size: 11 };
+      grandTotalRow.getCell('label').font = { bold: true, name: 'Arial', size: 11 };
+      grandTotalRow.getCell('price').font = { bold: true, name: 'Arial', size: 11 };
+      grandTotalRow.getCell('label').fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD3D3D3' } // Light gray background
+      };
+      grandTotalRow.getCell('price').fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD3D3D3' } // Light gray background
+      };
+    }
+    
+    // Generate Excel buffer
+    const excelBuffer = await workbook.xlsx.writeBuffer();
+    
+    console.log('✅ Excel generated successfully');
+    
+    // Generate filename using same convention as PDF
+    const currentDate = new Date().toISOString().split('T')[0];
+    let filename;
+    
+    if (quoteName) {
+      // Sanitize quote name for filename
+      const sanitizedTitle = quoteName.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+      filename = `${sanitizedTitle}-${currentDate}.xlsx`;
+    } else {
+      filename = `lumetry-quote-${currentDate}.xlsx`;
+    }
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.send(excelBuffer);
+    
+  } catch (error) {
+    console.error('❌ Excel generation error:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to generate Excel file. Please try again.',
+      details: error.message 
+    });
+  }
+});
+
+function formatDateForExcel(date) {
+  const options = { 
+    weekday: 'long', 
+    month: 'long', 
+    day: 'numeric', 
+    year: 'numeric' 
+  };
+  return date.toLocaleDateString('en-US', options);
 }
 
 // Serve static files

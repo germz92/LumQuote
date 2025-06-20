@@ -42,6 +42,7 @@ class QuoteCalculator {
         document.getElementById('increase-days').addEventListener('click', () => this.addDay());
         document.getElementById('decrease-days').addEventListener('click', () => this.removeDay());
         document.getElementById('generate-pdf').addEventListener('click', () => this.generatePDF());
+        document.getElementById('export-excel').addEventListener('click', () => this.exportExcel());
         
         // Save modal form submission
         document.getElementById('saveQuoteForm').addEventListener('submit', (e) => this.saveQuoteFromModal(e));
@@ -326,15 +327,20 @@ class QuoteCalculator {
             document.getElementById('total-amount').textContent = this.formatCurrency(subtotal);
         }
         
-        // Enable/disable PDF button
+        // Enable/disable PDF and Excel buttons
         const pdfButton = document.getElementById('generate-pdf');
+        const excelButton = document.getElementById('export-excel');
         const hasServices = this.days.some(day => day.services.length > 0);
+        
         pdfButton.disabled = !hasServices;
+        excelButton.disabled = !hasServices;
         
         if (hasServices) {
             pdfButton.textContent = 'Download Quote (PDF)';
+            excelButton.textContent = 'Export to Excel';
         } else {
             pdfButton.textContent = 'Select services to generate quote';
+            excelButton.textContent = 'Export to Excel';
         }
     }
 
@@ -412,6 +418,66 @@ class QuoteCalculator {
             loadingOverlay.style.display = 'none';
         }
     }
+
+    async exportExcel() {
+        try {
+            const subtotal = this.calculateTotal();
+            const discountAmount = subtotal * (this.discountPercentage / 100);
+            const total = this.getFinalTotal();
+
+            // Send data to server for XLSX generation
+            const quoteData = {
+                days: this.days,
+                subtotal: subtotal,
+                total: total,
+                discountPercentage: this.discountPercentage,
+                discountAmount: discountAmount,
+                clientName: this.currentClientName
+            };
+
+            const response = await fetch('/api/generate-excel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    quoteData,
+                    quoteName: this.currentQuoteName 
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate Excel file');
+            }
+
+            // Get filename from Content-Disposition header
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'quote-export.xlsx';
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (filenameMatch) {
+                    filename = filenameMatch[1];
+                }
+            }
+
+            // Create blob and download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+        } catch (error) {
+            console.error('Error exporting Excel:', error);
+            alert('Failed to export Excel file. Please try again.');
+        }
+    }
+
+
 
     async validateServiceDependency(serviceId, dayIndex) {
         try {
