@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const puppeteer = require('puppeteer');
+const htmlPdf = require('html-pdf-node');
 const fs = require('fs');
 require('dotenv').config();
 
@@ -212,49 +212,22 @@ app.post('/api/generate-pdf', async (req, res) => {
     
     console.log('🔄 Starting PDF generation...');
     
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu',
-        '--disable-features=VizDisplayCompositor'
-      ],
-      timeout: 30000
-    });
-    
-    const page = await browser.newPage();
-    
     console.log('📝 Generating HTML content...');
     const html = await generateQuoteHTML(quoteData);
     
-    console.log('🌐 Setting page content...');
-    await page.setContent(html, { 
-      waitUntil: 'networkidle0',
-      timeout: 30000
-    });
-    
     console.log('📄 Creating PDF...');
-    const pdf = await page.pdf({
+    const options = {
       format: 'A4',
-      printBackground: true,
       margin: {
         top: '20mm',
         right: '20mm',
         bottom: '20mm',
         left: '20mm'
-      },
-      timeout: 30000
-    });
+      }
+    };
     
-    console.log('🔒 Closing browser...');
-    await browser.close();
+    const file = { content: html };
+    const pdf = await htmlPdf.generatePdf(file, options);
     
     console.log('✅ PDF generated successfully');
     const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
@@ -265,16 +238,8 @@ app.post('/api/generate-pdf', async (req, res) => {
     console.error('❌ PDF generation error:', error.message);
     console.error('❌ Full error:', error);
     
-    // Try to provide a more helpful error message
-    let errorMessage = 'Failed to generate PDF';
-    if (error.message.includes('Failed to launch')) {
-      errorMessage = 'Browser launch failed. Please try again.';
-    } else if (error.message.includes('timeout')) {
-      errorMessage = 'PDF generation timed out. Please try again.';
-    }
-    
     res.status(500).json({ 
-      error: errorMessage,
+      error: 'Failed to generate PDF. Please try again.',
       details: error.message 
     });
   }

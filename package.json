@@ -12,11 +12,8 @@
     "mongoose": "^7.5.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "puppeteer": "^21.1.1",
+    "html-pdf-node": "^1.0.8",
     "path": "^0.12.7"
-  },
-  "puppeteer": {
-    "skipChromiumDownload": true
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
