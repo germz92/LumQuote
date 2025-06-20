@@ -15,6 +15,9 @@
     "puppeteer": "^21.1.1",
     "path": "^0.12.7"
   },
+  "puppeteer": {
+    "skipChromiumDownload": true
+  },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },

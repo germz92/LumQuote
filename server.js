@@ -214,7 +214,7 @@ app.post('/api/generate-pdf', async (req, res) => {
     
     const browser = await puppeteer.launch({
       headless: 'new',
-      executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',

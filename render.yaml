@@ -3,12 +3,16 @@ services:
     name: quote-calculator
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: true
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /usr/bin/google-chrome-stable
       - key: MONGODB_URI
         fromDatabase:
           name: quote-calculator-db
