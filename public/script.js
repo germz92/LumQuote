@@ -86,7 +86,12 @@ class QuoteCalculator {
             // Render each service as its own row
             day.services.forEach((service, serviceIndex) => {
                 const serviceRow = document.createElement('div');
-                serviceRow.className = 'day-row';
+                serviceRow.className = 'day-row draggable-service';
+                serviceRow.draggable = true;
+                serviceRow.dataset.dayIndex = dayIndex;
+                serviceRow.dataset.serviceIndex = serviceIndex;
+                serviceRow.dataset.serviceId = service.id;
+                
                 serviceRow.innerHTML = `
                     <div class="day-cell">
                         ${serviceIndex === 0 ? `
@@ -98,6 +103,7 @@ class QuoteCalculator {
                     </div>
                     <div class="service-cell">
                         <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''}">
+                            <span class="drag-handle">⋮⋮</span>
                             ${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}
                             <button class="remove-service" onclick="calculator.removeService(${dayIndex}, ${serviceIndex})">×</button>
                         </div>
@@ -115,6 +121,12 @@ class QuoteCalculator {
                         ${this.formatCurrency(service.price * service.quantity)}
                     </div>
                 `;
+                
+                // Add drag event handlers directly to the element (like admin panel)
+                serviceRow.ondragstart = (e) => this.handleDragStart(e);
+                serviceRow.ondragover = (e) => this.handleDragOver(e);
+                serviceRow.ondrop = (e) => this.handleDrop(e);
+                serviceRow.ondragend = (e) => this.handleDragEnd(e);
                 container.appendChild(serviceRow);
             });
 
@@ -135,6 +147,27 @@ class QuoteCalculator {
                     <div class="price-cell">$0</div>
                 `;
                 container.appendChild(emptyRow);
+            }
+
+            // Add invisible drop zone at the bottom of each day (only if day has services)
+            if (day.services.length > 0) {
+                const dropZone = document.createElement('div');
+                dropZone.className = 'day-row drop-zone';
+                dropZone.dataset.dayIndex = dayIndex;
+                dropZone.dataset.serviceIndex = day.services.length; // Insert at end
+                dropZone.dataset.isDropZone = 'true';
+                
+                dropZone.innerHTML = `
+                    <div class="day-cell"></div>
+                    <div class="service-cell drop-zone-indicator"></div>
+                    <div class="quantity-cell"></div>
+                    <div class="price-cell"></div>
+                `;
+                
+                // Add drag event handlers
+                dropZone.ondragover = (e) => this.handleDragOver(e);
+                dropZone.ondrop = (e) => this.handleDrop(e);
+                container.appendChild(dropZone);
             }
 
             // Add service button row
@@ -1259,6 +1292,168 @@ class QuoteCalculator {
             this.activeCalendar = null;
             document.removeEventListener('click', this.handleCalendarOutsideClick.bind(this));
         }
+    }
+
+    handleDragStart(event) {
+        this.draggedElement = event.currentTarget;
+        this.draggedData = {
+            dayIndex: parseInt(event.currentTarget.dataset.dayIndex),
+            serviceIndex: parseInt(event.currentTarget.dataset.serviceIndex),
+            serviceId: event.currentTarget.dataset.serviceId
+        };
+        
+        event.currentTarget.classList.add('dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', event.currentTarget.dataset.serviceId);
+    }
+
+    handleDragOver(event) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        
+        const targetElement = event.currentTarget;
+        
+        if (!this.draggedElement || targetElement === this.draggedElement) {
+            return;
+        }
+        
+        const targetDayIndex = parseInt(targetElement.dataset.dayIndex);
+        const isValidDrop = this.validateDrop(this.draggedData, targetDayIndex);
+        
+        // Clear ALL previous drop indicators first (prevents jittering)
+        this.clearDropIndicators();
+        
+        if (isValidDrop) {
+            // Check if this is a drop zone (always insert at bottom)
+            if (targetElement.dataset.isDropZone === 'true') {
+                targetElement.classList.add('drag-over-bottom');
+            } else {
+                // Calculate midpoint for more precise drop indication
+                const rect = targetElement.getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
+                
+                if (event.clientY < midpoint) {
+                    targetElement.classList.add('drag-over-top');
+                } else {
+                    targetElement.classList.add('drag-over-bottom');
+                }
+            }
+        } else {
+            targetElement.classList.add('drag-over-invalid');
+        }
+    }
+
+    handleDrop(event) {
+        event.preventDefault();
+        
+        const targetElement = event.currentTarget;
+        
+        if (!this.draggedElement || targetElement === this.draggedElement) {
+            this.clearDragState();
+            return;
+        }
+        
+        const targetDayIndex = parseInt(targetElement.dataset.dayIndex);
+        const targetServiceIndex = parseInt(targetElement.dataset.serviceIndex);
+        
+        if (!this.validateDrop(this.draggedData, targetDayIndex)) {
+            this.showDependencyError('Cannot move this service. Other services depend on it being on the same day.');
+            this.clearDragState();
+            return;
+        }
+        
+        // Calculate insertion position based on mouse position or drop zone
+        let insertAfter;
+        if (targetElement.dataset.isDropZone === 'true') {
+            // Drop zones always insert at the end
+            insertAfter = true;
+        } else {
+            const rect = targetElement.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            insertAfter = event.clientY >= midpoint;
+        }
+        
+        this.handleServiceDrop(this.draggedData, targetDayIndex, targetServiceIndex, insertAfter);
+        this.clearDragState();
+    }
+
+    handleDragEnd(event) {
+        this.clearDragState();
+    }
+
+    validateDrop(dragData, targetDayIndex) {
+        const { dayIndex: sourceDayIndex, serviceId } = dragData;
+        
+        // If moving to a different day, check dependencies
+        if (sourceDayIndex !== targetDayIndex) {
+            // Check if any services depend on this one staying in the source day
+            const dependentServices = this.findDependentServices(serviceId, sourceDayIndex);
+            
+            for (const dependent of dependentServices) {
+                if (dependent.dependencyType === 'same_day') {
+                    return false; // Same day dependency would be broken
+                }
+            }
+        }
+        
+        return true;
+    }
+
+    async handleServiceDrop(dragData, targetDayIndex, targetServiceIndex, insertAfter) {
+        const { dayIndex: sourceDayIndex, serviceIndex: sourceServiceIndex, serviceId } = dragData;
+        
+        // Validate the drop (this should have been checked already, but double-check)
+        if (!this.validateDrop(dragData, targetDayIndex)) {
+            this.showDependencyError('Cannot move this service. Other services depend on it being on the same day.');
+            this.clearDragState();
+            return;
+        }
+        
+        // Get the service being moved
+        const service = this.days[sourceDayIndex].services[sourceServiceIndex];
+        
+        // Remove from source
+        this.days[sourceDayIndex].services.splice(sourceServiceIndex, 1);
+        
+        // Calculate target position based on insertAfter
+        let insertIndex = targetServiceIndex;
+        
+        if (insertAfter) {
+            insertIndex++;
+        }
+        
+        // Adjust for same-day moves where source was before target
+        if (sourceDayIndex === targetDayIndex && sourceServiceIndex < targetServiceIndex) {
+            insertIndex--;
+        }
+        
+        // Insert at target position
+        this.days[targetDayIndex].services.splice(insertIndex, 0, service);
+        
+        // Re-render and update
+        this.renderDays();
+        this.updateTotal();
+        this.clearCurrentQuote(); // Mark as modified
+    }
+
+    clearDropIndicators() {
+        document.querySelectorAll('.service-row, .drop-zone').forEach(row => {
+            row.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-invalid');
+        });
+    }
+
+    clearDragState() {
+        // Clear dragging state from the dragged element
+        if (this.draggedElement) {
+            this.draggedElement.classList.remove('dragging');
+        }
+        
+        // Clear all drop indicators
+        this.clearDropIndicators();
+        
+        // Reset drag variables
+        this.draggedElement = null;
+        this.draggedData = null;
     }
 }
 
