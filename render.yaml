@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: quote-calculator
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        fromDatabase:
+          name: quote-calculator-db
+          property: connectionString
+
+databases:
+  - name: quote-calculator-db
+    databaseName: quote-calculator
+    plan: free 
