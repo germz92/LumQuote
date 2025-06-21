@@ -571,8 +571,8 @@ app.post('/api/generate-excel', async (req, res) => {
           const serviceName = service.name; // No indentation
           
           // Show date only on first service of each day
-          const dateDisplay = serviceIndex === 0 && day.date 
-            ? formatDateForExcel(parseStoredDate(day.date))
+          const dateDisplay = serviceIndex === 0 
+            ? (day.date ? formatDateForExcel(parseStoredDate(day.date)) : `Day ${dayIndex + 1}`)
             : '';
           
           const rate = formatCurrency(service.price);
