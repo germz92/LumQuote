@@ -132,9 +132,14 @@ class QuoteCalculator {
 
             // Add the "Add Service" row for each day
             if (day.services.length === 0) {
-                // Empty day row
+                // Empty day row with drop zone functionality
                 const emptyRow = document.createElement('div');
-                emptyRow.className = 'day-row';
+                emptyRow.className = 'day-row empty-day-drop-zone';
+                emptyRow.dataset.dayIndex = dayIndex;
+                emptyRow.dataset.serviceIndex = 0; // First service position
+                emptyRow.dataset.isDropZone = 'true';
+                emptyRow.dataset.isEmpty = 'true';
+                
                 emptyRow.innerHTML = `
                     <div class="day-cell">
                         <span class="day-header ${day.date ? 'has-date' : ''}" onclick="calculator.showCalendar(${dayIndex}, this)">
@@ -142,10 +147,17 @@ class QuoteCalculator {
                         </span>
                         ${this.days.length > 1 ? `<button class="remove-day-btn" onclick="calculator.removeDayByIndex(${dayIndex})">×</button>` : ''}
                     </div>
-                    <div class="service-cell empty-service">No services selected</div>
+                    <div class="service-cell empty-service">
+                        <span class="empty-text">No services selected</span>
+                        <span class="drop-hint">Drop services here</span>
+                    </div>
                     <div class="quantity-cell"></div>
                     <div class="price-cell">$0</div>
                 `;
+                
+                // Add drag event handlers
+                emptyRow.ondragover = (e) => this.handleDragOver(e);
+                emptyRow.ondrop = (e) => this.handleDrop(e);
                 container.appendChild(emptyRow);
             }
 
@@ -282,18 +294,42 @@ class QuoteCalculator {
     removeService(dayIndex, serviceIndex) {
         const serviceToRemove = this.days[dayIndex].services[serviceIndex];
         
-        // Check if any other services depend on this one
-        const dependentServices = this.findDependentServices(serviceToRemove.id, dayIndex);
+        // Check if removing this service would leave zero instances of this service type
+        const remainingInstances = this.countServiceInstances(serviceToRemove.id, dayIndex, serviceIndex);
         
-        if (dependentServices.length > 0) {
-            this.showDependencyRemovalError(serviceToRemove.name, dependentServices);
-            return;
+        // If this would be the last instance, check if any services depend on it
+        if (remainingInstances === 0) {
+            const dependentServices = this.findDependentServices(serviceToRemove.id, dayIndex);
+            
+            if (dependentServices.length > 0) {
+                this.showDependencyRemovalError(serviceToRemove.name, dependentServices);
+                return;
+            }
         }
         
-        // Safe to remove
+        // Safe to remove (either not the last instance, or no dependencies)
         this.days[dayIndex].services.splice(serviceIndex, 1);
         this.renderDays();
         this.updateTotal();
+    }
+
+    countServiceInstances(serviceId, excludeDayIndex = -1, excludeServiceIndex = -1) {
+        let count = 0;
+        
+        this.days.forEach((day, dIndex) => {
+            day.services.forEach((service, sIndex) => {
+                // Skip the service we're considering removing
+                if (dIndex === excludeDayIndex && sIndex === excludeServiceIndex) {
+                    return;
+                }
+                
+                if (service.id === serviceId) {
+                    count++;
+                }
+            });
+        });
+        
+        return count;
     }
 
     removeDayByIndex(dayIndex) {
@@ -303,12 +339,18 @@ class QuoteCalculator {
             let blockingDependencies = [];
             
             for (const service of dayServices) {
-                const dependentServices = this.findDependentServices(service.id, dayIndex);
-                if (dependentServices.length > 0) {
-                    blockingDependencies.push({
-                        service: service.name,
-                        dependents: dependentServices
-                    });
+                // Count how many instances of this service would remain after removing this day
+                const remainingInstances = this.countServiceInstancesExcludingDay(service.id, dayIndex);
+                
+                // Only check dependencies if this would be the last instance(s) of this service
+                if (remainingInstances === 0) {
+                    const dependentServices = this.findDependentServices(service.id, dayIndex);
+                    if (dependentServices.length > 0) {
+                        blockingDependencies.push({
+                            service: service.name,
+                            dependents: dependentServices
+                        });
+                    }
                 }
             }
             
@@ -322,6 +364,25 @@ class QuoteCalculator {
             this.renderDays();
             this.updateTotal();
         }
+    }
+
+    countServiceInstancesExcludingDay(serviceId, excludeDayIndex) {
+        let count = 0;
+        
+        this.days.forEach((day, dIndex) => {
+            // Skip the day we're considering removing
+            if (dIndex === excludeDayIndex) {
+                return;
+            }
+            
+            day.services.forEach(service => {
+                if (service.id === serviceId) {
+                    count++;
+                }
+            });
+        });
+        
+        return count;
     }
 
     updateQuantity(dayIndex, serviceIndex, newQuantity) {
@@ -1324,8 +1385,8 @@ class QuoteCalculator {
         this.clearDropIndicators();
         
         if (isValidDrop) {
-            // Check if this is a drop zone (always insert at bottom)
-            if (targetElement.dataset.isDropZone === 'true') {
+            // Check if this is a drop zone (always insert at bottom) or empty day
+            if (targetElement.dataset.isDropZone === 'true' || targetElement.dataset.isEmpty === 'true') {
                 targetElement.classList.add('drag-over-bottom');
             } else {
                 // Calculate midpoint for more precise drop indication
@@ -1362,10 +1423,10 @@ class QuoteCalculator {
             return;
         }
         
-        // Calculate insertion position based on mouse position or drop zone
+        // Calculate insertion position based on mouse position, drop zone, or empty day
         let insertAfter;
-        if (targetElement.dataset.isDropZone === 'true') {
-            // Drop zones always insert at the end
+        if (targetElement.dataset.isDropZone === 'true' || targetElement.dataset.isEmpty === 'true') {
+            // Drop zones and empty days always insert at the end (or beginning for empty days)
             insertAfter = true;
         } else {
             const rect = targetElement.getBoundingClientRect();
@@ -1437,7 +1498,7 @@ class QuoteCalculator {
     }
 
     clearDropIndicators() {
-        document.querySelectorAll('.service-row, .drop-zone').forEach(row => {
+        document.querySelectorAll('.service-row, .drop-zone, .empty-day-drop-zone').forEach(row => {
             row.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-invalid');
         });
     }
