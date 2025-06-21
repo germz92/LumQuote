@@ -98,6 +98,67 @@
         </div>
     </div>
 
+    <!-- Alert Modal -->
+    <div id="alertModal" class="modal" style="display: none;">
+        <div class="modal-content alert-modal-content">
+            <div class="modal-header">
+                <h2 id="alertModalTitle">Message</h2>
+                <span class="close" onclick="hideAlertModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="alert-content">
+                    <div id="alertModalIcon" class="alert-icon"></div>
+                    <p id="alertModalMessage">Message content</p>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="primary-button" onclick="hideAlertModal()">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal" style="display: none;">
+        <div class="modal-content confirm-modal-content">
+            <div class="modal-header">
+                <h2 id="confirmModalTitle">Confirm</h2>
+                <span class="close" onclick="hideConfirmModal(false)">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="confirm-content">
+                    <div class="confirm-icon">⚠️</div>
+                    <p id="confirmModalMessage">Are you sure?</p>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="secondary-button" onclick="hideConfirmModal(false)">Cancel</button>
+                    <button type="button" class="primary-button" id="confirmModalOk" onclick="hideConfirmModal(true)">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Modal -->
+    <div id="promptModal" class="modal" style="display: none;">
+        <div class="modal-content prompt-modal-content">
+            <div class="modal-header">
+                <h2 id="promptModalTitle">Input Required</h2>
+                <span class="close" onclick="hidePromptModal(null)">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="promptForm">
+                    <div class="form-group">
+                        <label id="promptModalLabel" for="promptModalInput">Please enter:</label>
+                        <input type="text" id="promptModalInput" placeholder="Enter value">
+                    </div>
+                    <div class="modal-buttons">
+                        <button type="button" class="secondary-button" onclick="hidePromptModal(null)">Cancel</button>
+                        <button type="submit" class="primary-button">OK</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="admin.js"></script>
 </body>
 </html> 

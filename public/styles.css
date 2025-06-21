@@ -1314,6 +1314,17 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 20px; /* Add padding to prevent edge touching on small screens */
+    box-sizing: border-box;
+}
+
+/* Specific styling for calendar modal to ensure perfect centering */
+#calendar-modal {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 100vh;
+    min-height: 100dvh; /* Use dynamic viewport height for mobile */
 }
 
 .modal-content {
@@ -1511,38 +1522,85 @@ body {
     font-weight: 600;
 }
 
-.inline-calendar {
-    position: fixed;
+
+
+/* Calendar Modal Styles */
+.calendar-modal-content {
+    max-width: 400px;
+    width: 90%;
+    margin: 0; /* Remove margin since parent handles centering */
+    position: relative;
+    transform: translateZ(0);
+}
+
+.calendar-modal-content .modal-body {
+    padding: 0;
+}
+
+#calendar-container {
+    padding: 20px;
+}
+
+/* Ensure calendar modal is always centered on all screen sizes */
+@media (max-width: 480px) {
+    .calendar-modal-content {
+        width: 95%;
+        max-width: 350px;
+    }
+    
+    #calendar-container {
+        padding: 15px;
+    }
+}
+
+/* Updated Calendar Styles for Modal */
+.calendar-content,
+#calendar-container .calendar-content {
     background: white;
-    border: 1px solid #e2e8f0;
     border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
-    padding: 16px;
-    min-width: 280px;
-    max-height: 400px;
-    overflow: visible;
+    box-shadow: none; /* Remove shadow since it's in a modal */
+    width: 100%;
+    max-width: none;
+    position: static;
+    visibility: visible;
+    z-index: auto;
+}
+
+.inline-calendar {
+    background: white;
+    border-radius: 8px;
+    width: 100%;
+    max-width: none;
+    position: static;
+    visibility: visible;
+    z-index: auto;
 }
 
 .calendar-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    padding: 16px;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .calendar-nav {
-    background: none;
-    border: none;
-    font-size: 18px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
+    font-size: 14px;
     color: #64748b;
+    transition: all 0.2s;
 }
 
 .calendar-nav:hover {
-    background: #f1f5f9;
+    background: #e2e8f0;
     color: #1e293b;
 }
 
@@ -1555,26 +1613,32 @@ body {
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 2px;
+    gap: 1px;
+    background: #f1f5f9;
+    margin: 16px;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .calendar-day-header {
-    padding: 8px 4px;
-    text-align: center;
-    font-size: 12px;
-    font-weight: 500;
-    color: #64748b;
     background: #f8fafc;
+    padding: 12px 8px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 12px;
+    color: #64748b;
+    text-transform: uppercase;
 }
 
 .calendar-day {
-    padding: 8px 4px;
+    background: white;
+    padding: 12px 8px;
     text-align: center;
     cursor: pointer;
-    border-radius: 4px;
-    transition: all 0.2s ease;
     font-size: 14px;
-    min-height: 32px;
+    color: #1e293b;
+    transition: all 0.2s;
+    min-height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1586,16 +1650,17 @@ body {
 
 .calendar-day.other-month {
     color: #cbd5e1;
+    cursor: not-allowed;
 }
 
 .calendar-day.today {
     background: #dbeafe;
-    color: #1e40af;
+    color: #1d4ed8;
     font-weight: 600;
 }
 
 .calendar-day.selected {
-    background: #4f46e5;
+    background: #059669;
     color: white;
     font-weight: 600;
 }
@@ -1603,35 +1668,170 @@ body {
 .calendar-actions {
     display: flex;
     justify-content: space-between;
-    margin-top: 12px;
-    padding-top: 12px;
+    padding: 16px;
     border-top: 1px solid #e2e8f0;
+    gap: 12px;
 }
 
 .calendar-btn {
-    padding: 6px 12px;
-    border: none;
+    padding: 8px 16px;
+    border: 1px solid #e2e8f0;
     border-radius: 6px;
+    background: white;
     cursor: pointer;
-    font-size: 12px;
-    font-weight: 500;
-    transition: all 0.2s ease;
+    font-size: 14px;
+    transition: all 0.2s;
+    flex: 1;
 }
 
 .calendar-clear {
-    background: #fee2e2;
     color: #dc2626;
+    border-color: #fecaca;
 }
 
 .calendar-clear:hover {
-    background: #fecaca;
+    background: #fef2f2;
+    border-color: #fca5a5;
 }
 
 .calendar-today {
-    background: #e0e7ff;
-    color: #3730a3;
+    color: #059669;
+    border-color: #a7f3d0;
 }
 
 .calendar-today:hover {
-    background: #c7d2fe;
+    background: #ecfdf5;
+    border-color: #6ee7b7;
+}
+
+/* Custom Alert/Confirm/Prompt Modal Styles */
+.alert-modal-content,
+.confirm-modal-content,
+.prompt-modal-content {
+    max-width: 500px;
+    width: 90%;
+}
+
+.alert-content,
+.confirm-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.alert-icon,
+.confirm-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.alert-icon.success {
+    color: #059669;
+}
+
+.alert-icon.success::before {
+    content: "✅";
+}
+
+.alert-icon.error {
+    color: #dc2626;
+}
+
+.alert-icon.error::before {
+    content: "❌";
+}
+
+.alert-icon.info {
+    color: #2563eb;
+}
+
+.alert-icon.info::before {
+    content: "ℹ️";
+}
+
+.confirm-icon {
+    color: #f59e0b;
+}
+
+.alert-content p,
+.confirm-content p {
+    margin: 0;
+    line-height: 1.5;
+    color: #374151;
+    font-size: 16px;
+}
+
+/* Auto-close animation for success alerts */
+.alert-modal-content.auto-close {
+    animation: autoCloseAlert 4s ease-in-out;
+}
+
+@keyframes autoCloseAlert {
+    0%, 75% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}
+
+/* Enhanced modal animations */
+.modal {
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+.modal.closing {
+    animation: modalFadeOut 0.2s ease-in;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes modalFadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+.modal-content {
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+.modal.closing .modal-content {
+    animation: modalSlideOut 0.2s ease-in;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes modalSlideOut {
+    from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
 } 

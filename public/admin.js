@@ -65,7 +65,7 @@ class AdminPanel {
                     dependencyTypeSelect.disabled = true;
                 } else {
                     // Show helpful message but allow the checkbox to stay checked
-                    this.showMessage('Remember to select a dependency service for this subservice before saving.', 'info');
+                    showAlertModal('Remember to select a dependency service for this subservice before saving.', 'info');
                 }
             } else {
                 // Re-enable dependency type selection if dependency is selected
@@ -91,7 +91,7 @@ class AdminPanel {
 
         // Validate subservice requirements
         if (isSubservice && !dependsOnValue) {
-            this.showMessage('Subservices must have a dependency service selected.', 'error');
+            showAlertModal('Subservices must have a dependency service selected.', 'error');
             return;
         }
 
@@ -99,7 +99,7 @@ class AdminPanel {
         if (dependsOnValue) {
             const dependencyTypeValue = document.getElementById('dependency-type').value;
             if (!dependencyTypeValue) {
-                this.showMessage('Please select a dependency type when adding a dependency.', 'error');
+                showAlertModal('Please select a dependency type when adding a dependency.', 'error');
                 return;
             }
             formData.dependsOn = dependsOnValue;
@@ -127,18 +127,24 @@ class AdminPanel {
                 this.populateDependencyDropdown();
                 this.renderServices();
                 this.resetForm();
-                this.showMessage(this.editingService ? 'Service updated successfully!' : 'Service added successfully!');
+                showAlertModal(this.editingService ? 'Service updated successfully!' : 'Service added successfully!', 'success', null, true);
             } else {
                 throw new Error('Failed to save service');
             }
         } catch (error) {
             console.error('Error saving service:', error);
-            this.showMessage('Error saving service. Please try again.', 'error');
+            showAlertModal('Error saving service. Please try again.', 'error');
         }
     }
 
     async deleteService(serviceId) {
-        if (!confirm('Are you sure you want to delete this service?')) {
+        const confirmed = await showConfirmModal(
+            'Are you sure you want to delete this service?',
+            'Delete Service',
+            'Delete',
+            'Cancel'
+        );
+        if (!confirmed) {
             return;
         }
 
@@ -151,14 +157,14 @@ class AdminPanel {
                 await this.loadServices();
                 this.populateDependencyDropdown();
                 this.renderServices();
-                this.showMessage('Service deleted successfully!');
+                showAlertModal('Service deleted successfully!', 'success', null, true);
             } else {
                 const errorData = await response.json();
                 throw new Error(errorData.error || 'Failed to delete service');
             }
         } catch (error) {
             console.error('Error deleting service:', error);
-            this.showMessage(error.message, 'error');
+            showAlertModal(error.message, 'error');
         }
     }
 
@@ -280,49 +286,7 @@ class AdminPanel {
         }).join('');
     }
 
-    showMessage(message, type = 'success') {
-        // Create message element
-        const messageEl = document.createElement('div');
-        messageEl.className = `message ${type}`;
-        messageEl.textContent = message;
-        
-        let backgroundColor, textColor;
-        if (type === 'error') {
-            backgroundColor = '#fee2e2';
-            textColor = '#991b1b';
-        } else if (type === 'info') {
-            backgroundColor = '#dbeafe';
-            textColor = '#1e40af';
-        } else {
-            backgroundColor = '#d1fae5';
-            textColor = '#065f46';
-        }
-        
-        messageEl.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: ${backgroundColor};
-            color: ${textColor};
-            padding: 12px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            z-index: 1000;
-            animation: slideIn 0.3s ease-out;
-        `;
 
-        document.body.appendChild(messageEl);
-
-        // Remove message after 3 seconds
-        setTimeout(() => {
-            messageEl.style.animation = 'slideOut 0.3s ease-in';
-            setTimeout(() => {
-                if (messageEl.parentNode) {
-                    messageEl.parentNode.removeChild(messageEl);
-                }
-            }, 300);
-        }, 3000);
-    }
 
     // Drag and Drop Methods
     handleDragStart(event) {
@@ -479,14 +443,14 @@ class AdminPanel {
                 // Reload services to get updated order
                 await this.loadServices();
                 this.renderServices();
-                this.showMessage('Services reordered successfully!');
+                showAlertModal('Services reordered successfully!', 'success', null, true);
             } else {
                 throw new Error('Failed to update service order');
             }
             
         } catch (error) {
             console.error('Error reordering services:', error);
-            this.showMessage('Error reordering services. Please try again.', 'error');
+            showAlertModal('Error reordering services. Please try again.', 'error');
         }
     }
 
@@ -528,4 +492,161 @@ document.head.appendChild(style);
 let adminPanel;
 document.addEventListener('DOMContentLoaded', () => {
     adminPanel = new AdminPanel();
+});
+
+// Custom Modal System (shared with main script)
+let currentAlertModal = null;
+let currentConfirmCallback = null;
+let currentPromptCallback = null;
+
+function showAlertModal(message, type = 'info', title = null, autoClose = false) {
+    const modal = document.getElementById('alertModal');
+    const titleEl = document.getElementById('alertModalTitle');
+    const messageEl = document.getElementById('alertModalMessage');
+    const iconEl = document.getElementById('alertModalIcon');
+    const contentEl = modal.querySelector('.alert-modal-content');
+    
+    // Set title
+    titleEl.textContent = title || (type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Information');
+    
+    // Set message
+    messageEl.textContent = message;
+    
+    // Set icon type
+    iconEl.className = `alert-icon ${type}`;
+    
+    // Remove any existing auto-close class
+    contentEl.classList.remove('auto-close');
+    
+    // Show modal
+    modal.style.display = 'flex';
+    currentAlertModal = modal;
+    
+    // Auto-close for success messages
+    if (autoClose && type === 'success') {
+        contentEl.classList.add('auto-close');
+        setTimeout(() => {
+            hideAlertModal();
+        }, 3500);
+    }
+    
+    // Focus management
+    setTimeout(() => {
+        const okButton = modal.querySelector('.primary-button');
+        okButton.focus();
+    }, 100);
+}
+
+function hideAlertModal() {
+    const modal = document.getElementById('alertModal');
+    if (modal) {
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            modal.classList.remove('closing');
+            currentAlertModal = null;
+        }, 200);
+    }
+}
+
+function showConfirmModal(message, title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const titleEl = document.getElementById('confirmModalTitle');
+        const messageEl = document.getElementById('confirmModalMessage');
+        const confirmBtn = document.getElementById('confirmModalOk');
+        
+        // Set content
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        confirmBtn.textContent = confirmText;
+        
+        // Set callback
+        currentConfirmCallback = resolve;
+        
+        // Show modal
+        modal.style.display = 'flex';
+        
+        // Focus management
+        setTimeout(() => {
+            confirmBtn.focus();
+        }, 100);
+    });
+}
+
+function hideConfirmModal(result) {
+    const modal = document.getElementById('confirmModal');
+    if (modal) {
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            modal.classList.remove('closing');
+            if (currentConfirmCallback) {
+                currentConfirmCallback(result);
+                currentConfirmCallback = null;
+            }
+        }, 200);
+    }
+}
+
+function showPromptModal(message, defaultValue = '', title = 'Input Required', placeholder = 'Enter value') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('promptModal');
+        const titleEl = document.getElementById('promptModalTitle');
+        const labelEl = document.getElementById('promptModalLabel');
+        const inputEl = document.getElementById('promptModalInput');
+        const form = document.getElementById('promptForm');
+        
+        // Set content
+        titleEl.textContent = title;
+        labelEl.textContent = message;
+        inputEl.value = defaultValue;
+        inputEl.placeholder = placeholder;
+        
+        // Set callback
+        currentPromptCallback = resolve;
+        
+        // Show modal
+        modal.style.display = 'flex';
+        
+        // Focus management
+        setTimeout(() => {
+            inputEl.focus();
+            inputEl.select();
+        }, 100);
+        
+        // Handle form submission
+        form.onsubmit = (e) => {
+            e.preventDefault();
+            hidePromptModal(inputEl.value.trim());
+        };
+    });
+}
+
+function hidePromptModal(result) {
+    const modal = document.getElementById('promptModal');
+    if (modal) {
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            modal.classList.remove('closing');
+            if (currentPromptCallback) {
+                currentPromptCallback(result);
+                currentPromptCallback = null;
+            }
+        }, 200);
+    }
+}
+
+// Keyboard support for modals
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (currentAlertModal) {
+            hideAlertModal();
+        } else if (document.getElementById('confirmModal').style.display === 'flex') {
+            hideConfirmModal(false);
+        } else if (document.getElementById('promptModal').style.display === 'flex') {
+            hidePromptModal(null);
+        }
+    }
 }); 

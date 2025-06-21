@@ -124,7 +124,7 @@ class QuoteCalculator {
                 
                 // Add drag event handlers directly to the element (like admin panel)
                 serviceRow.ondragstart = (e) => this.handleDragStart(e);
-                serviceRow.ondragover = (e) => this.handleDragOver(e);
+                serviceRow.ondragover = (e) => this.handleDragOverWithCalendarProtection(e);
                 serviceRow.ondrop = (e) => this.handleDrop(e);
                 serviceRow.ondragend = (e) => this.handleDragEnd(e);
                 container.appendChild(serviceRow);
@@ -156,7 +156,7 @@ class QuoteCalculator {
                 `;
                 
                 // Add drag event handlers
-                emptyRow.ondragover = (e) => this.handleDragOver(e);
+                emptyRow.ondragover = (e) => this.handleDragOverWithCalendarProtection(e);
                 emptyRow.ondrop = (e) => this.handleDrop(e);
                 container.appendChild(emptyRow);
             }
@@ -177,7 +177,7 @@ class QuoteCalculator {
                 `;
                 
                 // Add drag event handlers
-                dropZone.ondragover = (e) => this.handleDragOver(e);
+                dropZone.ondragover = (e) => this.handleDragOverWithCalendarProtection(e);
                 dropZone.ondrop = (e) => this.handleDrop(e);
                 container.appendChild(dropZone);
             }
@@ -200,8 +200,6 @@ class QuoteCalculator {
 
         this.updateDaysDisplay();
     }
-
-
 
     addServiceSelector(dayIndex) {
         // Find the add service button that was clicked
@@ -443,7 +441,7 @@ class QuoteCalculator {
         
         // Only prompt for client name if we don't already have one
         if (!clientName) {
-            clientName = prompt('Please provide client name (optional):');
+            clientName = await showPromptModal('Please provide client name (optional):', '', 'Client Name', 'Enter client name');
             clientName = clientName && clientName.trim() ? clientName.trim() : null;
         }
         
@@ -507,7 +505,7 @@ class QuoteCalculator {
 
         } catch (error) {
             console.error('Error generating PDF:', error);
-            alert('Failed to generate PDF. Please try again.');
+            showAlertModal('Failed to generate PDF. Please try again.', 'error');
         } finally {
             loadingOverlay.style.display = 'none';
         }
@@ -567,11 +565,9 @@ class QuoteCalculator {
 
         } catch (error) {
             console.error('Error exporting Excel:', error);
-            alert('Failed to export Excel file. Please try again.');
+            showAlertModal('Failed to export Excel file. Please try again.', 'error');
         }
     }
-
-
 
     async validateServiceDependency(serviceId, dayIndex) {
         try {
@@ -690,9 +686,9 @@ class QuoteCalculator {
 
     // Save/Load functionality
     showSaveModal() {
-        // Reset form
-        document.getElementById('quoteTitle').value = '';
-        document.getElementById('clientName').value = '';
+        // Pre-fill form with current quote info if available
+        document.getElementById('quoteTitle').value = this.currentQuoteName || '';
+        document.getElementById('clientName').value = this.currentClientName || '';
         
         // Show modal
         document.getElementById('saveModal').style.display = 'flex';
@@ -700,6 +696,10 @@ class QuoteCalculator {
         // Focus on title input
         setTimeout(() => {
             document.getElementById('quoteTitle').focus();
+            // If pre-filled, select all text for easy replacement
+            if (this.currentQuoteName) {
+                document.getElementById('quoteTitle').select();
+            }
         }, 100);
     }
 
@@ -714,7 +714,7 @@ class QuoteCalculator {
         const clientName = document.getElementById('clientName').value.trim();
         
         if (!title) {
-            alert('Please enter a quote title.');
+            showAlertModal('Please enter a quote title.', 'error');
             return;
         }
 
@@ -741,7 +741,12 @@ class QuoteCalculator {
 
             if (response.status === 409) {
                 // Quote name already exists
-                const overwrite = confirm(`A quote named "${title}" already exists. Do you want to overwrite it?`);
+                const overwrite = await showConfirmModal(
+                    `A quote named "${title}" already exists. Do you want to overwrite it?`,
+                    'Quote Already Exists',
+                    'Overwrite',
+                    'Cancel'
+                );
                 if (overwrite) {
                     await this.overwriteQuote(title, quoteData, clientName);
                 }
@@ -752,13 +757,13 @@ class QuoteCalculator {
                 this.updateClientDisplay();
                 
                 this.closeSaveModal();
-                alert('Quote saved successfully!');
+                showAlertModal('Quote saved successfully!', 'success', null, true);
             } else {
                 throw new Error(result.error || 'Failed to save quote');
             }
         } catch (error) {
             console.error('Error saving quote:', error);
-            alert('Error saving quote. Please try again.');
+            showAlertModal('Error saving quote. Please try again.', 'error');
         }
     }
 
@@ -785,13 +790,13 @@ class QuoteCalculator {
                 this.updateClientDisplay();
                 
                 this.closeSaveModal();
-                alert('Quote updated successfully!');
+                showAlertModal('Quote updated successfully!', 'success', null, true);
             } else {
                 throw new Error(result.error || 'Failed to update quote');
             }
         } catch (error) {
             console.error('Error updating quote:', error);
-            alert('Error updating quote. Please try again.');
+            showAlertModal('Error updating quote. Please try again.', 'error');
         }
     }
 
@@ -897,7 +902,12 @@ class QuoteCalculator {
         const hasData = this.days.some(day => day.services.length > 0);
         
         if (hasData) {
-            const confirm = window.confirm('Loading this quote will replace your current work. Are you sure you want to continue?');
+            const confirm = await showConfirmModal(
+                'Loading this quote will replace your current work. Are you sure you want to continue?',
+                'Load Quote',
+                'Load Quote',
+                'Cancel'
+            );
             if (!confirm) {
                 return;
             }
@@ -952,15 +962,20 @@ class QuoteCalculator {
             // Close the modal
             this.closeLoadModal();
             
-            alert(`Quote "${quoteName}" loaded successfully!`);
+            showAlertModal(`Quote "${quoteName}" loaded successfully!`, 'success', null, true);
         } catch (error) {
             console.error('Error loading quote:', error);
-            alert('Error loading quote. Please try again.');
+            showAlertModal('Error loading quote. Please try again.', 'error');
         }
     }
 
     async deleteQuote(quoteName) {
-        const confirm = window.confirm(`Are you sure you want to delete the quote "${quoteName}"? This action cannot be undone.`);
+        const confirm = await showConfirmModal(
+            `Are you sure you want to delete the quote "${quoteName}"? This action cannot be undone.`,
+            'Delete Quote',
+            'Delete',
+            'Cancel'
+        );
         if (!confirm) {
             return;
         }
@@ -973,14 +988,14 @@ class QuoteCalculator {
             const result = await response.json();
             
             if (result.success) {
-                alert('Quote deleted successfully!');
+                showAlertModal('Quote deleted successfully!', 'success', null, true);
                 await this.loadSavedQuotes(); // Refresh the list
             } else {
                 throw new Error(result.error || 'Failed to delete quote');
             }
         } catch (error) {
             console.error('Error deleting quote:', error);
-            alert('Error deleting quote. Please try again.');
+            showAlertModal('Error deleting quote. Please try again.', 'error');
         }
     }
 
@@ -1088,34 +1103,135 @@ class QuoteCalculator {
     }
 
     showCalendar(dayIndex, element) {
-        // If calendar is already open for this day, close it
-        if (this.activeCalendar && this.activeCalendar.dayIndex === dayIndex) {
-            this.hideCalendar();
-            return;
+        // Store the current day index for the modal
+        this.currentCalendarDayIndex = dayIndex;
+        
+        // Create and show the calendar modal
+        this.showCalendarModal(dayIndex);
+    }
+
+    showCalendarModal(dayIndex) {
+        // Always remove existing modal first to ensure clean state
+        const existingModal = document.getElementById('calendar-modal');
+        if (existingModal) {
+            existingModal.remove();
         }
         
-        // Close any existing calendar
-        this.hideCalendar();
+        // Create fresh modal
+        let modal = document.createElement('div');
+        modal.id = 'calendar-modal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content calendar-modal-content">
+                <div class="modal-header">
+                    <h2>Select Date for Day ${dayIndex + 1}</h2>
+                    <span class="close">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div id="calendar-container"></div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
         
-        const dayCell = element.closest('.day-cell');
-        const calendar = this.createCalendar(dayIndex);
-        dayCell.appendChild(calendar);
-        this.activeCalendar = { dayIndex, element: calendar };
+        // Add event listener to close button
+        const closeBtn = modal.querySelector('.close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hideCalendarModal();
+            });
+        }
+
+        // Generate calendar content
+        const calendarContainer = modal.querySelector('#calendar-container');
+        const defaultDate = this.getDefaultDateForDay(dayIndex);
+        const currentDate = this.days[dayIndex].date ? this.parseStoredDate(this.days[dayIndex].date) : defaultDate;
         
-        // Position calendar
-        this.positionCalendar(calendar, dayCell);
+        calendarContainer.innerHTML = this.generateCalendarHTML(currentDate, dayIndex);
         
-        // Add click outside listener
-        setTimeout(() => {
-            document.addEventListener('click', this.handleCalendarOutsideClick.bind(this));
-        }, 0);
+        // Add event listeners to calendar elements
+        this.addCalendarEventListeners(dayIndex, currentDate);
+        
+        // Show modal
+        modal.style.display = 'block';
+        
+        // Add click outside to close
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                this.hideCalendarModal();
+            }
+        };
+    }
+
+    hideCalendarModal() {
+        const modal = document.getElementById('calendar-modal');
+        if (modal) {
+            modal.remove();
+        }
+        this.currentCalendarDayIndex = null;
+    }
+
+    addCalendarEventListeners(dayIndex, currentDate) {
+        const modal = document.getElementById('calendar-modal');
+        if (!modal) return;
+
+        // Month navigation buttons
+        const prevBtn = modal.querySelector('.prev-month');
+        const nextBtn = modal.querySelector('.next-month');
+        
+        if (prevBtn) {
+            prevBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.changeCalendarMonth(dayIndex, currentDate.getMonth() - 1, currentDate.getFullYear());
+            });
+        }
+        
+        if (nextBtn) {
+            nextBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.changeCalendarMonth(dayIndex, currentDate.getMonth() + 1, currentDate.getFullYear());
+            });
+        }
+
+        // Date selection
+        const dayElements = modal.querySelectorAll('.calendar-day[data-day]');
+        dayElements.forEach(dayEl => {
+            dayEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const day = parseInt(dayEl.dataset.day);
+                const month = parseInt(dayEl.dataset.month);
+                const year = parseInt(dayEl.dataset.year);
+                this.selectDate(dayIndex, year, month, day);
+            });
+        });
+
+        // Clear and Today buttons
+        const clearBtn = modal.querySelector('.calendar-clear');
+        const todayBtn = modal.querySelector('.calendar-today');
+        
+        if (clearBtn) {
+            clearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.clearDate(dayIndex);
+            });
+        }
+        
+        if (todayBtn) {
+            todayBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.selectToday(dayIndex);
+            });
+        }
     }
 
     createCalendar(dayIndex) {
+        // This method is no longer needed for inline calendar
+        // but keeping it for backward compatibility
         const calendar = document.createElement('div');
-        calendar.className = 'inline-calendar';
+        calendar.className = 'calendar-content';
         
-        // Get default date for this day
         const defaultDate = this.getDefaultDateForDay(dayIndex);
         const currentDate = this.days[dayIndex].date ? this.parseStoredDate(this.days[dayIndex].date) : defaultDate;
         
@@ -1161,9 +1277,9 @@ class QuoteCalculator {
         
         let html = `
             <div class="calendar-header">
-                <button class="calendar-nav" onclick="event.stopPropagation(); calculator.changeCalendarMonth(${dayIndex}, ${month - 1}, ${year})">&lt;</button>
+                <button class="calendar-nav prev-month">&lt;</button>
                 <span class="calendar-month-year">${monthNames[month]} ${year}</span>
-                <button class="calendar-nav" onclick="event.stopPropagation(); calculator.changeCalendarMonth(${dayIndex}, ${month + 1}, ${year})">&gt;</button>
+                <button class="calendar-nav next-month">&gt;</button>
             </div>
             <div class="calendar-grid">
                 <div class="calendar-day-header">Sun</div>
@@ -1201,7 +1317,7 @@ class QuoteCalculator {
                 classes.push('other-month'); // Disable conflicting dates
                 html += `<div class="${classes.join(' ')}" title="Date already used">${day}</div>`;
             } else {
-                html += `<div class="${classes.join(' ')}" onclick="event.stopPropagation(); calculator.selectDate(${dayIndex}, ${year}, ${month}, ${day})">${day}</div>`;
+                html += `<div class="${classes.join(' ')}" data-day="${day}" data-month="${month}" data-year="${year}">${day}</div>`;
             }
         }
         
@@ -1215,8 +1331,8 @@ class QuoteCalculator {
         html += `
             </div>
             <div class="calendar-actions">
-                <button class="calendar-btn calendar-clear" onclick="event.stopPropagation(); calculator.clearDate(${dayIndex})">Clear</button>
-                <button class="calendar-btn calendar-today" onclick="event.stopPropagation(); calculator.selectToday(${dayIndex})">Today</button>
+                <button class="calendar-btn calendar-clear">Clear</button>
+                <button class="calendar-btn calendar-today">Today</button>
             </div>
         `;
         
@@ -1256,20 +1372,20 @@ class QuoteCalculator {
         // Validate date order
         const validation = this.validateDateOrder(dayIndex, selectedDate);
         if (!validation.valid) {
-            alert(validation.message);
+            showAlertModal(validation.message, 'error');
             return;
         }
         
         // Set the date as YYYY-MM-DD format to avoid timezone issues
         this.days[dayIndex].date = this.formatDateForStorage(selectedDate);
-        this.hideCalendar();
+        this.hideCalendarModal();
         this.renderDays();
         this.clearCurrentQuote(); // Mark as new quote when dates change
     }
 
     clearDate(dayIndex) {
         this.days[dayIndex].date = null;
-        this.hideCalendar();
+        this.hideCalendarModal(); // Changed from hideCalendar()
         this.renderDays();
         this.clearCurrentQuote(); // Mark as new quote when dates change
     }
@@ -1280,12 +1396,12 @@ class QuoteCalculator {
         // Validate date order
         const validation = this.validateDateOrder(dayIndex, today);
         if (!validation.valid) {
-            alert(validation.message);
+            showAlertModal(validation.message, 'error');
             return;
         }
         
         this.days[dayIndex].date = this.formatDateForStorage(today);
-        this.hideCalendar();
+        this.hideCalendarModal(); // Changed from hideCalendar()
         this.renderDays();
         this.clearCurrentQuote(); // Mark as new quote when dates change
     }
@@ -1303,55 +1419,13 @@ class QuoteCalculator {
         }
         
         const newDate = new Date(year, month, 1);
-        const calendar = this.activeCalendar.element;
-        calendar.innerHTML = this.generateCalendarHTML(newDate, dayIndex);
-    }
-
-    positionCalendar(calendar, dayCell) {
-        const rect = dayCell.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
-        const calendarHeight = 400; // Approximate calendar height
-        const calendarWidth = 280; // Calendar width
         
-        let top = rect.bottom + 5; // 5px spacing below the day cell
-        let left = rect.left;
-        
-        // Adjust if calendar would go off bottom of screen
-        if (top + calendarHeight > viewportHeight) {
-            top = rect.top - calendarHeight - 5; // Position above instead
-        }
-        
-        // Adjust if calendar would go off right of screen
-        if (left + calendarWidth > viewportWidth) {
-            left = viewportWidth - calendarWidth - 10; // 10px margin from edge
-        }
-        
-        // Ensure calendar doesn't go off left of screen
-        if (left < 10) {
-            left = 10;
-        }
-        
-        calendar.style.top = `${top}px`;
-        calendar.style.left = `${left}px`;
-    }
-
-    handleCalendarOutsideClick(event) {
-        if (this.activeCalendar && !this.activeCalendar.element.contains(event.target)) {
-            // Don't close if clicking on day header or calendar navigation
-            if (!event.target.classList.contains('day-header') && 
-                !event.target.classList.contains('calendar-nav') &&
-                !event.target.closest('.inline-calendar')) {
-                this.hideCalendar();
-            }
-        }
-    }
-
-    hideCalendar() {
-        if (this.activeCalendar) {
-            this.activeCalendar.element.remove();
-            this.activeCalendar = null;
-            document.removeEventListener('click', this.handleCalendarOutsideClick.bind(this));
+        // Update the calendar content in the modal
+        const calendarContainer = document.querySelector('#calendar-container');
+        if (calendarContainer) {
+            calendarContainer.innerHTML = this.generateCalendarHTML(newDate, dayIndex);
+            // Re-add event listeners after content update
+            this.addCalendarEventListeners(dayIndex, newDate);
         }
     }
 
@@ -1366,6 +1440,18 @@ class QuoteCalculator {
         event.currentTarget.classList.add('dragging');
         event.dataTransfer.effectAllowed = 'move';
         event.dataTransfer.setData('text/plain', event.currentTarget.dataset.serviceId);
+    }
+
+    handleDragOverWithCalendarProtection(event) {
+        // Don't interfere if the target is a day header or calendar-related element
+        if (event.target.classList.contains('day-header') || 
+            event.target.closest('.day-header') ||
+            event.target.closest('.inline-calendar') ||
+            event.target.classList.contains('calendar-nav')) {
+            return; // Let the click event pass through
+        }
+        
+        this.handleDragOver(event);
     }
 
     handleDragOver(event) {
@@ -1559,4 +1645,161 @@ function applyDiscount() {
 
 function removeDiscount() {
     calculator.removeDiscount();
-} 
+}
+
+// Custom Modal System
+let currentAlertModal = null;
+let currentConfirmCallback = null;
+let currentPromptCallback = null;
+
+function showAlertModal(message, type = 'info', title = null, autoClose = false) {
+    const modal = document.getElementById('alertModal');
+    const titleEl = document.getElementById('alertModalTitle');
+    const messageEl = document.getElementById('alertModalMessage');
+    const iconEl = document.getElementById('alertModalIcon');
+    const contentEl = modal.querySelector('.alert-modal-content');
+    
+    // Set title
+    titleEl.textContent = title || (type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Information');
+    
+    // Set message
+    messageEl.textContent = message;
+    
+    // Set icon type
+    iconEl.className = `alert-icon ${type}`;
+    
+    // Remove any existing auto-close class
+    contentEl.classList.remove('auto-close');
+    
+    // Show modal
+    modal.style.display = 'flex';
+    currentAlertModal = modal;
+    
+    // Auto-close for success messages
+    if (autoClose && type === 'success') {
+        contentEl.classList.add('auto-close');
+        setTimeout(() => {
+            hideAlertModal();
+        }, 3500);
+    }
+    
+    // Focus management
+    setTimeout(() => {
+        const okButton = modal.querySelector('.primary-button');
+        okButton.focus();
+    }, 100);
+}
+
+function hideAlertModal() {
+    const modal = document.getElementById('alertModal');
+    if (modal) {
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            modal.classList.remove('closing');
+            currentAlertModal = null;
+        }, 200);
+    }
+}
+
+function showConfirmModal(message, title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const titleEl = document.getElementById('confirmModalTitle');
+        const messageEl = document.getElementById('confirmModalMessage');
+        const confirmBtn = document.getElementById('confirmModalOk');
+        
+        // Set content
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        confirmBtn.textContent = confirmText;
+        
+        // Set callback
+        currentConfirmCallback = resolve;
+        
+        // Show modal
+        modal.style.display = 'flex';
+        
+        // Focus management
+        setTimeout(() => {
+            confirmBtn.focus();
+        }, 100);
+    });
+}
+
+function hideConfirmModal(result) {
+    const modal = document.getElementById('confirmModal');
+    if (modal) {
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            modal.classList.remove('closing');
+            if (currentConfirmCallback) {
+                currentConfirmCallback(result);
+                currentConfirmCallback = null;
+            }
+        }, 200);
+    }
+}
+
+function showPromptModal(message, defaultValue = '', title = 'Input Required', placeholder = 'Enter value') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('promptModal');
+        const titleEl = document.getElementById('promptModalTitle');
+        const labelEl = document.getElementById('promptModalLabel');
+        const inputEl = document.getElementById('promptModalInput');
+        const form = document.getElementById('promptForm');
+        
+        // Set content
+        titleEl.textContent = title;
+        labelEl.textContent = message;
+        inputEl.value = defaultValue;
+        inputEl.placeholder = placeholder;
+        
+        // Set callback
+        currentPromptCallback = resolve;
+        
+        // Show modal
+        modal.style.display = 'flex';
+        
+        // Focus management
+        setTimeout(() => {
+            inputEl.focus();
+            inputEl.select();
+        }, 100);
+        
+        // Handle form submission
+        form.onsubmit = (e) => {
+            e.preventDefault();
+            hidePromptModal(inputEl.value.trim());
+        };
+    });
+}
+
+function hidePromptModal(result) {
+    const modal = document.getElementById('promptModal');
+    if (modal) {
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            modal.classList.remove('closing');
+            if (currentPromptCallback) {
+                currentPromptCallback(result);
+                currentPromptCallback = null;
+            }
+        }, 200);
+    }
+}
+
+// Keyboard support for modals
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        if (currentAlertModal) {
+            hideAlertModal();
+        } else if (document.getElementById('confirmModal').style.display === 'flex') {
+            hideConfirmModal(false);
+        } else if (document.getElementById('promptModal').style.display === 'flex') {
+            hidePromptModal(null);
+        }
+    }
+}); 
