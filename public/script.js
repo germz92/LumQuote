@@ -53,7 +53,7 @@ class QuoteCalculator {
         this.updateDaysDisplay();
         this.renderDays();
         this.updateTotal();
-        this.clearCurrentQuote(); // Mark as new quote when structure changes
+        this.markQuoteAsModified(); // Mark as modified when structure changes
     }
 
     removeDay() {
@@ -62,7 +62,7 @@ class QuoteCalculator {
             this.updateDaysDisplay();
             this.renderDays();
             this.updateTotal();
-            this.clearCurrentQuote(); // Mark as new quote when structure changes
+            this.markQuoteAsModified(); // Mark as modified when structure changes
         }
     }
 
@@ -816,6 +816,12 @@ class QuoteCalculator {
         this.updateClientDisplay();
     }
 
+    markQuoteAsModified() {
+        // Keep the quote name and client name for saving/PDF, but update display to show it's modified
+        // This allows the save modal to be pre-filled and PDF to use existing client name
+        this.updateClientDisplay();
+    }
+
     async showLoadModal() {
         document.getElementById('loadModal').style.display = 'flex';
         await this.loadSavedQuotes();
@@ -1380,14 +1386,14 @@ class QuoteCalculator {
         this.days[dayIndex].date = this.formatDateForStorage(selectedDate);
         this.hideCalendarModal();
         this.renderDays();
-        this.clearCurrentQuote(); // Mark as new quote when dates change
+        this.markQuoteAsModified(); // Mark as modified when dates change
     }
 
     clearDate(dayIndex) {
         this.days[dayIndex].date = null;
         this.hideCalendarModal(); // Changed from hideCalendar()
         this.renderDays();
-        this.clearCurrentQuote(); // Mark as new quote when dates change
+        this.markQuoteAsModified(); // Mark as modified when dates change
     }
 
     selectToday(dayIndex) {
@@ -1403,7 +1409,7 @@ class QuoteCalculator {
         this.days[dayIndex].date = this.formatDateForStorage(today);
         this.hideCalendarModal(); // Changed from hideCalendar()
         this.renderDays();
-        this.clearCurrentQuote(); // Mark as new quote when dates change
+        this.markQuoteAsModified(); // Mark as modified when dates change
     }
 
     changeCalendarMonth(dayIndex, newMonth, newYear) {
@@ -1580,7 +1586,7 @@ class QuoteCalculator {
         // Re-render and update
         this.renderDays();
         this.updateTotal();
-        this.clearCurrentQuote(); // Mark as modified
+        this.markQuoteAsModified(); // Mark as modified
     }
 
     clearDropIndicators() {
