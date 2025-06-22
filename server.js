@@ -48,6 +48,7 @@ const serviceSchema = new mongoose.Schema({
   name: { type: String, required: true },
   price: { type: Number, required: true },
   category: { type: String, default: 'photography' },
+  description: { type: String, maxlength: 200, default: '' },
   dependsOn: { type: mongoose.Schema.Types.ObjectId, ref: 'Service', default: null },
   dependencyType: { type: String, enum: ['same_day', 'same_quote', null], default: null },
   isSubservice: { type: Boolean, default: false },
@@ -308,6 +309,7 @@ async function generateQuoteHTML(quoteData) {
         const serviceDefinition = allServices.find(s => s._id.toString() === service.id);
         const isSubservice = serviceDefinition?.isSubservice || false;
         const serviceDisplayName = isSubservice ? `└─ ${service.name}` : service.name;
+        const serviceDescription = serviceDefinition?.description || '';
         const serviceStyle = isSubservice ? 'color: #64748b; padding-left: 30px;' : 'color: #1e293b;';
         
         const dayLabel = serviceIndex === 0 ? (day.date ? formatDateForPDF(parseStoredDate(day.date)) : `Day ${dayIndex + 1}`) : '';
@@ -317,6 +319,7 @@ async function generateQuoteHTML(quoteData) {
             <td style="${serviceIndex === 0 ? 'font-weight: 600; color: #1e293b;' : ''}">${dayLabel}</td>
             <td style="${serviceStyle}">
               ${serviceDisplayName}
+            ${serviceDescription ? `<br><small style="color: #64748b; font-size: 10px; line-height: 1.3;">${serviceDescription}</small>` : ''}
             </td>
             <td style="text-align: center; color: #1e293b;">
               ${service.quantity || 1}
@@ -545,7 +548,7 @@ app.post('/api/generate-excel', async (req, res) => {
       { header: 'Qty', key: 'qty', width: 8 },
       { header: 'Rate', key: 'rate', width: 15 },
       { header: 'Price', key: 'price', width: 15 },
-      { header: '', key: 'label', width: 15 }
+      { header: 'Description', key: 'description', width: 50 }
     ];
     
     // Style the header row (only columns A-E)
@@ -553,8 +556,8 @@ app.post('/api/generate-excel', async (req, res) => {
     headerRow.font = { bold: true, name: 'Arial', size: 11 };
     headerRow.alignment = { horizontal: 'center' };
     
-    // Apply gray background only to columns A-E
-    for (let col = 1; col <= 5; col++) {
+    // Apply gray background to all columns A-F
+    for (let col = 1; col <= 6; col++) {
       headerRow.getCell(col).fill = {
         type: 'pattern',
         pattern: 'solid',
@@ -570,6 +573,10 @@ app.post('/api/generate-excel', async (req, res) => {
         day.services.forEach((service, serviceIndex) => {
           const serviceName = service.name; // No indentation
           
+          // Get service definition for description
+          const serviceDefinition = allServices.find(s => s._id.toString() === service.id);
+          const serviceDescription = serviceDefinition?.description || '';
+          
           // Show date only on first service of each day
           const dateDisplay = serviceIndex === 0 
             ? (day.date ? formatDateForExcel(parseStoredDate(day.date)) : `Day ${dayIndex + 1}`)
@@ -584,7 +591,7 @@ app.post('/api/generate-excel', async (req, res) => {
             qty: service.quantity,
             rate: rate,
             price: price,
-            label: ''
+            description: serviceDescription
           });
           
           // Set Arial font for all cells first
@@ -594,6 +601,13 @@ app.post('/api/generate-excel', async (req, res) => {
           if (dateDisplay) {
             row.getCell('date').font = { bold: true, name: 'Arial', size: 11 };
             row.getCell('date').alignment = { horizontal: 'right' };
+          }
+          
+          // Enable text wrapping for description column
+          if (serviceDescription) {
+            row.getCell('description').alignment = { wrapText: true, vertical: 'top' };
+            // Set minimum row height to accommodate wrapped text
+            row.height = Math.max(20, Math.ceil(serviceDescription.length / 60) * 15);
           }
           
           currentRow++;
@@ -610,7 +624,7 @@ app.post('/api/generate-excel', async (req, res) => {
           qty: 0,
           rate: '$0',
           price: '$0',
-          label: ''
+          description: ''
         });
         
         // Set Arial font for all cells first
@@ -636,9 +650,9 @@ app.post('/api/generate-excel', async (req, res) => {
         qty: '',
         rate: '',
         price: formatCurrency(subtotal),
-        label: 'Subtotal'
+        description: 'Subtotal'
       });
-      subtotalRow.getCell('label').alignment = { horizontal: 'left' };
+      subtotalRow.getCell('description').alignment = { horizontal: 'left' };
       subtotalRow.font = { name: 'Arial', size: 11 };
       
       // Discount row
@@ -648,9 +662,9 @@ app.post('/api/generate-excel', async (req, res) => {
         qty: '',
         rate: '',
         price: formatCurrency(discountAmount),
-        label: 'Discount'
+        description: 'Discount'
       });
-      discountRow.getCell('label').alignment = { horizontal: 'left' };
+      discountRow.getCell('description').alignment = { horizontal: 'left' };
       discountRow.font = { name: 'Arial', size: 11 };
       
       // Grand Total row
@@ -660,14 +674,14 @@ app.post('/api/generate-excel', async (req, res) => {
         qty: '',
         rate: '',
         price: formatCurrency(total),
-        label: 'Grand Total'
+        description: 'Grand Total'
       });
-      grandTotalRow.getCell('label').alignment = { horizontal: 'left' };
+      grandTotalRow.getCell('description').alignment = { horizontal: 'left' };
       // Set base font first, then override specific cells
       grandTotalRow.font = { name: 'Arial', size: 11 };
-      grandTotalRow.getCell('label').font = { bold: true, name: 'Arial', size: 11 };
+      grandTotalRow.getCell('description').font = { bold: true, name: 'Arial', size: 11 };
       grandTotalRow.getCell('price').font = { bold: true, name: 'Arial', size: 11 };
-      grandTotalRow.getCell('label').fill = {
+      grandTotalRow.getCell('description').fill = {
         type: 'pattern',
         pattern: 'solid',
         fgColor: { argb: 'FFD3D3D3' } // Light gray background
@@ -685,14 +699,14 @@ app.post('/api/generate-excel', async (req, res) => {
         qty: '',
         rate: '',
         price: formatCurrency(total),
-        label: 'Grand Total'
+        description: 'Grand Total'
       });
-      grandTotalRow.getCell('label').alignment = { horizontal: 'left' };
+      grandTotalRow.getCell('description').alignment = { horizontal: 'left' };
       // Set base font first, then override specific cells
       grandTotalRow.font = { name: 'Arial', size: 11 };
-      grandTotalRow.getCell('label').font = { bold: true, name: 'Arial', size: 11 };
+      grandTotalRow.getCell('description').font = { bold: true, name: 'Arial', size: 11 };
       grandTotalRow.getCell('price').font = { bold: true, name: 'Arial', size: 11 };
-      grandTotalRow.getCell('label').fill = {
+      grandTotalRow.getCell('description').fill = {
         type: 'pattern',
         pattern: 'solid',
         fgColor: { argb: 'FFD3D3D3' } // Light gray background

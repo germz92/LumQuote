@@ -86,6 +86,7 @@ class AdminPanel {
             name: document.getElementById('service-name').value,
             price: parseFloat(document.getElementById('service-price').value),
             category: document.getElementById('service-category').value,
+            description: document.getElementById('service-description').value.trim(),
             isSubservice: isSubservice
         };
 
@@ -174,6 +175,7 @@ class AdminPanel {
         document.getElementById('service-name').value = service.name;
         document.getElementById('service-price').value = service.price;
         document.getElementById('service-category').value = service.category;
+        document.getElementById('service-description').value = service.description || '';
         document.getElementById('is-subservice').checked = service.isSubservice || false;
         
         // Handle dependencies
@@ -264,6 +266,7 @@ class AdminPanel {
                         <div class="service-details">
                             <h4>${isSubservice ? '└─ ' : ''}${service.name}${isSubservice ? ' (Subservice)' : ''}</h4>
                             <p>Category: ${service.category}</p>
+                            ${service.description ? `<p><strong>Description:</strong> ${service.description}</p>` : ''}
                             ${dependencyText}
                         </div>
                     </div>

@@ -105,6 +105,7 @@ class QuoteCalculator {
                         <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''}">
                             <span class="drag-handle">⋮⋮</span>
                             ${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}
+                            ${this.getServiceById(service.id)?.description ? `<span class="service-info-icon" onclick="calculator.toggleTooltip(event)" ontouchstart="calculator.toggleTooltip(event)">ℹ️<div class="tooltip">${this.getServiceById(service.id).description}</div></span>` : ''}
                             <button class="remove-service" onclick="calculator.removeService(${dayIndex}, ${serviceIndex})">×</button>
                         </div>
                     </div>
@@ -1608,6 +1609,35 @@ class QuoteCalculator {
         this.draggedElement = null;
         this.draggedData = null;
     }
+
+    toggleTooltip(event) {
+        event.stopPropagation();
+        event.preventDefault();
+        
+        const icon = event.currentTarget;
+        const isActive = icon.classList.contains('active');
+        
+        // Close all other tooltips
+        document.querySelectorAll('.service-info-icon.active').forEach(el => {
+            if (el !== icon) {
+                el.classList.remove('active');
+            }
+        });
+        
+        // Toggle this tooltip
+        if (isActive) {
+            icon.classList.remove('active');
+        } else {
+            icon.classList.add('active');
+            
+            // Auto-close on mobile after 3 seconds
+            if (window.innerWidth <= 768) {
+                setTimeout(() => {
+                    icon.classList.remove('active');
+                }, 3000);
+            }
+        }
+    }
 }
 
 // Initialize calculator when page loads
@@ -1807,5 +1837,14 @@ document.addEventListener('keydown', (e) => {
         } else if (document.getElementById('promptModal').style.display === 'flex') {
             hidePromptModal(null);
         }
+    }
+});
+
+// Close tooltips when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.service-info-icon')) {
+        document.querySelectorAll('.service-info-icon.active').forEach(el => {
+            el.classList.remove('active');
+        });
     }
 }); 
