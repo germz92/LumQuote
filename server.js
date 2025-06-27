@@ -61,8 +61,12 @@ app.post('/api/logout', (req, res) => {
 
 // Protect static files and main routes
 app.use((req, res, next) => {
-  // Allow access to login page and login API
-  if (req.path === '/login' || req.path === '/api/login' || req.path.startsWith('/login.')) {
+  // Allow access to login page, login API, and assets needed for login page
+  if (req.path === '/login' || 
+      req.path === '/api/login' || 
+      req.path.startsWith('/login.') ||
+      req.path.startsWith('/assets/') ||
+      req.path === '/styles.css') {
     next();
   } else {
     requireAuth(req, res, next);
