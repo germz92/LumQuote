@@ -590,6 +590,8 @@ body {
 .draggable-service {
     cursor: move;
     transition: all 0.2s ease;
+    /* Touch action for better mobile performance */
+    touch-action: none;
 }
 
 .draggable-service:hover {
@@ -599,27 +601,47 @@ body {
 }
 
 .draggable-service.dragging {
-    opacity: 0.5;
-    transform: rotate(2deg);
+    opacity: 0.7;
+    transform: rotate(2deg) scale(1.02);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     z-index: 1000;
+    background-color: #fff;
+    border: 2px solid #4f46e5;
+}
+
+/* Touch-specific drag feedback */
+@media (max-width: 768px) {
+    .draggable-service.dragging {
+        transform: rotate(3deg) scale(1.05);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+        opacity: 0.8;
+    }
+    
+    /* Prevent text selection during drag */
+    .draggable-service.dragging * {
+        user-select: none;
+        -webkit-user-select: none;
+    }
 }
 
 .drag-handle {
-    color: #94a3b8;
-    font-size: 12px;
+    color: #9ca3af;
+    font-size: 14px;
     margin-right: 8px;
     cursor: grab;
-    user-select: none;
-    transition: color 0.2s;
-    font-weight: bold;
+    transition: color 0.2s ease;
+    /* Better touch target */
+    padding: 2px;
+    min-width: 16px;
+    display: inline-block;
 }
 
 .draggable-service:hover .drag-handle {
-    color: #64748b;
+    color: #6b7280;
 }
 
 .draggable-service.dragging .drag-handle {
+    color: #4f46e5;
     cursor: grabbing;
 }
 

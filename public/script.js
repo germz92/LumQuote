@@ -7,6 +7,19 @@ class QuoteCalculator {
         this.currentClientName = null;
         this.activeCalendar = null;
         this.autoSaveKey = 'quote_calculator_draft';
+        
+        // Drag and drop state
+        this.draggedElement = null;
+        this.draggedData = null;
+        
+        // Touch drag state
+        this.touchDragEnabled = false;
+        this.touchStartTime = 0;
+        this.touchHoldTimer = null;
+        this.touchStartPos = { x: 0, y: 0 };
+        this.isDragging = false;
+        this.touchMoved = false;
+        
         this.init();
     }
 
@@ -152,7 +165,7 @@ class QuoteCalculator {
                         ` : ''}
                     </div>
                     <div class="service-cell">
-                        <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${this.getServiceById(service.id)?.description ? 'has-tooltip' : ''}" ${this.getServiceById(service.id)?.description ? `onclick="calculator.toggleTooltip(event)" ontouchstart="calculator.toggleTooltip(event)"` : ''}>
+                        <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${this.getServiceById(service.id)?.description ? 'has-tooltip' : ''}" ${this.getServiceById(service.id)?.description ? `onclick="calculator.toggleTooltip(event)"` : ''}>
                             <span class="drag-handle">⋮⋮</span>
                             <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}</span>
                             ${this.getServiceById(service.id)?.description ? `<div class="tooltip">${this.getServiceById(service.id).description}</div>` : ''}
@@ -178,6 +191,13 @@ class QuoteCalculator {
                 serviceRow.ondragover = (e) => this.handleDragOverWithCalendarProtection(e);
                 serviceRow.ondrop = (e) => this.handleDrop(e);
                 serviceRow.ondragend = (e) => this.handleDragEnd(e);
+                
+                // Add touch event handlers for mobile drag and drop
+                serviceRow.ontouchstart = (e) => this.handleTouchStart(e);
+                serviceRow.ontouchmove = (e) => this.handleTouchMove(e);
+                serviceRow.ontouchend = (e) => this.handleTouchEnd(e);
+                serviceRow.ontouchcancel = (e) => this.handleTouchEnd(e);
+                
                 container.appendChild(serviceRow);
             });
 
@@ -209,6 +229,11 @@ class QuoteCalculator {
                 // Add drag event handlers
                 emptyRow.ondragover = (e) => this.handleDragOverWithCalendarProtection(e);
                 emptyRow.ondrop = (e) => this.handleDrop(e);
+                
+                // Add touch event handlers for drop zones
+                emptyRow.ontouchmove = (e) => this.handleTouchMove(e);
+                emptyRow.ontouchend = (e) => this.handleTouchEnd(e);
+                
                 container.appendChild(emptyRow);
             }
 
@@ -230,6 +255,11 @@ class QuoteCalculator {
                 // Add drag event handlers
                 dropZone.ondragover = (e) => this.handleDragOverWithCalendarProtection(e);
                 dropZone.ondrop = (e) => this.handleDrop(e);
+                
+                // Add touch event handlers for drop zones
+                dropZone.ontouchmove = (e) => this.handleTouchMove(e);
+                dropZone.ontouchend = (e) => this.handleTouchEnd(e);
+                
                 container.appendChild(dropZone);
             }
 
@@ -1665,11 +1695,150 @@ class QuoteCalculator {
         // Reset drag variables
         this.draggedElement = null;
         this.draggedData = null;
+        
+        // Reset touch drag state
+        this.touchDragEnabled = false;
+        this.isDragging = false;
+        this.touchMoved = false;
+        if (this.touchHoldTimer) {
+            clearTimeout(this.touchHoldTimer);
+            this.touchHoldTimer = null;
+        }
+    }
+
+    // Touch event handlers for mobile drag and drop
+    handleTouchStart(event) {
+        // Only handle touches on the drag handle or service row
+        const serviceRow = event.currentTarget;
+        const touch = event.touches[0];
+        
+        this.touchStartTime = Date.now();
+        this.touchStartPos = { x: touch.clientX, y: touch.clientY };
+        this.touchMoved = false;
+        this.isDragging = false;
+        
+        // Start timer for tap and hold
+        this.touchHoldTimer = setTimeout(() => {
+            if (!this.touchMoved) {
+                // Enable drag mode
+                this.touchDragEnabled = true;
+                this.isDragging = true;
+                
+                // Set up drag data
+                this.draggedElement = serviceRow;
+                this.draggedData = {
+                    dayIndex: parseInt(serviceRow.dataset.dayIndex),
+                    serviceIndex: parseInt(serviceRow.dataset.serviceIndex),
+                    serviceId: serviceRow.dataset.serviceId
+                };
+                
+                // Visual feedback
+                serviceRow.classList.add('dragging');
+                
+                // Haptic feedback if available
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+                
+                // Prevent scrolling while dragging
+                document.body.style.overflow = 'hidden';
+            }
+        }, 500); // 500ms hold time
+    }
+
+    handleTouchMove(event) {
+        const touch = event.touches[0];
+        const moveDistance = Math.abs(touch.clientX - this.touchStartPos.x) + Math.abs(touch.clientY - this.touchStartPos.y);
+        
+        // If moved more than 10px, cancel hold timer
+        if (moveDistance > 10) {
+            this.touchMoved = true;
+            if (this.touchHoldTimer) {
+                clearTimeout(this.touchHoldTimer);
+                this.touchHoldTimer = null;
+            }
+        }
+        
+        // If in drag mode, handle the drag
+        if (this.isDragging && this.touchDragEnabled) {
+            event.preventDefault();
+            
+            // Find element under touch point
+            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            const targetRow = elementBelow?.closest('.day-row');
+            
+            if (targetRow && targetRow !== this.draggedElement) {
+                // Simulate drag over
+                const fakeEvent = {
+                    preventDefault: () => {},
+                    currentTarget: targetRow,
+                    clientY: touch.clientY,
+                    dataTransfer: { dropEffect: 'move' }
+                };
+                this.handleDragOver(fakeEvent);
+            }
+        }
+    }
+
+    handleTouchEnd(event) {
+        // Clean up timers
+        if (this.touchHoldTimer) {
+            clearTimeout(this.touchHoldTimer);
+            this.touchHoldTimer = null;
+        }
+        
+        // Re-enable scrolling
+        document.body.style.overflow = '';
+        
+        // If we were dragging, handle drop
+        if (this.isDragging && this.touchDragEnabled) {
+            event.preventDefault();
+            
+            const touch = event.changedTouches[0];
+            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            const targetRow = elementBelow?.closest('.day-row');
+            
+            if (targetRow && targetRow !== this.draggedElement) {
+                // Simulate drop
+                const fakeEvent = {
+                    preventDefault: () => {},
+                    currentTarget: targetRow,
+                    clientY: touch.clientY
+                };
+                this.handleDrop(fakeEvent);
+            } else {
+                // Just clean up if no valid drop target
+                this.clearDragState();
+            }
+        } else if (!this.touchMoved && Date.now() - this.touchStartTime < 500) {
+            // This was a quick tap, not a drag attempt
+            // Allow tooltip to show only if tap was specifically on service name area
+            const serviceName = event.target.closest('.service-name');
+            if (serviceName && serviceName.classList.contains('has-tooltip')) {
+                // Small delay to avoid conflicts
+                setTimeout(() => {
+                    const fakeEvent = {
+                        stopPropagation: () => {},
+                        preventDefault: () => {},
+                        currentTarget: serviceName
+                    };
+                    this.toggleTooltip(fakeEvent);
+                }, 50);
+            }
+        } else {
+            // Reset state for incomplete drag
+            this.clearDragState();
+        }
     }
 
     toggleTooltip(event) {
         event.stopPropagation();
         event.preventDefault();
+        
+        // Don't show tooltip if we're in the middle of a drag operation
+        if (this.isDragging || this.touchDragEnabled) {
+            return;
+        }
         
         const serviceName = event.currentTarget;
         const isActive = serviceName.classList.contains('active');
