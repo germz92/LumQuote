@@ -622,6 +622,56 @@ body {
         user-select: none;
         -webkit-user-select: none;
     }
+    
+    /* Mobile drag zone indicators */
+    .mobile-drop-zone {
+        background-color: #f0f9ff !important;
+        border: 2px dashed #0ea5e9 !important;
+        border-radius: 8px !important;
+        transition: all 0.2s ease;
+    }
+    
+    .mobile-drop-hover {
+        background-color: #dbeafe !important;
+        border: 2px solid #2563eb !important;
+        transform: scale(1.02);
+    }
+    
+    /* Instruction text for mobile drag */
+    .mobile-drag-instruction {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 10000;
+        backdrop-filter: blur(10px);
+        animation: slideDown 0.3s ease-out;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    }
+    
+    /* Prevent scrolling during mobile drag */
+    body.mobile-dragging {
+        overflow: hidden !important;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+    }
 }
 
 .drag-handle {
@@ -1673,7 +1723,7 @@ body {
     gap: 12px;
     justify-content: flex-end;
     margin-top: 24px;
-    padding-top: 20px;
+    padding: 20px;
     border-top: 1px solid #e2e8f0;
 }
 

@@ -521,11 +521,15 @@ class QuoteCalculator {
 
     async generatePDF() {
         let clientName = this.currentClientName;
+        let quoteTitle = this.currentQuoteName;
         
-        // Only prompt for client name if we don't already have one
-        if (!clientName) {
-            clientName = await showPromptModal('Please provide client name (optional):', '', 'Client Name', 'Enter client name');
-            clientName = clientName && clientName.trim() ? clientName.trim() : null;
+        // Only prompt if we don't already have both values
+        if (!clientName || !quoteTitle) {
+            const exportData = await showExportModal(quoteTitle || '', clientName || '');
+            if (exportData === null) return; // User cancelled
+            
+            quoteTitle = exportData.title || null;
+            clientName = exportData.clientName || null;
         }
         
         const loadingOverlay = document.getElementById('loading-overlay');
@@ -539,7 +543,8 @@ class QuoteCalculator {
                 total: this.getFinalTotal(),
                 discountPercentage: this.discountPercentage,
                 discountAmount: subtotal * (this.discountPercentage / 100),
-                clientName: clientName
+                clientName: clientName,
+                quoteTitle: quoteTitle
             };
 
             const response = await fetch('/api/generate-pdf', {
@@ -556,9 +561,9 @@ class QuoteCalculator {
 
             // Generate filename based on quote title or default
             let filename;
-            if (this.currentQuoteName) {
+            if (quoteTitle) {
                 // Sanitize title for filename
-                const sanitizedTitle = this.currentQuoteName
+                const sanitizedTitle = quoteTitle
                     .replace(/[^a-zA-Z0-9\s-]/g, '') // Remove special characters
                     .replace(/\s+/g, '-') // Replace spaces with hyphens
                     .replace(/-+/g, '-') // Replace multiple hyphens with single
@@ -595,6 +600,18 @@ class QuoteCalculator {
     }
 
     async exportExcel() {
+        let clientName = this.currentClientName;
+        let quoteTitle = this.currentQuoteName;
+        
+        // Only prompt if we don't already have both values
+        if (!clientName || !quoteTitle) {
+            const exportData = await showExportModal(quoteTitle || '', clientName || '');
+            if (exportData === null) return; // User cancelled
+            
+            quoteTitle = exportData.title || null;
+            clientName = exportData.clientName || null;
+        }
+        
         try {
             const subtotal = this.calculateTotal();
             const discountAmount = subtotal * (this.discountPercentage / 100);
@@ -607,7 +624,8 @@ class QuoteCalculator {
                 total: total,
                 discountPercentage: this.discountPercentage,
                 discountAmount: discountAmount,
-                clientName: this.currentClientName
+                clientName: clientName,
+                quoteTitle: quoteTitle
             };
 
             const response = await fetch('/api/generate-excel', {
@@ -617,7 +635,7 @@ class QuoteCalculator {
                 },
                 body: JSON.stringify({ 
                     quoteData,
-                    quoteName: this.currentQuoteName 
+                    quoteName: quoteTitle 
                 })
             });
 
@@ -1717,7 +1735,10 @@ class QuoteCalculator {
         this.touchMoved = false;
         this.isDragging = false;
         
-        // Start timer for tap and hold
+        // Prevent text selection and other touch behaviors during potential drag
+        event.preventDefault();
+        
+        // Start timer for tap and hold - increased to 700ms for better UX
         this.touchHoldTimer = setTimeout(() => {
             if (!this.touchMoved) {
                 // Enable drag mode
@@ -1735,23 +1756,27 @@ class QuoteCalculator {
                 // Visual feedback
                 serviceRow.classList.add('dragging');
                 
+                // Add visual indicators for all potential drop zones
+                this.showMobileDropZones();
+                
                 // Haptic feedback if available
                 if (navigator.vibrate) {
-                    navigator.vibrate(50);
+                    navigator.vibrate([50, 50, 50]); // Triple vibration to indicate drag start
                 }
                 
                 // Prevent scrolling while dragging
                 document.body.style.overflow = 'hidden';
+                document.body.classList.add('mobile-dragging');
             }
-        }, 500); // 500ms hold time
+        }, 700); // Increased to 700ms for better mobile UX
     }
 
     handleTouchMove(event) {
         const touch = event.touches[0];
         const moveDistance = Math.abs(touch.clientX - this.touchStartPos.x) + Math.abs(touch.clientY - this.touchStartPos.y);
         
-        // If moved more than 10px, cancel hold timer
-        if (moveDistance > 10) {
+        // If moved more than 15px (increased threshold), cancel hold timer
+        if (moveDistance > 15) {
             this.touchMoved = true;
             if (this.touchHoldTimer) {
                 clearTimeout(this.touchHoldTimer);
@@ -1763,12 +1788,15 @@ class QuoteCalculator {
         if (this.isDragging && this.touchDragEnabled) {
             event.preventDefault();
             
+            // Clear previous drop indicators
+            this.clearDropIndicators();
+            
             // Find element under touch point
             const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
             const targetRow = elementBelow?.closest('.day-row');
             
-            if (targetRow && targetRow !== this.draggedElement) {
-                // Simulate drag over
+            if (targetRow && targetRow !== this.draggedElement && !targetRow.classList.contains('add-service-row')) {
+                // Simulate drag over with enhanced visual feedback
                 const fakeEvent = {
                     preventDefault: () => {},
                     currentTarget: targetRow,
@@ -1776,6 +1804,9 @@ class QuoteCalculator {
                     dataTransfer: { dropEffect: 'move' }
                 };
                 this.handleDragOver(fakeEvent);
+                
+                // Add mobile-specific visual feedback
+                targetRow.classList.add('mobile-drop-hover');
             }
         }
     }
@@ -1787,8 +1818,12 @@ class QuoteCalculator {
             this.touchHoldTimer = null;
         }
         
-        // Re-enable scrolling
+        // Re-enable scrolling and remove mobile drag class
         document.body.style.overflow = '';
+        document.body.classList.remove('mobile-dragging');
+        
+        // Clear mobile drop zones
+        this.hideMobileDropZones();
         
         // If we were dragging, handle drop
         if (this.isDragging && this.touchDragEnabled) {
@@ -1798,7 +1833,7 @@ class QuoteCalculator {
             const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
             const targetRow = elementBelow?.closest('.day-row');
             
-            if (targetRow && targetRow !== this.draggedElement) {
+            if (targetRow && targetRow !== this.draggedElement && !targetRow.classList.contains('add-service-row')) {
                 // Simulate drop
                 const fakeEvent = {
                     preventDefault: () => {},
@@ -1806,11 +1841,19 @@ class QuoteCalculator {
                     clientY: touch.clientY
                 };
                 this.handleDrop(fakeEvent);
+                
+                // Success haptic feedback
+                if (navigator.vibrate) {
+                    navigator.vibrate(100);
+                }
             } else {
-                // Just clean up if no valid drop target
+                // Failed drop haptic feedback
+                if (navigator.vibrate) {
+                    navigator.vibrate([100, 50, 100]);
+                }
                 this.clearDragState();
             }
-        } else if (!this.touchMoved && Date.now() - this.touchStartTime < 500) {
+        } else if (!this.touchMoved && Date.now() - this.touchStartTime < 700) {
             // This was a quick tap, not a drag attempt
             // Allow tooltip to show only if tap was specifically on service name area
             const serviceName = event.target.closest('.service-name');
@@ -1862,6 +1905,35 @@ class QuoteCalculator {
                     serviceName.classList.remove('active');
                 }, 3000);
             }
+        }
+    }
+
+    // Helper methods for mobile drag visual feedback
+    showMobileDropZones() {
+        // Highlight all potential drop zones for mobile users
+        document.querySelectorAll('.day-row:not(.add-service-row)').forEach(row => {
+            if (row !== this.draggedElement) {
+                row.classList.add('mobile-drop-zone');
+            }
+        });
+        
+        // Add instructional text
+        const instruction = document.createElement('div');
+        instruction.className = 'mobile-drag-instruction';
+        instruction.textContent = 'Drag to reorder • Release to drop';
+        document.body.appendChild(instruction);
+    }
+
+    hideMobileDropZones() {
+        // Remove mobile drop zone indicators
+        document.querySelectorAll('.mobile-drop-zone, .mobile-drop-hover').forEach(el => {
+            el.classList.remove('mobile-drop-zone', 'mobile-drop-hover');
+        });
+        
+        // Remove instruction text
+        const instruction = document.querySelector('.mobile-drag-instruction');
+        if (instruction) {
+            instruction.remove();
         }
     }
 }
@@ -2065,6 +2137,96 @@ function hidePromptModal(result) {
             }
         }, 200);
     }
+}
+
+function showExportModal(defaultTitle = '', defaultClientName = '') {
+    return new Promise((resolve) => {
+        // Create modal HTML if it doesn't exist
+        let modal = document.getElementById('exportModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'exportModal';
+            modal.className = 'modal';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Export Details</h2>
+                        <span class="close" onclick="hideExportModal(null)">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="exportForm">
+                            <div class="form-group">
+                                <label for="exportTitle">Quote Title (optional):</label>
+                                <input type="text" id="exportTitle" placeholder="Enter quote title">
+                            </div>
+                            <div class="form-group">
+                                <label for="exportClientName">Client Name (optional):</label>
+                                <input type="text" id="exportClientName" placeholder="Enter client name">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-buttons">
+                        <button type="button" class="secondary-button" onclick="hideExportModal(null)">Cancel</button>
+                        <button type="button" class="primary-button" onclick="submitExportModal()">Continue</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        const titleInput = document.getElementById('exportTitle');
+        const clientNameInput = document.getElementById('exportClientName');
+        
+        // Set default values
+        titleInput.value = defaultTitle;
+        clientNameInput.value = defaultClientName;
+        
+        // Set callback
+        window.currentExportCallback = resolve;
+        
+        // Show modal
+        modal.style.display = 'flex';
+        
+        // Focus management
+        setTimeout(() => {
+            titleInput.focus();
+            titleInput.select();
+        }, 100);
+        
+        // Handle form submission
+        const form = document.getElementById('exportForm');
+        form.onsubmit = (e) => {
+            e.preventDefault();
+            submitExportModal();
+        };
+    });
+}
+
+function hideExportModal(result) {
+    const modal = document.getElementById('exportModal');
+    if (modal) {
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.style.display = 'none';
+            modal.classList.remove('closing');
+            if (window.currentExportCallback) {
+                window.currentExportCallback(result);
+                window.currentExportCallback = null;
+            }
+        }, 200);
+    }
+}
+
+function submitExportModal() {
+    const titleInput = document.getElementById('exportTitle');
+    const clientNameInput = document.getElementById('exportClientName');
+    
+    const result = {
+        title: titleInput.value.trim() || null,
+        clientName: clientNameInput.value.trim() || null
+    };
+    
+    hideExportModal(result);
 }
 
 // Keyboard support for modals

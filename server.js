@@ -346,7 +346,7 @@ function formatDateForPDF(date) {
 }
 
 async function generateQuoteHTML(quoteData) {
-  const { days, subtotal, total, discountPercentage, discountAmount, clientName } = quoteData;
+  const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
   
   // Get all services for subservice checking
   const allServices = await Service.find();
@@ -416,7 +416,7 @@ async function generateQuoteHTML(quoteData) {
     <html>
     <head>
       <meta charset="utf-8">
-      <title>Conference Services Quote</title>
+      <title>${quoteTitle || 'Conference Services Quote'}</title>
       <style>
         body {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -546,7 +546,7 @@ async function generateQuoteHTML(quoteData) {
     <body>
              <div class="header">
          ${logoBase64 ? `<img src="${logoBase64}" alt="Lumetry Media" style="max-height: 80px; margin-bottom: 20px;">` : ''}
-         <h1>Conference Services Quote</h1>
+         <h1>${quoteTitle || 'Conference Services Quote'}</h1>
          <p>Professional photography and/or videography services</p>
          <p><strong>Created on:</strong> ${new Date().toLocaleDateString()}${clientName ? ` | <strong>Client:</strong> ${clientName}` : ''}</p>
        </div>
@@ -590,7 +590,7 @@ async function generateQuoteHTML(quoteData) {
 app.post('/api/generate-excel', async (req, res) => {
   try {
     const { quoteData, quoteName } = req.body;
-    const { days, subtotal, total, discountPercentage, discountAmount } = quoteData;
+    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
     
     console.log('🔄 Starting Excel generation...');
     
@@ -611,8 +611,41 @@ app.post('/api/generate-excel', async (req, res) => {
       { header: 'Description', key: 'description', width: 50 }
     ];
     
-    // Style the header row (only columns A-E)
-    const headerRow = worksheet.getRow(1);
+    let currentRow = 1;
+    
+    // Add title row if provided
+    if (quoteTitle) {
+      worksheet.mergeCells('A1:F1');
+      const titleRow = worksheet.getRow(1);
+      titleRow.getCell(1).value = quoteTitle;
+      titleRow.getCell(1).font = { bold: true, name: 'Arial', size: 11 };
+      titleRow.getCell(1).alignment = { horizontal: 'center' };
+      titleRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD3D3D3' }
+      };
+      currentRow++;
+    }
+    
+    // Add client name row if provided
+    if (clientName) {
+      worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
+      const clientRow = worksheet.getRow(currentRow);
+      clientRow.getCell(1).value = clientName;
+      clientRow.getCell(1).font = { bold: true, name: 'Arial', size: 11 };
+      clientRow.getCell(1).alignment = { horizontal: 'center' };
+      clientRow.getCell(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD3D3D3' }
+      };
+      currentRow++;
+    }
+    
+    // Add headers row
+    const headerRow = worksheet.getRow(currentRow);
+    headerRow.values = ['Date', 'Item', 'Qty', 'Rate', 'Price', 'Description'];
     headerRow.font = { bold: true, name: 'Arial', size: 11 };
     headerRow.alignment = { horizontal: 'center' };
     
@@ -625,7 +658,7 @@ app.post('/api/generate-excel', async (req, res) => {
       };
     }
     
-    let currentRow = 2;
+    currentRow++;
     
     // Process each day
     days.forEach((day, dayIndex) => {
@@ -787,9 +820,9 @@ app.post('/api/generate-excel', async (req, res) => {
     const currentDate = new Date().toISOString().split('T')[0];
     let filename;
     
-    if (quoteName) {
-      // Sanitize quote name for filename
-      const sanitizedTitle = quoteName.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+    if (quoteTitle) {
+      // Sanitize quote title for filename
+      const sanitizedTitle = quoteTitle.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
       filename = `${sanitizedTitle}-${currentDate}.xlsx`;
     } else {
       filename = `lumetry-quote-${currentDate}.xlsx`;
