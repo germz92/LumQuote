@@ -229,6 +229,23 @@ body {
     background: #2563eb;
 }
 
+.clear-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    background: #ef4444;
+    color: white;
+}
+
+.clear-btn:hover {
+    background: #dc2626;
+}
+
 .col-day {
     text-align: left;
 }
@@ -309,14 +326,30 @@ body {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.service-name.has-tooltip {
+    cursor: help;
+}
+
+.service-name.has-tooltip:hover {
+    background: #ddd6fe;
+}
+
+.service-text {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.2;
 }
 
 .service-name.subservice {
-    margin-left: 30px;
     background: #f1f5f9;
     color: #64748b;
     border-left: 3px solid #cbd5e1;
     font-weight: 500;
+    margin-left: 30px;
 }
 
 .quantity-cell {
@@ -1237,7 +1270,7 @@ body {
         gap: 6px;
     }
     
-    .save-btn, .load-btn {
+    .save-btn, .load-btn, .clear-btn {
         padding: 6px 12px;
         font-size: 12px;
     }
@@ -1279,6 +1312,10 @@ body {
     .service-name {
         padding: 6px 8px;
         font-size: 14px;
+    }
+    
+    .service-name.subservice {
+        margin-left: 24px;
     }
     
     .col-day,
@@ -1856,23 +1893,10 @@ textarea:focus {
 }
 
 /* Service Description Tooltip Styles */
-.service-info-icon {
-    display: inline-block;
-    margin-left: 6px;
-    color: #6b7280;
-    cursor: help;
-    font-size: 14px;
-    position: relative;
-    user-select: none;
-}
-
-.service-info-icon:hover {
-    color: #4F46E5;
-}
 
 .tooltip {
     position: absolute;
-    bottom: 120%;
+    bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
     background: #1f2937;
@@ -1889,6 +1913,7 @@ textarea:focus {
     transition: opacity 0.2s, visibility 0.2s;
     pointer-events: none;
     word-wrap: break-word;
+    margin-bottom: 8px;
 }
 
 .tooltip::after {
@@ -1901,8 +1926,8 @@ textarea:focus {
     border-top-color: #1f2937;
 }
 
-.service-info-icon:hover .tooltip,
-.service-info-icon.active .tooltip {
+.service-name.has-tooltip:hover .tooltip,
+.service-name.has-tooltip.active .tooltip {
     opacity: 1;
     visibility: visible;
 }

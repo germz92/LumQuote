@@ -6,14 +6,62 @@ class QuoteCalculator {
         this.currentQuoteName = null;
         this.currentClientName = null;
         this.activeCalendar = null;
+        this.autoSaveKey = 'quote_calculator_draft';
         this.init();
     }
 
     async init() {
         await this.loadServices();
+        this.loadDraftFromLocalStorage();
         this.setupEventListeners();
         this.renderDays();
         this.updateTotal();
+    }
+
+    loadDraftFromLocalStorage() {
+        try {
+            const savedDraft = localStorage.getItem(this.autoSaveKey);
+            if (savedDraft) {
+                const draftData = JSON.parse(savedDraft);
+                this.days = draftData.days || [{ services: [], date: null }];
+                this.discountPercentage = draftData.discountPercentage || 0;
+                this.currentQuoteName = draftData.currentQuoteName || null;
+                this.currentClientName = draftData.currentClientName || null;
+                
+                console.log('📄 Loaded draft from localStorage');
+            }
+        } catch (error) {
+            console.warn('⚠️ Error loading draft from localStorage:', error);
+            // If there's an error, start fresh
+            this.clearDraft();
+        }
+    }
+
+    saveDraftToLocalStorage() {
+        try {
+            const draftData = {
+                days: this.days,
+                discountPercentage: this.discountPercentage,
+                currentQuoteName: this.currentQuoteName,
+                currentClientName: this.currentClientName,
+                lastSaved: new Date().toISOString()
+            };
+            localStorage.setItem(this.autoSaveKey, JSON.stringify(draftData));
+        } catch (error) {
+            console.warn('⚠️ Error saving draft to localStorage:', error);
+        }
+    }
+
+    clearDraft() {
+        localStorage.removeItem(this.autoSaveKey);
+        this.days = [{ services: [], date: null }];
+        this.discountPercentage = 0;
+        this.currentQuoteName = null;
+        this.currentClientName = null;
+        this.renderDays();
+        this.updateTotal();
+        this.updateClientDisplay();
+        console.log('🗑️ Draft cleared from localStorage');
     }
 
     async loadServices() {
@@ -54,6 +102,7 @@ class QuoteCalculator {
         this.renderDays();
         this.updateTotal();
         this.markQuoteAsModified(); // Mark as modified when structure changes
+        this.saveDraftToLocalStorage();
     }
 
     removeDay() {
@@ -63,6 +112,7 @@ class QuoteCalculator {
             this.renderDays();
             this.updateTotal();
             this.markQuoteAsModified(); // Mark as modified when structure changes
+            this.saveDraftToLocalStorage();
         }
     }
 
@@ -102,11 +152,11 @@ class QuoteCalculator {
                         ` : ''}
                     </div>
                     <div class="service-cell">
-                        <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''}">
+                        <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${this.getServiceById(service.id)?.description ? 'has-tooltip' : ''}" ${this.getServiceById(service.id)?.description ? `onclick="calculator.toggleTooltip(event)" ontouchstart="calculator.toggleTooltip(event)"` : ''}>
                             <span class="drag-handle">⋮⋮</span>
-                            ${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}
-                            ${this.getServiceById(service.id)?.description ? `<span class="service-info-icon" onclick="calculator.toggleTooltip(event)" ontouchstart="calculator.toggleTooltip(event)">ℹ️<div class="tooltip">${this.getServiceById(service.id).description}</div></span>` : ''}
+                            <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}</span>
                             <button class="remove-service" onclick="calculator.removeService(${dayIndex}, ${serviceIndex})">×</button>
+                            ${this.getServiceById(service.id)?.description ? `<div class="tooltip">${this.getServiceById(service.id).description}</div>` : ''}
                         </div>
                     </div>
                     <div class="quantity-cell">
@@ -288,6 +338,7 @@ class QuoteCalculator {
         this.days[dayIndex].services.push(service);
         this.renderDays();
         this.updateTotal();
+        this.saveDraftToLocalStorage();
     }
 
     removeService(dayIndex, serviceIndex) {
@@ -389,6 +440,7 @@ class QuoteCalculator {
         this.days[dayIndex].services[serviceIndex].quantity = quantity;
         this.renderDays();
         this.updateTotal();
+        this.saveDraftToLocalStorage();
     }
 
     calculateDayTotal(dayIndex) {
@@ -1038,6 +1090,7 @@ class QuoteCalculator {
         
         // Update the display
         this.updateTotal();
+        this.saveDraftToLocalStorage();
         
         // Update button text
         const button = document.getElementById('discountBtn');
@@ -1052,6 +1105,7 @@ class QuoteCalculator {
         this.discountPercentage = 0;
         document.getElementById('discountInput').value = '';
         this.updateTotal();
+        this.saveDraftToLocalStorage();
         
         // Hide input container and reset button
         document.getElementById('discountInputContainer').style.display = 'none';
@@ -1388,6 +1442,7 @@ class QuoteCalculator {
         this.hideCalendarModal();
         this.renderDays();
         this.markQuoteAsModified(); // Mark as modified when dates change
+        this.saveDraftToLocalStorage();
     }
 
     clearDate(dayIndex) {
@@ -1395,6 +1450,7 @@ class QuoteCalculator {
         this.hideCalendarModal(); // Changed from hideCalendar()
         this.renderDays();
         this.markQuoteAsModified(); // Mark as modified when dates change
+        this.saveDraftToLocalStorage();
     }
 
     selectToday(dayIndex) {
@@ -1411,6 +1467,7 @@ class QuoteCalculator {
         this.hideCalendarModal(); // Changed from hideCalendar()
         this.renderDays();
         this.markQuoteAsModified(); // Mark as modified when dates change
+        this.saveDraftToLocalStorage();
     }
 
     changeCalendarMonth(dayIndex, newMonth, newYear) {
@@ -1614,26 +1671,26 @@ class QuoteCalculator {
         event.stopPropagation();
         event.preventDefault();
         
-        const icon = event.currentTarget;
-        const isActive = icon.classList.contains('active');
+        const serviceName = event.currentTarget;
+        const isActive = serviceName.classList.contains('active');
         
         // Close all other tooltips
-        document.querySelectorAll('.service-info-icon.active').forEach(el => {
-            if (el !== icon) {
+        document.querySelectorAll('.service-name.has-tooltip.active').forEach(el => {
+            if (el !== serviceName) {
                 el.classList.remove('active');
             }
         });
         
         // Toggle this tooltip
         if (isActive) {
-            icon.classList.remove('active');
+            serviceName.classList.remove('active');
         } else {
-            icon.classList.add('active');
+            serviceName.classList.add('active');
             
             // Auto-close on mobile after 3 seconds
             if (window.innerWidth <= 768) {
                 setTimeout(() => {
-                    icon.classList.remove('active');
+                    serviceName.classList.remove('active');
                 }, 3000);
             }
         }
@@ -1681,6 +1738,20 @@ function applyDiscount() {
 
 function removeDiscount() {
     calculator.removeDiscount();
+}
+
+async function clearQuote() {
+    const confirmed = await showConfirmModal(
+        'Are you sure you want to clear the entire quote? This will remove all services, dates, and settings. This action cannot be undone.',
+        'Clear Quote',
+        'Clear Quote',
+        'Cancel'
+    );
+    
+    if (confirmed) {
+        calculator.clearDraft();
+        showAlertModal('Quote cleared successfully!', 'success', null, true);
+    }
 }
 
 // Custom Modal System
@@ -1842,8 +1913,8 @@ document.addEventListener('keydown', (e) => {
 
 // Close tooltips when clicking outside
 document.addEventListener('click', (e) => {
-    if (!e.target.closest('.service-info-icon')) {
-        document.querySelectorAll('.service-info-icon.active').forEach(el => {
+    if (!e.target.closest('.service-name.has-tooltip')) {
+        document.querySelectorAll('.service-name.has-tooltip.active').forEach(el => {
             el.classList.remove('active');
         });
     }

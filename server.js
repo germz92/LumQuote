@@ -5,6 +5,8 @@ const path = require('path');
 const htmlPdf = require('html-pdf-node');
 const ExcelJS = require('exceljs');
 const fs = require('fs');
+const session = require('express-session');
+const bcrypt = require('bcrypt');
 require('dotenv').config();
 
 const app = express();
@@ -14,6 +16,84 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
+
+// Session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-this-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: false, // Set to true if using HTTPS
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Admin password (in production, store this hashed in environment variables)
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
+
+// Authentication middleware
+const requireAuth = (req, res, next) => {
+  if (req.session && req.session.authenticated) {
+    return next();
+  } else {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+};
+
+// Authentication routes
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ error: 'Password required' });
+    }
+    
+    // For initial setup, if no hash is set, use plain text comparison
+    // In production, always use bcrypt
+    let isValid = false;
+    
+    if (ADMIN_PASSWORD_HASH && ADMIN_PASSWORD_HASH.startsWith('$2b$')) {
+      // Hashed password
+      isValid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+    } else {
+      // Plain text password (for initial setup only)
+      const expectedPassword = process.env.ADMIN_PASSWORD || 'admin123';
+      isValid = password === expectedPassword;
+    }
+    
+    if (isValid) {
+      req.session.authenticated = true;
+      res.json({ success: true, message: 'Authentication successful' });
+    } else {
+      res.status(401).json({ error: 'Invalid password' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Authentication error' });
+  }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Logout failed' });
+    }
+    res.json({ success: true, message: 'Logged out successfully' });
+  });
+});
+
+app.get('/api/auth/status', (req, res) => {
+  res.json({ authenticated: !!(req.session && req.session.authenticated) });
+});
+
+// Serve admin page with authentication check
+app.get('/admin.html', (req, res) => {
+  if (req.session && req.session.authenticated) {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+  } else {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+  }
+});
 
 // MongoDB connection
 console.log('Environment check:');
@@ -58,8 +138,8 @@ const serviceSchema = new mongoose.Schema({
 const Service = mongoose.model('Service', serviceSchema, 'website');
 
 // Routes
-// Get all services
-app.get('/api/services', async (req, res) => {
+// Get all services (protected route)
+app.get('/api/services', requireAuth, async (req, res) => {
   try {
     const services = await Service.find().populate('dependsOn', 'name').sort({ sortOrder: 1, createdAt: 1 });
     
@@ -100,8 +180,8 @@ function sortServicesWithSubservices(services) {
   return result;
 }
 
-// Create service
-app.post('/api/services', async (req, res) => {
+// Create service (protected route)
+app.post('/api/services', requireAuth, async (req, res) => {
   try {
     // Auto-assign sortOrder if not provided
     if (!req.body.sortOrder) {
@@ -118,8 +198,8 @@ app.post('/api/services', async (req, res) => {
   }
 });
 
-// Update service
-app.put('/api/services/:id', async (req, res) => {
+// Update service (protected route)
+app.put('/api/services/:id', requireAuth, async (req, res) => {
   try {
     const service = await Service.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('dependsOn', 'name');
     if (!service) {
@@ -131,8 +211,8 @@ app.put('/api/services/:id', async (req, res) => {
   }
 });
 
-// Delete service
-app.delete('/api/services/:id', async (req, res) => {
+// Delete service (protected route)
+app.delete('/api/services/:id', requireAuth, async (req, res) => {
   try {
     const serviceId = req.params.id;
     
@@ -951,7 +1031,7 @@ app.delete('/api/saved-quotes/:name', async (req, res) => {
 });
 
 // Update service order endpoint
-app.post('/api/services/reorder', async (req, res) => {
+app.post('/api/services/reorder', requireAuth, async (req, res) => {
   try {
     const { serviceUpdates } = req.body;
     
