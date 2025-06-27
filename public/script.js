@@ -155,9 +155,9 @@ class QuoteCalculator {
                         <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${this.getServiceById(service.id)?.description ? 'has-tooltip' : ''}" ${this.getServiceById(service.id)?.description ? `onclick="calculator.toggleTooltip(event)" ontouchstart="calculator.toggleTooltip(event)"` : ''}>
                             <span class="drag-handle">⋮⋮</span>
                             <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}</span>
-                            <button class="remove-service" onclick="calculator.removeService(${dayIndex}, ${serviceIndex})">×</button>
                             ${this.getServiceById(service.id)?.description ? `<div class="tooltip">${this.getServiceById(service.id).description}</div>` : ''}
                         </div>
+                        <button class="remove-service" onclick="calculator.removeService(${dayIndex}, ${serviceIndex})">×</button>
                     </div>
                     <div class="quantity-cell">
                         <input type="number" 
@@ -1918,4 +1918,24 @@ document.addEventListener('click', (e) => {
             el.classList.remove('active');
         });
     }
-}); 
+});
+
+// Logout function
+async function logout() {
+    try {
+        const response = await fetch('/api/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        
+        if (response.ok) {
+            window.location.href = '/login';
+        } else {
+            console.error('Logout failed');
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+    }
+} 

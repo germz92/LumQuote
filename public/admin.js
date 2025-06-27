@@ -8,41 +8,15 @@ class AdminPanel {
     }
 
     async init() {
-        // Check authentication status first
-        const isAuthenticated = await this.checkAuth();
-        if (!isAuthenticated) {
-            window.location.href = '/login.html';
-            return;
-        }
-        
         await this.loadServices();
         this.setupEventListeners();
         this.populateDependencyDropdown();
         this.renderServices();
     }
 
-    async checkAuth() {
-        try {
-            const response = await fetch('/api/auth/status');
-            const data = await response.json();
-            return data.authenticated;
-        } catch (error) {
-            console.error('Auth check failed:', error);
-            return false;
-        }
-    }
-
     async loadServices() {
         try {
             const response = await fetch('/api/services');
-            if (response.status === 401) {
-                // Unauthorized - redirect to login
-                window.location.href = '/login.html';
-                return;
-            }
-            if (!response.ok) {
-                throw new Error('Failed to load services');
-            }
             this.services = await response.json();
         } catch (error) {
             console.error('Error loading services:', error);
@@ -683,20 +657,19 @@ document.addEventListener('keydown', (e) => {
 // Logout function
 async function logout() {
     try {
-        const response = await fetch('/api/auth/logout', {
-            method: 'POST'
+        const response = await fetch('/api/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
         });
         
         if (response.ok) {
-            window.location.href = '/';
+            window.location.href = '/login';
         } else {
             console.error('Logout failed');
-            // Force redirect anyway
-            window.location.href = '/';
         }
     } catch (error) {
         console.error('Logout error:', error);
-        // Force redirect anyway
-        window.location.href = '/';
     }
-}
+} 

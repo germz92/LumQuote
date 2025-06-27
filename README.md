@@ -45,13 +45,22 @@ A modern, responsive web application for generating photography service quotes w
    ```env
    MONGODB_URI=mongodb://localhost:27017/quote-calculator
    PORT=3000
+   APP_PASSWORD=your-secure-password-here
+   SESSION_SECRET=your-random-session-secret-key
    ```
 
    For MongoDB Atlas, use your connection string:
    ```env
    MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/quote-calculator
    PORT=3000
+   APP_PASSWORD=your-secure-password-here
+   SESSION_SECRET=your-random-session-secret-key
    ```
+
+   **Important**: 
+   - `APP_PASSWORD`: Set this to your desired password for accessing the application
+   - `SESSION_SECRET`: Set this to a random string for session security
+   - Default password is `admin123` if not specified
 
 4. **Start the application**
    ```bash
@@ -63,8 +72,9 @@ A modern, responsive web application for generating photography service quotes w
    ```
 
 5. **Access the application**
-   - Main Calculator: http://localhost:3000
-   - Admin Panel: http://localhost:3000/admin
+   - Login: http://localhost:3000/login (or redirected automatically)
+   - Main Calculator: http://localhost:3000 (after login)
+   - Admin Panel: http://localhost:3000/admin (after login)
 
 ## Deployment on Render
 
@@ -81,7 +91,33 @@ This application is configured for easy deployment on Render.
    - The MongoDB database will be automatically created and connected
    - No manual environment variable setup required
 
+## Security
+
+The application includes password protection for all pages:
+
+- **Login Required**: All pages require authentication
+- **Session Management**: Uses secure session cookies (24-hour expiration)
+- **Environment-based Password**: Password is configured via environment variables
+- **Logout Functionality**: Logout buttons available on all pages
+- **Auto-redirect**: Unauthenticated users are redirected to login page
+
+### Password Configuration
+
+Set your password in the `.env` file:
+```env
+APP_PASSWORD=your-secure-password-here
+```
+
+If no password is set, the default is `admin123` (change this for production!).
+
 ## Usage
+
+### Authentication
+
+1. **First Visit**: You'll be redirected to the login page
+2. **Enter Password**: Use the password configured in your environment
+3. **Stay Logged In**: Sessions last 24 hours
+4. **Logout**: Use the logout button in the top-right corner
 
 ### Main Quote Calculator
 
