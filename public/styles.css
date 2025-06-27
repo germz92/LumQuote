@@ -1258,7 +1258,7 @@ body {
     .quantity-input {
         width: 45px;
         padding: 4px 2px;
-        font-size: 14px;
+        font-size: 16px;
         text-align: center;
     }
     
@@ -1424,7 +1424,7 @@ body {
     .quantity-input {
         width: 40px;
         padding: 4px 2px;
-        font-size: 14px;
+        font-size: 16px;
     }
     
     .price-cell {
