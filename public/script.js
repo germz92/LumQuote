@@ -13,12 +13,12 @@ class QuoteCalculator {
         this.draggedData = null;
         
         // Touch drag state
-        this.touchDragEnabled = false;
         this.touchStartTime = 0;
         this.touchHoldTimer = null;
         this.touchStartPos = { x: 0, y: 0 };
         this.isDragging = false;
         this.touchMoved = false;
+        this.mobileGhost = null;
         
         this.init();
     }
@@ -1704,18 +1704,25 @@ class QuoteCalculator {
     clearDragState() {
         // Clear dragging state from the dragged element
         if (this.draggedElement) {
-            this.draggedElement.classList.remove('dragging');
+            this.draggedElement.classList.remove('dragging', 'mobile-dragging');
         }
         
         // Clear all drop indicators
         this.clearDropIndicators();
+        this.clearMobileDropIndicators();
+        this.hideMobileDropZones();
+        
+        // Remove mobile ghost
+        if (this.mobileGhost) {
+            this.mobileGhost.remove();
+            this.mobileGhost = null;
+        }
         
         // Reset drag variables
         this.draggedElement = null;
         this.draggedData = null;
         
         // Reset touch drag state
-        this.touchDragEnabled = false;
         this.isDragging = false;
         this.touchMoved = false;
         if (this.touchHoldTimer) {
@@ -1726,57 +1733,75 @@ class QuoteCalculator {
 
     // Touch event handlers for mobile drag and drop
     handleTouchStart(event) {
-        // Only handle touches on the drag handle or service row
+        // Only handle touches on the drag handle
+        const dragHandle = event.target.closest('.drag-handle');
+        if (!dragHandle) return;
+        
         const serviceRow = event.currentTarget;
         const touch = event.touches[0];
         
+        // Simple state setup
         this.touchStartTime = Date.now();
         this.touchStartPos = { x: touch.clientX, y: touch.clientY };
         this.touchMoved = false;
         this.isDragging = false;
         
-        // Prevent text selection and other touch behaviors during potential drag
+        // Prevent default only when touching the drag handle
         event.preventDefault();
         
-        // Start timer for tap and hold - increased to 700ms for better UX
+        // Shorter hold timer for better responsiveness
         this.touchHoldTimer = setTimeout(() => {
             if (!this.touchMoved) {
-                // Enable drag mode
-                this.touchDragEnabled = true;
-                this.isDragging = true;
-                
-                // Set up drag data
-                this.draggedElement = serviceRow;
-                this.draggedData = {
-                    dayIndex: parseInt(serviceRow.dataset.dayIndex),
-                    serviceIndex: parseInt(serviceRow.dataset.serviceIndex),
-                    serviceId: serviceRow.dataset.serviceId
-                };
-                
-                // Visual feedback
-                serviceRow.classList.add('dragging');
-                
-                // Add visual indicators for all potential drop zones
-                this.showMobileDropZones();
-                
-                // Haptic feedback if available
-                if (navigator.vibrate) {
-                    navigator.vibrate([50, 50, 50]); // Triple vibration to indicate drag start
-                }
-                
-                // Prevent scrolling while dragging
-                document.body.style.overflow = 'hidden';
-                document.body.classList.add('mobile-dragging');
+                this.startMobileDrag(serviceRow, touch);
             }
-        }, 700); // Increased to 700ms for better mobile UX
+        }, 300); // Reduced from 700ms to 300ms
+    }
+
+    startMobileDrag(serviceRow, touch) {
+        this.isDragging = true;
+        this.draggedElement = serviceRow;
+        this.draggedData = {
+            dayIndex: parseInt(serviceRow.dataset.dayIndex),
+            serviceIndex: parseInt(serviceRow.dataset.serviceIndex),
+            serviceId: serviceRow.dataset.serviceId
+        };
+        
+        // Visual feedback
+        serviceRow.classList.add('mobile-dragging');
+        
+        // Create ghost element for better visual feedback
+        this.createMobileGhost(serviceRow, touch);
+        
+        // Show drop zones
+        this.showMobileDropZones();
+        
+        // Haptic feedback
+        if (navigator.vibrate) {
+            navigator.vibrate(50);
+        }
+    }
+
+    createMobileGhost(serviceRow, touch) {
+        const ghost = serviceRow.cloneNode(true);
+        ghost.classList.add('mobile-drag-ghost');
+        ghost.style.position = 'fixed';
+        ghost.style.pointerEvents = 'none';
+        ghost.style.zIndex = '9999';
+        ghost.style.opacity = '0.8';
+        ghost.style.transform = 'scale(1.05)';
+        ghost.style.left = (touch.clientX - 100) + 'px';
+        ghost.style.top = (touch.clientY - 30) + 'px';
+        
+        document.body.appendChild(ghost);
+        this.mobileGhost = ghost;
     }
 
     handleTouchMove(event) {
         const touch = event.touches[0];
         const moveDistance = Math.abs(touch.clientX - this.touchStartPos.x) + Math.abs(touch.clientY - this.touchStartPos.y);
         
-        // If moved more than 15px (increased threshold), cancel hold timer
-        if (moveDistance > 15) {
+        // Cancel hold timer if moved
+        if (moveDistance > 10) {
             this.touchMoved = true;
             if (this.touchHoldTimer) {
                 clearTimeout(this.touchHoldTimer);
@@ -1784,49 +1809,47 @@ class QuoteCalculator {
             }
         }
         
-        // If in drag mode, handle the drag
-        if (this.isDragging && this.touchDragEnabled) {
+        // If dragging, update ghost position and show drop indicators
+        if (this.isDragging) {
             event.preventDefault();
             
-            // Clear previous drop indicators
-            this.clearDropIndicators();
+            // Update ghost position
+            if (this.mobileGhost) {
+                this.mobileGhost.style.left = (touch.clientX - 100) + 'px';
+                this.mobileGhost.style.top = (touch.clientY - 30) + 'px';
+            }
             
-            // Find element under touch point
+            // Clear previous indicators
+            this.clearMobileDropIndicators();
+            
+            // Find drop target
             const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
             const targetRow = elementBelow?.closest('.day-row');
             
             if (targetRow && targetRow !== this.draggedElement && !targetRow.classList.contains('add-service-row')) {
-                // Simulate drag over with enhanced visual feedback
-                const fakeEvent = {
-                    preventDefault: () => {},
-                    currentTarget: targetRow,
-                    clientY: touch.clientY,
-                    dataTransfer: { dropEffect: 'move' }
-                };
-                this.handleDragOver(fakeEvent);
+                // Show drop indicator
+                const rect = targetRow.getBoundingClientRect();
+                const isUpperHalf = touch.clientY < rect.top + rect.height / 2;
                 
-                // Add mobile-specific visual feedback
-                targetRow.classList.add('mobile-drop-hover');
+                targetRow.classList.add('mobile-drop-target');
+                if (isUpperHalf) {
+                    targetRow.classList.add('drop-above');
+                } else {
+                    targetRow.classList.add('drop-below');
+                }
             }
         }
     }
 
     handleTouchEnd(event) {
-        // Clean up timers
+        // Clean up timer
         if (this.touchHoldTimer) {
             clearTimeout(this.touchHoldTimer);
             this.touchHoldTimer = null;
         }
         
-        // Re-enable scrolling and remove mobile drag class
-        document.body.style.overflow = '';
-        document.body.classList.remove('mobile-dragging');
-        
-        // Clear mobile drop zones
-        this.hideMobileDropZones();
-        
-        // If we were dragging, handle drop
-        if (this.isDragging && this.touchDragEnabled) {
+        // Handle drop if we were dragging
+        if (this.isDragging) {
             event.preventDefault();
             
             const touch = event.changedTouches[0];
@@ -1834,44 +1857,64 @@ class QuoteCalculator {
             const targetRow = elementBelow?.closest('.day-row');
             
             if (targetRow && targetRow !== this.draggedElement && !targetRow.classList.contains('add-service-row')) {
-                // Simulate drop
-                const fakeEvent = {
-                    preventDefault: () => {},
-                    currentTarget: targetRow,
-                    clientY: touch.clientY
-                };
-                this.handleDrop(fakeEvent);
+                // Perform the drop
+                this.performMobileDrop(targetRow, touch);
                 
-                // Success haptic feedback
+                // Success feedback
                 if (navigator.vibrate) {
                     navigator.vibrate(100);
                 }
             } else {
-                // Failed drop haptic feedback
+                // Failed drop feedback
                 if (navigator.vibrate) {
-                    navigator.vibrate([100, 50, 100]);
+                    navigator.vibrate([50, 50, 50]);
                 }
-                this.clearDragState();
             }
-        } else if (!this.touchMoved && Date.now() - this.touchStartTime < 700) {
-            // This was a quick tap, not a drag attempt
-            // Allow tooltip to show only if tap was specifically on service name area
-            const serviceName = event.target.closest('.service-name');
-            if (serviceName && serviceName.classList.contains('has-tooltip')) {
-                // Small delay to avoid conflicts
-                setTimeout(() => {
-                    const fakeEvent = {
-                        stopPropagation: () => {},
-                        preventDefault: () => {},
-                        currentTarget: serviceName
-                    };
-                    this.toggleTooltip(fakeEvent);
-                }, 50);
-            }
-        } else {
-            // Reset state for incomplete drag
-            this.clearDragState();
         }
+        
+        // Clean up
+        this.cleanupMobileDrag();
+    }
+
+    performMobileDrop(targetRow, touch) {
+        const targetDayIndex = parseInt(targetRow.dataset.dayIndex);
+        const targetServiceIndex = parseInt(targetRow.dataset.serviceIndex);
+        
+        // Determine drop position
+        const rect = targetRow.getBoundingClientRect();
+        const isUpperHalf = touch.clientY < rect.top + rect.height / 2;
+        
+        // Perform the actual drop operation
+        this.handleServiceDrop(this.draggedData, targetDayIndex, targetServiceIndex, !isUpperHalf);
+    }
+
+    cleanupMobileDrag() {
+        // Remove ghost
+        if (this.mobileGhost) {
+            this.mobileGhost.remove();
+            this.mobileGhost = null;
+        }
+        
+        // Clear all mobile-specific classes
+        this.clearMobileDropIndicators();
+        this.hideMobileDropZones();
+        
+        // Remove dragging class
+        if (this.draggedElement) {
+            this.draggedElement.classList.remove('mobile-dragging');
+        }
+        
+        // Reset state
+        this.isDragging = false;
+        this.draggedElement = null;
+        this.draggedData = null;
+        this.touchMoved = false;
+    }
+
+    clearMobileDropIndicators() {
+        document.querySelectorAll('.mobile-drop-target, .drop-above, .drop-below').forEach(el => {
+            el.classList.remove('mobile-drop-target', 'drop-above', 'drop-below');
+        });
     }
 
     toggleTooltip(event) {
@@ -1926,8 +1969,8 @@ class QuoteCalculator {
 
     hideMobileDropZones() {
         // Remove mobile drop zone indicators
-        document.querySelectorAll('.mobile-drop-zone, .mobile-drop-hover').forEach(el => {
-            el.classList.remove('mobile-drop-zone', 'mobile-drop-hover');
+        document.querySelectorAll('.mobile-drop-zone').forEach(el => {
+            el.classList.remove('mobile-drop-zone');
         });
         
         // Remove instruction text
