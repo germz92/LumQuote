@@ -696,6 +696,9 @@ app.post('/api/generate-excel', async (req, res) => {
             row.getCell('date').alignment = { horizontal: 'right' };
           }
           
+          // Set quantity column to left-aligned
+          row.getCell('qty').alignment = { horizontal: 'left' };
+          
           // Enable text wrapping for description column
           if (serviceDescription) {
             row.getCell('description').alignment = { wrapText: true, vertical: 'top' };
@@ -726,6 +729,9 @@ app.post('/api/generate-excel', async (req, res) => {
         // Make dates bold and right-aligned (override after base font)
         row.getCell('date').font = { bold: true, name: 'Arial', size: 11 };
         row.getCell('date').alignment = { horizontal: 'right' };
+        
+        // Set quantity column to left-aligned
+        row.getCell('qty').alignment = { horizontal: 'left' };
         currentRow++;
       }
     });
