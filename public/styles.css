@@ -2208,4 +2208,49 @@ textarea:focus {
     .tooltip::after {
         display: none;
     }
+}
+
+/* Tentative service styles */
+.service-name.tentative .service-text {
+    color: #059669;
+}
+
+.price-cell.tentative {
+    color: #059669;
+    font-weight: 600;
+}
+
+.tentative-row {
+    color: #059669;
+    font-weight: 600;
+}
+
+.tentative-label {
+    color: #059669;
+}
+
+.tentative-amount {
+    color: #059669;
+}
+
+/* Context menu styles */
+.context-menu {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    padding: 4px 0;
+    min-width: 160px;
+}
+
+.context-menu-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #374151;
+    transition: background-color 0.2s;
+}
+
+.context-menu-item:hover {
+    background-color: #f3f4f6;
 } 

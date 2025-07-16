@@ -371,21 +371,25 @@ async function generateQuoteHTML(quoteData) {
         const serviceDisplayName = isSubservice ? `└─ ${service.name}` : service.name;
         const serviceDescription = serviceDefinition?.description || '';
         const serviceStyle = isSubservice ? 'color: #64748b; padding-left: 30px;' : 'color: #1e293b;';
+        const isTentative = service.tentative || false;
+        const tentativeStyle = isTentative ? 'color: #059669;' : '';
+        const tentativeLabel = isTentative ? ' (Tentative)' : '';
+        const tentativePrice = isTentative ? `(${formatCurrency(service.price * (service.quantity || 1))})` : formatCurrency(service.price * (service.quantity || 1));
         
         const dayLabel = serviceIndex === 0 ? (day.date ? formatDateForPDF(parseStoredDate(day.date)) : `Day ${dayIndex + 1}`) : '';
         
         servicesHTML += `
           <tr${serviceIndex === day.services.length - 1 && dayIndex < days.length - 1 ? ' class="day-separator"' : ''}>
             <td style="${serviceIndex === 0 ? 'font-weight: 600; color: #1e293b;' : ''}">${dayLabel}</td>
-            <td style="${serviceStyle}">
-              ${serviceDisplayName}
+            <td style="${serviceStyle} ${tentativeStyle}">
+              ${serviceDisplayName}${tentativeLabel}
             ${serviceDescription ? `<br><small style="color: #64748b; font-size: 10px; line-height: 1.3;">${serviceDescription}</small>` : ''}
             </td>
             <td style="text-align: center; color: #1e293b;">
               ${service.quantity || 1}
             </td>
-            <td style="text-align: right; font-weight: 600; color: #1e293b;">
-              ${formatCurrency(service.price * (service.quantity || 1))}
+            <td style="text-align: right; font-weight: 600; ${tentativeStyle}">
+              ${tentativePrice}
             </td>
           </tr>
         `;
@@ -570,14 +574,28 @@ async function generateQuoteHTML(quoteData) {
           ${discountPercentage > 0 ? `
             <div>Subtotal: ${formatCurrency(subtotal)}</div>
             <div>Discount (${discountPercentage}%): -${formatCurrency(discountAmount)}</div>
-            <div class="total-final">Total: ${formatCurrency(total)}</div>
+            <div class="total-final">Grand Total: ${formatCurrency(total)}</div>
           ` : `
-            <div class="total-final">Total: ${formatCurrency(total)}</div>
+            <div class="total-final">Grand Total: ${formatCurrency(total)}</div>
           `}
+          ${(() => {
+            const tentativeSubtotal = days.reduce((total, day) => {
+              return total + day.services.reduce((dayTotal, service) => {
+                return dayTotal + (service.tentative ? (service.price * (service.quantity || 1)) : 0);
+              }, 0);
+            }, 0);
+            if (tentativeSubtotal > 0) {
+              const tentativeDiscountAmount = tentativeSubtotal * (discountPercentage / 100);
+              const finalTentativeTotal = tentativeSubtotal - tentativeDiscountAmount;
+              return `<div style="color: #059669; font-weight: 600; margin-top: 8px;">Tentative Total: (${formatCurrency(finalTentativeTotal)})</div>`;
+            }
+            return '';
+          })()}
         </div>
         
         <div class="footer">
           <p><strong>* Pricing may change. This is a quote, not an official invoice</strong></p>
+          <p style="color: #059669; font-weight: 600; margin-top: 8px;"><strong>* Tentative services are not included in the Grand Total</strong></p>
           <p class="contact">Contact us for any questions - sales@lumetrymedia.com</p>
         </div>
       </div>
@@ -664,7 +682,8 @@ app.post('/api/generate-excel', async (req, res) => {
     days.forEach((day, dayIndex) => {
       if (day.services.length > 0) {
         day.services.forEach((service, serviceIndex) => {
-          const serviceName = service.name; // No indentation
+          const isTentative = service.tentative || false;
+          const serviceName = isTentative ? `${service.name} (Tentative)` : service.name;
           
           // Get service definition for description
           const serviceDefinition = allServices.find(s => s._id.toString() === service.id);
@@ -676,7 +695,7 @@ app.post('/api/generate-excel', async (req, res) => {
             : '';
           
           const rate = formatCurrency(service.price);
-          const price = formatCurrency(service.price * service.quantity);
+          const price = isTentative ? `(${formatCurrency(service.price * service.quantity)})` : formatCurrency(service.price * service.quantity);
           
           const row = worksheet.addRow({
             date: dateDisplay,
@@ -815,6 +834,29 @@ app.post('/api/generate-excel', async (req, res) => {
         pattern: 'solid',
         fgColor: { argb: 'FFD3D3D3' } // Light gray background
       };
+    }
+    
+    // Add tentative total (sum of only tentative services with discount applied)
+    const tentativeSubtotal = days.reduce((total, day) => {
+      return total + day.services.reduce((dayTotal, service) => {
+        return dayTotal + (service.tentative ? (service.price * service.quantity) : 0);
+      }, 0);
+    }, 0);
+    
+    if (tentativeSubtotal > 0) {
+      const tentativeDiscountAmount = tentativeSubtotal * (discountPercentage / 100);
+      const finalTentativeTotal = tentativeSubtotal - tentativeDiscountAmount;
+      
+      const tentativeRow = worksheet.addRow({
+        date: '',
+        item: '',
+        qty: '',
+        rate: '',
+        price: `(${formatCurrency(finalTentativeTotal)})`,
+        description: 'Tentative Total'
+      });
+      tentativeRow.getCell('description').alignment = { horizontal: 'left' };
+      tentativeRow.font = { name: 'Arial', size: 11 };
     }
     
     // Generate Excel buffer

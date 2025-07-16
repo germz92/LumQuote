@@ -19,6 +19,7 @@ class QuoteCalculator {
         this.isDragging = false;
         this.touchMoved = false;
         this.mobileGhost = null;
+        this.lastServiceTap = 0;
         
         this.init();
     }
@@ -40,6 +41,15 @@ class QuoteCalculator {
                 this.discountPercentage = draftData.discountPercentage || 0;
                 this.currentQuoteName = draftData.currentQuoteName || null;
                 this.currentClientName = draftData.currentClientName || null;
+                
+                // Ensure existing services have tentative property
+                this.days.forEach(day => {
+                    day.services.forEach(service => {
+                        if (service.tentative === undefined) {
+                            service.tentative = false;
+                        }
+                    });
+                });
                 
                 console.log('📄 Loaded draft from localStorage');
             }
@@ -165,9 +175,11 @@ class QuoteCalculator {
                         ` : ''}
                     </div>
                     <div class="service-cell">
-                        <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${this.getServiceById(service.id)?.description ? 'has-tooltip' : ''}" ${this.getServiceById(service.id)?.description ? `onclick="calculator.toggleTooltip(event)"` : ''}>
+                        <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${this.getServiceById(service.id)?.description ? 'has-tooltip' : ''} ${service.tentative ? 'tentative' : ''}" 
+                             ${this.getServiceById(service.id)?.description ? `onclick="calculator.toggleTooltip(event)"` : ''}
+                             oncontextmenu="calculator.showTentativeContextMenu(event, ${dayIndex}, ${serviceIndex}); return false;">
                             <span class="drag-handle">⋮⋮</span>
-                            <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}</span>
+                            <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}${service.tentative ? ' (Tentative)' : ''}</span>
                             ${this.getServiceById(service.id)?.description ? `<div class="tooltip">${this.getServiceById(service.id).description}</div>` : ''}
                         </div>
                         <button class="remove-service" onclick="calculator.removeService(${dayIndex}, ${serviceIndex})">×</button>
@@ -181,8 +193,8 @@ class QuoteCalculator {
                                onchange="calculator.updateQuantity(${dayIndex}, ${serviceIndex}, this.value)"
                                onclick="this.select()">
                     </div>
-                    <div class="price-cell">
-                        ${this.formatCurrency(service.price * service.quantity)}
+                    <div class="price-cell ${service.tentative ? 'tentative' : ''}">
+                        ${service.tentative ? `(${this.formatCurrency(service.price * service.quantity)})` : this.formatCurrency(service.price * service.quantity)}
                     </div>
                 `;
                 
@@ -197,6 +209,9 @@ class QuoteCalculator {
                 serviceRow.ontouchmove = (e) => this.handleTouchMove(e);
                 serviceRow.ontouchend = (e) => this.handleTouchEnd(e);
                 serviceRow.ontouchcancel = (e) => this.handleTouchEnd(e);
+                
+                // Add double-tap handler for tentative marking on mobile
+                serviceRow.addEventListener('touchend', (e) => this.handleServiceDoubleTap(e, dayIndex, serviceIndex));
                 
                 container.appendChild(serviceRow);
             });
@@ -365,9 +380,15 @@ class QuoteCalculator {
     addServiceToDay(dayIndex, service) {
         // Add quantity property with default value of 1
         service.quantity = 1;
+        // Add tentative property if not present
+        if (service.tentative === undefined) {
+            service.tentative = false;
+        }
+        
         this.days[dayIndex].services.push(service);
         this.renderDays();
         this.updateTotal();
+        this.markQuoteAsModified();
         this.saveDraftToLocalStorage();
     }
 
@@ -478,13 +499,26 @@ class QuoteCalculator {
     }
 
     calculateTotal() {
-        return this.days.reduce((total, day) => total + this.calculateDayTotal(this.days.indexOf(day)), 0);
+        return this.days.reduce((total, day) => {
+            return total + day.services.reduce((dayTotal, service) => {
+                return dayTotal + (!service.tentative ? (service.price * service.quantity) : 0);
+            }, 0);
+        }, 0);
+    }
+
+    calculateTentativeTotal() {
+        return this.days.reduce((total, day) => {
+            return total + day.services.reduce((dayTotal, service) => {
+                return dayTotal + (service.tentative ? (service.price * service.quantity) : 0);
+            }, 0);
+        }, 0);
     }
 
     updateTotal() {
         const subtotal = this.calculateTotal();
         const discountAmount = subtotal * (this.discountPercentage / 100);
         const total = subtotal - discountAmount;
+        const tentativeTotal = this.calculateTentativeTotal();
         
         // Update display based on whether discount is applied
         if (this.discountPercentage > 0) {
@@ -500,6 +534,30 @@ class QuoteCalculator {
             document.getElementById('subtotalRow').style.display = 'none';
             document.getElementById('discountRow').style.display = 'none';
             document.getElementById('total-amount').textContent = this.formatCurrency(subtotal);
+        }
+        
+        // Update tentative total display (with discount applied)
+        const tentativeRow = document.getElementById('tentativeRow');
+        if (tentativeTotal > 0) {
+            const tentativeDiscountAmount = tentativeTotal * (this.discountPercentage / 100);
+            const finalTentativeTotal = tentativeTotal - tentativeDiscountAmount;
+            
+            if (!tentativeRow) {
+                // Create tentative total row if it doesn't exist
+                const totalsContainer = document.querySelector('.quote-summary');
+                const tentativeRowElement = document.createElement('div');
+                tentativeRowElement.className = 'summary-row tentative-row';
+                tentativeRowElement.id = 'tentativeRow';
+                tentativeRowElement.innerHTML = `
+                    <span class="summary-label tentative-label">Tentative Total:</span>
+                    <span class="summary-amount tentative-amount">(${this.formatCurrency(finalTentativeTotal)})</span>
+                `;
+                totalsContainer.appendChild(tentativeRowElement);
+            } else {
+                tentativeRow.querySelector('.tentative-amount').textContent = `(${this.formatCurrency(finalTentativeTotal)})`;
+            }
+        } else if (tentativeRow) {
+            tentativeRow.remove();
         }
         
         // Enable/disable PDF and Excel buttons
@@ -1046,6 +1104,9 @@ class QuoteCalculator {
                 day.services.forEach(service => {
                     if (!service.quantity) {
                         service.quantity = 1;
+                    }
+                    if (service.tentative === undefined) {
+                        service.tentative = false;
                     }
                 });
             });
@@ -1977,6 +2038,88 @@ class QuoteCalculator {
         const instruction = document.querySelector('.mobile-drag-instruction');
         if (instruction) {
             instruction.remove();
+        }
+    }
+
+    showTentativeContextMenu(event, dayIndex, serviceIndex) {
+        event.preventDefault();
+        
+        // Remove any existing context menu
+        const existingMenu = document.getElementById('tentative-context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+        
+        const service = this.days[dayIndex].services[serviceIndex];
+        const isTentative = service.tentative;
+        
+        // Create context menu
+        const contextMenu = document.createElement('div');
+        contextMenu.id = 'tentative-context-menu';
+        contextMenu.className = 'context-menu';
+        contextMenu.innerHTML = `
+            <div class="context-menu-item" onclick="calculator.toggleTentativeStatus(${dayIndex}, ${serviceIndex})">
+                ${isTentative ? 'Unmark as Tentative' : 'Mark as Tentative'}
+            </div>
+        `;
+        
+        // Position the menu
+        contextMenu.style.position = 'absolute';
+        contextMenu.style.left = event.pageX + 'px';
+        contextMenu.style.top = event.pageY + 'px';
+        contextMenu.style.zIndex = '1000';
+        
+        document.body.appendChild(contextMenu);
+        
+        // Close menu when clicking outside
+        const closeMenu = (e) => {
+            if (!contextMenu.contains(e.target)) {
+                contextMenu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        
+        // Delay adding the event listener to avoid immediate closure
+        setTimeout(() => {
+            document.addEventListener('click', closeMenu);
+        }, 100);
+    }
+
+    toggleTentativeStatus(dayIndex, serviceIndex) {
+        const service = this.days[dayIndex].services[serviceIndex];
+        service.tentative = !service.tentative;
+        
+        // Remove context menu
+        const contextMenu = document.getElementById('tentative-context-menu');
+        if (contextMenu) {
+            contextMenu.remove();
+        }
+        
+        this.renderDays();
+        this.updateTotal();
+        this.markQuoteAsModified();
+        this.saveDraftToLocalStorage();
+    }
+
+    handleServiceDoubleTap(event, dayIndex, serviceIndex) {
+        // Check if this is a double tap (within 300ms of the last tap)
+        const now = Date.now();
+        const lastTap = this.lastServiceTap || 0;
+        const timeDiff = now - lastTap;
+        
+        // Store this tap time for next comparison
+        this.lastServiceTap = now;
+        
+        // If it's a double tap (within 300ms)
+        if (timeDiff < 300 && timeDiff > 0) {
+            // Prevent default behavior
+            event.preventDefault();
+            
+            // Toggle tentative status
+            this.toggleTentativeStatus(dayIndex, serviceIndex);
+            
+            // Reset the tap counter
+            this.lastServiceTap = 0;
         }
     }
 }
