@@ -20,6 +20,7 @@ class QuoteCalculator {
         this.touchMoved = false;
         this.mobileGhost = null;
         this.lastServiceTap = 0;
+        this.tooltipTimeout = null;
         
         this.init();
     }
@@ -176,7 +177,6 @@ class QuoteCalculator {
                     </div>
                     <div class="service-cell">
                         <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${this.getServiceById(service.id)?.description ? 'has-tooltip' : ''} ${service.tentative ? 'tentative' : ''}" 
-                             ${this.getServiceById(service.id)?.description ? `onclick="calculator.toggleTooltip(event)"` : ''}
                              oncontextmenu="calculator.showTentativeContextMenu(event, ${dayIndex}, ${serviceIndex}); return false;">
                             <span class="drag-handle">⋮⋮</span>
                             <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}${service.tentative ? ' (Tentative)' : ''}</span>
@@ -212,6 +212,12 @@ class QuoteCalculator {
                 
                 // Add double-tap handler for tentative marking on mobile
                 serviceRow.addEventListener('touchend', (e) => this.handleServiceDoubleTap(e, dayIndex, serviceIndex));
+                
+                // Add click handler for tooltip (only if service has description)
+                if (this.getServiceById(service.id)?.description) {
+                    const serviceName = serviceRow.querySelector('.service-name');
+                    serviceName.addEventListener('click', (e) => this.handleServiceClick(e, dayIndex, serviceIndex));
+                }
                 
                 container.appendChild(serviceRow);
             });
@@ -1990,6 +1996,23 @@ class QuoteCalculator {
         const serviceName = event.currentTarget;
         const isActive = serviceName.classList.contains('active');
         
+        // If tooltip is already active, close it immediately
+        if (isActive) {
+            // Clear any pending tooltip timeout
+            if (this.tooltipTimeout) {
+                clearTimeout(this.tooltipTimeout);
+                this.tooltipTimeout = null;
+            }
+            serviceName.classList.remove('active');
+            return;
+        }
+        
+        // Clear any existing tooltip timeout
+        if (this.tooltipTimeout) {
+            clearTimeout(this.tooltipTimeout);
+            this.tooltipTimeout = null;
+        }
+        
         // Close all other tooltips
         document.querySelectorAll('.service-name.has-tooltip.active').forEach(el => {
             if (el !== serviceName) {
@@ -1997,11 +2020,10 @@ class QuoteCalculator {
             }
         });
         
-        // Toggle this tooltip
-        if (isActive) {
-            serviceName.classList.remove('active');
-        } else {
+        // Delay showing tooltip to allow for double-tap detection
+        this.tooltipTimeout = setTimeout(() => {
             serviceName.classList.add('active');
+            this.tooltipTimeout = null;
             
             // Auto-close on mobile after 3 seconds
             if (window.innerWidth <= 768) {
@@ -2009,7 +2031,7 @@ class QuoteCalculator {
                     serviceName.classList.remove('active');
                 }, 3000);
             }
-        }
+        }, 350); // Delay slightly longer than double-tap window (300ms)
     }
 
     // Helper methods for mobile drag visual feedback
@@ -2101,8 +2123,14 @@ class QuoteCalculator {
         this.saveDraftToLocalStorage();
     }
 
-    handleServiceDoubleTap(event, dayIndex, serviceIndex) {
-        // Check if this is a double tap (within 300ms of the last tap)
+    handleServiceClick(event, dayIndex, serviceIndex) {
+        // On desktop, just show tooltip immediately (no double-click for tentative)
+        if (window.innerWidth > 768) {
+            this.toggleTooltip(event);
+            return;
+        }
+        
+        // Mobile only: Check if this is a double tap (within 300ms of the last tap)
         const now = Date.now();
         const lastTap = this.lastServiceTap || 0;
         const timeDiff = now - lastTap;
@@ -2114,13 +2142,34 @@ class QuoteCalculator {
         if (timeDiff < 300 && timeDiff > 0) {
             // Prevent default behavior
             event.preventDefault();
+            event.stopPropagation();
+            
+            // Cancel any pending tooltip
+            if (this.tooltipTimeout) {
+                clearTimeout(this.tooltipTimeout);
+                this.tooltipTimeout = null;
+            }
+            
+            // Close any active tooltips
+            document.querySelectorAll('.service-name.has-tooltip.active').forEach(el => {
+                el.classList.remove('active');
+            });
             
             // Toggle tentative status
             this.toggleTentativeStatus(dayIndex, serviceIndex);
             
             // Reset the tap counter
             this.lastServiceTap = 0;
+        } else {
+            // Single tap on mobile - show tooltip after delay
+            this.toggleTooltip(event);
         }
+    }
+
+    handleServiceDoubleTap(event, dayIndex, serviceIndex) {
+        // This method is kept for touch events but now just delegates to handleServiceClick
+        // We need both because desktop uses click and mobile uses touchend
+        this.handleServiceClick(event, dayIndex, serviceIndex);
     }
 }
 
