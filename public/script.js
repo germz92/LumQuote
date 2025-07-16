@@ -88,7 +88,7 @@ class QuoteCalculator {
                     day.date = null;
                 }
                 day.services.forEach(service => {
-                    if (service.quantity === undefined || service.quantity === null) {
+                    if (!service.quantity) {
                         service.quantity = 1;
                     }
                 });
@@ -176,7 +176,7 @@ class QuoteCalculator {
                         <input type="number" 
                                class="quantity-input" 
                                value="${service.quantity}" 
-                               min="0" 
+                               min="1" 
                                max="99"
                                onchange="calculator.updateQuantity(${dayIndex}, ${serviceIndex}, this.value)"
                                onclick="this.select()">
@@ -466,7 +466,7 @@ class QuoteCalculator {
     }
 
     updateQuantity(dayIndex, serviceIndex, newQuantity) {
-        const quantity = Math.max(0, Math.min(99, parseInt(newQuantity) || 0));
+        const quantity = Math.max(1, Math.min(99, parseInt(newQuantity) || 1));
         this.days[dayIndex].services[serviceIndex].quantity = quantity;
         this.renderDays();
         this.updateTotal();
@@ -1044,7 +1044,7 @@ class QuoteCalculator {
                     day.date = null;
                 }
                 day.services.forEach(service => {
-                    if (service.quantity === undefined || service.quantity === null) {
+                    if (!service.quantity) {
                         service.quantity = 1;
                     }
                 });
