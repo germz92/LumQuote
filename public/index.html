@@ -46,7 +46,13 @@
                         <button class="save-btn" onclick="showSaveModal()">Save</button>
                         <button class="load-btn" onclick="showLoadModal()">Load</button>
                         <button class="clear-btn" onclick="clearQuote()">Clear</button>
+                        <button class="override-btn" id="overrideBtn" onclick="calculator.toggleOverrideMode()">Override</button>
                     </div>
+                </div>
+
+                <!-- Override Mode Banner -->
+                <div id="overrideBanner" class="override-banner" style="display: none;">
+                    <span class="override-text">Override Mode - Click any service to edit name and unit price</span>
                 </div>
 
                 <div class="quote-table">

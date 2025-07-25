@@ -2253,4 +2253,172 @@ textarea:focus {
 
 .context-menu-item:hover {
     background-color: #f3f4f6;
+}
+
+/* Override Mode Styles */
+.override-btn {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.override-btn:hover {
+    background: #2563eb;
+}
+
+.override-btn.active {
+    background: #dc2626;
+}
+
+.override-btn.active:hover {
+    background: #b91c1c;
+}
+
+.override-banner {
+    background: linear-gradient(90deg, #fbbf24, #f59e0b);
+    color: #92400e;
+    padding: 12px 20px;
+    margin: 16px 0;
+    border-radius: 8px;
+    border: 1px solid #fcd34d;
+    font-weight: 600;
+    text-align: center;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.override-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+/* Override Mode Service Styling */
+.service-name.override-mode {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.service-name.override-mode:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 4px;
+    transform: translateY(-1px);
+}
+
+/* Edited Badge */
+.edited-badge {
+    background: #dc2626;
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-left: 8px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+/* Edit Service Modal */
+#editServiceModal .modal-content {
+    max-width: 500px;
+}
+
+.original-values {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 16px 0;
+}
+
+.original-values p {
+    margin: 4px 0;
+    font-size: 14px;
+    color: #64748b;
+}
+
+.original-values strong {
+    color: #374151;
+}
+
+#editServiceModal .form-group {
+    margin-bottom: 16px;
+}
+
+#editServiceModal label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    color: #374151;
+}
+
+#editServiceModal input[type="text"],
+#editServiceModal input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+#editServiceModal input[type="text"]:focus,
+#editServiceModal input[type="number"]:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+#editServiceModal .modal-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+#editServiceModal .modal-buttons button {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#editServiceModal .secondary-button {
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #d1d5db;
+}
+
+#editServiceModal .secondary-button:hover {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+#editServiceModal .primary-button {
+    background: #3b82f6;
+    color: white;
+    border: 1px solid #3b82f6;
+}
+
+#editServiceModal .primary-button:hover {
+    background: #2563eb;
+    border-color: #2563eb;
 } 

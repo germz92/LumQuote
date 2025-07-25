@@ -7,6 +7,7 @@ class QuoteCalculator {
         this.currentClientName = null;
         this.activeCalendar = null;
         this.autoSaveKey = 'quote_calculator_draft';
+        this.isOverrideMode = false;
         
         // Drag and drop state
         this.draggedElement = null;
@@ -82,6 +83,12 @@ class QuoteCalculator {
         this.discountPercentage = 0;
         this.currentQuoteName = null;
         this.currentClientName = null;
+        
+        // Reset override mode
+        if (this.isOverrideMode) {
+            this.toggleOverrideMode();
+        }
+        
         this.renderDays();
         this.updateTotal();
         this.updateClientDisplay();
@@ -166,6 +173,10 @@ class QuoteCalculator {
                 serviceRow.dataset.serviceIndex = serviceIndex;
                 serviceRow.dataset.serviceId = service.id;
                 
+                const isEdited = service.isNameEdited || service.isPriceEdited;
+                const overrideClickHandler = this.isOverrideMode ? `onclick="calculator.openEditServiceModal(${dayIndex}, ${serviceIndex})"` : '';
+                const overrideCursor = this.isOverrideMode ? 'override-mode' : '';
+                
                 serviceRow.innerHTML = `
                     <div class="day-cell">
                         ${serviceIndex === 0 ? `
@@ -176,10 +187,12 @@ class QuoteCalculator {
                         ` : ''}
                     </div>
                     <div class="service-cell">
-                        <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${this.getServiceById(service.id)?.description ? 'has-tooltip' : ''} ${service.tentative ? 'tentative' : ''}" 
-                             oncontextmenu="calculator.showTentativeContextMenu(event, ${dayIndex}, ${serviceIndex}); return false;">
+                        <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${this.getServiceById(service.id)?.description ? 'has-tooltip' : ''} ${service.tentative ? 'tentative' : ''} ${overrideCursor}" 
+                             oncontextmenu="calculator.showTentativeContextMenu(event, ${dayIndex}, ${serviceIndex}); return false;"
+                             ${overrideClickHandler}>
                             <span class="drag-handle">⋮⋮</span>
                             <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}${service.tentative ? ' (Tentative)' : ''}</span>
+                            ${isEdited ? '<span class="edited-badge">Edited</span>' : ''}
                             ${this.getServiceById(service.id)?.description ? `<div class="tooltip">${this.getServiceById(service.id).description}</div>` : ''}
                         </div>
                         <button class="remove-service" onclick="calculator.removeService(${dayIndex}, ${serviceIndex})">×</button>
@@ -1128,6 +1141,11 @@ class QuoteCalculator {
             
             // Update client display
             this.updateClientDisplay();
+            
+            // Reset override mode when loading a quote
+            if (this.isOverrideMode) {
+                this.toggleOverrideMode();
+            }
             
             // Re-render the interface
             this.renderDays();
@@ -2171,6 +2189,163 @@ class QuoteCalculator {
         // We need both because desktop uses click and mobile uses touchend
         this.handleServiceClick(event, dayIndex, serviceIndex);
     }
+
+    // Toggle Override Mode
+    toggleOverrideMode() {
+        this.isOverrideMode = !this.isOverrideMode;
+        
+        const button = document.getElementById('overrideBtn');
+        const banner = document.getElementById('overrideBanner');
+        
+        if (this.isOverrideMode) {
+            button.textContent = 'Exit Override';
+            button.classList.add('active');
+            banner.style.display = 'block';
+        } else {
+            button.textContent = 'Override';
+            button.classList.remove('active');
+            banner.style.display = 'none';
+        }
+        
+        // Re-render to update click handlers
+        this.renderDays();
+    }
+
+    // Open edit service modal
+    openEditServiceModal(dayIndex, serviceIndex) {
+        const service = this.days[dayIndex].services[serviceIndex];
+        const originalService = this.getServiceById(service.id);
+        
+        // Create modal if it doesn't exist
+        if (!document.getElementById('editServiceModal')) {
+            this.createEditServiceModal();
+        }
+        
+        const modal = document.getElementById('editServiceModal');
+        const serviceNameInput = document.getElementById('editServiceName');
+        const unitPriceInput = document.getElementById('editUnitPrice');
+        const originalNameSpan = document.getElementById('originalServiceName');
+        const originalPriceSpan = document.getElementById('originalUnitPrice');
+        
+        // Set current values
+        serviceNameInput.value = service.name;
+        unitPriceInput.value = service.originalUnitPrice || service.price;
+        
+        // Set original values for reference
+        originalNameSpan.textContent = originalService?.name || service.originalName || service.name;
+        originalPriceSpan.textContent = this.formatCurrency(originalService?.price || service.originalUnitPrice || service.price);
+        
+        // Store current editing context
+        modal.dataset.dayIndex = dayIndex;
+        modal.dataset.serviceIndex = serviceIndex;
+        
+        modal.style.display = 'flex';
+    }
+
+    // Create edit service modal
+    createEditServiceModal() {
+        const modalHTML = `
+            <div id="editServiceModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Edit Service</h2>
+                        <span class="close" onclick="calculator.closeEditServiceModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editServiceForm">
+                            <div class="form-group">
+                                <label for="editServiceName">Service Name</label>
+                                <input type="text" id="editServiceName" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editUnitPrice">Unit Price</label>
+                                <input type="number" id="editUnitPrice" step="0.01" min="0" required>
+                            </div>
+                            <div class="original-values">
+                                <p><strong>Original Name:</strong> <span id="originalServiceName"></span></p>
+                                <p><strong>Original Unit Price:</strong> <span id="originalUnitPrice"></span></p>
+                            </div>
+                            <div class="modal-buttons">
+                                <button type="button" class="secondary-button" onclick="calculator.revertServiceToOriginal()">Revert to Original</button>
+                                <button type="button" class="secondary-button" onclick="calculator.closeEditServiceModal()">Cancel</button>
+                                <button type="submit" class="primary-button">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Add form submit handler
+        document.getElementById('editServiceForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveServiceEdit();
+        });
+    }
+
+    // Close edit service modal
+    closeEditServiceModal() {
+        document.getElementById('editServiceModal').style.display = 'none';
+    }
+
+    // Save service edit
+    saveServiceEdit() {
+        const modal = document.getElementById('editServiceModal');
+        const dayIndex = parseInt(modal.dataset.dayIndex);
+        const serviceIndex = parseInt(modal.dataset.serviceIndex);
+        const service = this.days[dayIndex].services[serviceIndex];
+        const originalService = this.getServiceById(service.id);
+        
+        const newName = document.getElementById('editServiceName').value.trim();
+        const newUnitPrice = parseFloat(document.getElementById('editUnitPrice').value);
+        
+        // Store original values if not already stored
+        if (!service.originalName) {
+            service.originalName = originalService?.name || service.name;
+        }
+        if (!service.originalUnitPrice) {
+            service.originalUnitPrice = originalService?.price || service.price;
+        }
+        
+        // Update service
+        service.name = newName;
+        service.price = newUnitPrice;
+        
+        // Mark as edited if different from original
+        service.isNameEdited = newName !== service.originalName;
+        service.isPriceEdited = newUnitPrice !== service.originalUnitPrice;
+        
+        this.closeEditServiceModal();
+        this.renderDays();
+        this.updateTotal();
+        this.saveDraftToLocalStorage();
+        this.markQuoteAsModified();
+    }
+
+    // Revert service to original values
+    revertServiceToOriginal() {
+        const modal = document.getElementById('editServiceModal');
+        const dayIndex = parseInt(modal.dataset.dayIndex);
+        const serviceIndex = parseInt(modal.dataset.serviceIndex);
+        const service = this.days[dayIndex].services[serviceIndex];
+        const originalService = this.getServiceById(service.id);
+        
+        // Revert to original values
+        service.name = service.originalName || originalService?.name || service.name;
+        service.price = service.originalUnitPrice || originalService?.price || service.price;
+        
+        // Clear edited flags
+        service.isNameEdited = false;
+        service.isPriceEdited = false;
+        
+        this.closeEditServiceModal();
+        this.renderDays();
+        this.updateTotal();
+        this.saveDraftToLocalStorage();
+        this.markQuoteAsModified();
+    }
 }
 
 // Initialize calculator when page loads
@@ -2484,7 +2659,7 @@ document.addEventListener('click', (e) => {
             el.classList.remove('active');
         });
     }
-});
+    });
 
 // Logout function
 async function logout() {
