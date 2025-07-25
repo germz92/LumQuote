@@ -173,9 +173,12 @@ class QuoteCalculator {
                 serviceRow.dataset.serviceIndex = serviceIndex;
                 serviceRow.dataset.serviceId = service.id;
                 
-                const isEdited = service.isNameEdited || service.isPriceEdited;
+                const isEdited = service.isNameEdited || service.isPriceEdited || service.isDescriptionEdited;
                 const overrideClickHandler = this.isOverrideMode ? `onclick="calculator.openEditServiceModal(${dayIndex}, ${serviceIndex})"` : '';
                 const overrideCursor = this.isOverrideMode ? 'override-mode' : '';
+                
+                // Get description - use service-specific description if available, otherwise fall back to global
+                const serviceDescription = service.description !== undefined ? service.description : this.getServiceById(service.id)?.description;
                 
                 serviceRow.innerHTML = `
                     <div class="day-cell">
@@ -187,13 +190,13 @@ class QuoteCalculator {
                         ` : ''}
                     </div>
                     <div class="service-cell">
-                        <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${this.getServiceById(service.id)?.description ? 'has-tooltip' : ''} ${service.tentative ? 'tentative' : ''} ${overrideCursor}" 
+                        <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${serviceDescription ? 'has-tooltip' : ''} ${service.tentative ? 'tentative' : ''} ${overrideCursor}" 
                              oncontextmenu="calculator.showTentativeContextMenu(event, ${dayIndex}, ${serviceIndex}); return false;"
                              ${overrideClickHandler}>
                             <span class="drag-handle">⋮⋮</span>
                             <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}${service.tentative ? ' (Tentative)' : ''}</span>
                             ${isEdited ? '<span class="edited-badge">Edited</span>' : ''}
-                            ${this.getServiceById(service.id)?.description ? `<div class="tooltip">${this.getServiceById(service.id).description}</div>` : ''}
+                            ${serviceDescription ? `<div class="tooltip">${serviceDescription}</div>` : ''}
                         </div>
                         <button class="remove-service" onclick="calculator.removeService(${dayIndex}, ${serviceIndex})">×</button>
                     </div>
@@ -2224,16 +2227,20 @@ class QuoteCalculator {
         const modal = document.getElementById('editServiceModal');
         const serviceNameInput = document.getElementById('editServiceName');
         const unitPriceInput = document.getElementById('editUnitPrice');
+        const descriptionTextarea = document.getElementById('editServiceDescription');
         const originalNameSpan = document.getElementById('originalServiceName');
         const originalPriceSpan = document.getElementById('originalUnitPrice');
+        const originalDescriptionSpan = document.getElementById('originalServiceDescription');
         
         // Set current values
         serviceNameInput.value = service.name;
         unitPriceInput.value = service.originalUnitPrice || service.price;
+        descriptionTextarea.value = service.description || originalService?.description || '';
         
         // Set original values for reference
         originalNameSpan.textContent = originalService?.name || service.originalName || service.name;
         originalPriceSpan.textContent = this.formatCurrency(originalService?.price || service.originalUnitPrice || service.price);
+        originalDescriptionSpan.textContent = originalService?.description || service.originalDescription || 'No description';
         
         // Store current editing context
         modal.dataset.dayIndex = dayIndex;
@@ -2261,9 +2268,14 @@ class QuoteCalculator {
                                 <label for="editUnitPrice">Unit Price</label>
                                 <input type="number" id="editUnitPrice" step="0.01" min="0" required>
                             </div>
+                            <div class="form-group">
+                                <label for="editServiceDescription">Description</label>
+                                <textarea id="editServiceDescription" rows="3" placeholder="Enter service description..."></textarea>
+                            </div>
                             <div class="original-values">
                                 <p><strong>Original Name:</strong> <span id="originalServiceName"></span></p>
                                 <p><strong>Original Unit Price:</strong> <span id="originalUnitPrice"></span></p>
+                                <p><strong>Original Description:</strong> <span id="originalServiceDescription"></span></p>
                             </div>
                             <div class="modal-buttons">
                                 <button type="button" class="secondary-button" onclick="calculator.revertServiceToOriginal()">Revert to Original</button>
@@ -2300,6 +2312,7 @@ class QuoteCalculator {
         
         const newName = document.getElementById('editServiceName').value.trim();
         const newUnitPrice = parseFloat(document.getElementById('editUnitPrice').value);
+        const newDescription = document.getElementById('editServiceDescription').value.trim();
         
         // Store original values if not already stored
         if (!service.originalName) {
@@ -2308,14 +2321,19 @@ class QuoteCalculator {
         if (!service.originalUnitPrice) {
             service.originalUnitPrice = originalService?.price || service.price;
         }
+        if (!service.originalDescription) {
+            service.originalDescription = originalService?.description || '';
+        }
         
         // Update service
         service.name = newName;
         service.price = newUnitPrice;
+        service.description = newDescription;
         
         // Mark as edited if different from original
         service.isNameEdited = newName !== service.originalName;
         service.isPriceEdited = newUnitPrice !== service.originalUnitPrice;
+        service.isDescriptionEdited = newDescription !== service.originalDescription;
         
         this.closeEditServiceModal();
         this.renderDays();
@@ -2335,10 +2353,12 @@ class QuoteCalculator {
         // Revert to original values
         service.name = service.originalName || originalService?.name || service.name;
         service.price = service.originalUnitPrice || originalService?.price || service.price;
+        service.description = service.originalDescription || originalService?.description || '';
         
         // Clear edited flags
         service.isNameEdited = false;
         service.isPriceEdited = false;
+        service.isDescriptionEdited = false;
         
         this.closeEditServiceModal();
         this.renderDays();

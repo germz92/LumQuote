@@ -2369,20 +2369,28 @@ textarea:focus {
 }
 
 #editServiceModal input[type="text"],
-#editServiceModal input[type="number"] {
+#editServiceModal input[type="number"],
+#editServiceModal textarea {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 14px;
     transition: border-color 0.2s;
+    font-family: inherit;
 }
 
 #editServiceModal input[type="text"]:focus,
-#editServiceModal input[type="number"]:focus {
+#editServiceModal input[type="number"]:focus,
+#editServiceModal textarea:focus {
     outline: none;
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+#editServiceModal textarea {
+    resize: vertical;
+    min-height: 80px;
 }
 
 #editServiceModal .modal-buttons {

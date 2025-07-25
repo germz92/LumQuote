@@ -369,7 +369,7 @@ async function generateQuoteHTML(quoteData) {
         const serviceDefinition = allServices.find(s => s._id.toString() === service.id);
         const isSubservice = serviceDefinition?.isSubservice || false;
         const serviceDisplayName = isSubservice ? `└─ ${service.name}` : service.name;
-        const serviceDescription = serviceDefinition?.description || '';
+        const serviceDescription = service.description !== undefined ? service.description : (serviceDefinition?.description || '');
         const serviceStyle = isSubservice ? 'color: #64748b; padding-left: 30px;' : 'color: #1e293b;';
         const isTentative = service.tentative || false;
         const tentativeStyle = isTentative ? 'color: #059669;' : '';
@@ -595,7 +595,15 @@ async function generateQuoteHTML(quoteData) {
         
         <div class="footer">
           <p><strong>* Pricing may change. This is a quote, not an official invoice</strong></p>
-          <p style="color: #059669; font-weight: 600; margin-top: 8px;"><strong>* Tentative services are not included in the Grand Total</strong></p>
+          ${(() => {
+            const hasTentativeServices = days.some(day => 
+              day.services.some(service => service.tentative)
+            );
+            if (hasTentativeServices) {
+              return `<p style="color: #059669; font-weight: 600; margin-top: 8px;"><strong>* Tentative services are not included in the Grand Total</strong></p>`;
+            }
+            return '';
+          })()}
           <p class="contact">Contact us for any questions - sales@lumetrymedia.com</p>
         </div>
       </div>
@@ -687,7 +695,7 @@ app.post('/api/generate-excel', async (req, res) => {
           
           // Get service definition for description
           const serviceDefinition = allServices.find(s => s._id.toString() === service.id);
-          const serviceDescription = serviceDefinition?.description || '';
+          const serviceDescription = service.description !== undefined ? service.description : (serviceDefinition?.description || '');
           
           // Show date only on first service of each day
           const dateDisplay = serviceIndex === 0 
