@@ -29,7 +29,10 @@
 
         <main class="main-content">
             <div class="quote-section">
-                <h2>Conference Services Quote</h2>
+                <div class="quote-title-container">
+                    <h2 id="quoteTitle" class="editable-title" onclick="editQuoteTitle()" title="Click to edit quote title">Conference Services Quote</h2>
+                    <input type="text" id="quoteTitleInput" class="title-input" style="display: none;" placeholder="Enter quote title" onblur="saveQuoteTitle()" onkeydown="handleTitleKeydown(event)">
+                </div>
                 <p class="subtitle">Select days and services to calculate your quote</p>
 
                 <div class="days-controls">
@@ -130,15 +133,26 @@
             <div class="modal-body">
                 <form id="saveQuoteForm">
                     <div class="form-group">
-                        <label for="quoteTitle">Quote Title *</label>
-                        <input type="text" id="quoteTitle" required placeholder="Enter quote title">
+                        <label for="saveQuoteTitle">Quote Title *</label>
+                        <input type="text" id="saveQuoteTitle" required placeholder="Enter quote title">
                     </div>
                     <div class="form-group">
                         <label for="clientName">Client Name (Optional)</label>
-                        <input type="text" id="clientName" placeholder="Enter client name">
+                        <div class="client-input-container">
+                            <input type="text" id="clientName" placeholder="Enter client name" autocomplete="off" onfocus="hideClientDropdown()" oninput="filterClients()">
+                            <button type="button" class="dropdown-arrow" onclick="toggleClientDropdown()" aria-label="Show previous clients">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6,9 12,15 18,9"></polyline>
+                                </svg>
+                            </button>
+                            <div id="clientDropdown" class="client-dropdown" style="display: none;">
+                                <!-- Previous clients will be loaded here -->
+                            </div>
+                        </div>
                     </div>
                     <div class="modal-buttons">
                         <button type="button" class="secondary-button" onclick="closeSaveModal()">Cancel</button>
+                        <button type="button" class="tertiary-button" onclick="saveAsCopy()">Save as Copy</button>
                         <button type="submit" class="primary-button">Save Quote</button>
                     </div>
                 </form>

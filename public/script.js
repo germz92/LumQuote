@@ -5,6 +5,7 @@ class QuoteCalculator {
         this.discountPercentage = 0;
         this.currentQuoteName = null;
         this.currentClientName = null;
+        this.currentQuoteTitle = "Conference Services Quote";
         this.activeCalendar = null;
         this.autoSaveKey = 'quote_calculator_draft';
         this.isOverrideMode = false;
@@ -43,6 +44,13 @@ class QuoteCalculator {
                 this.discountPercentage = draftData.discountPercentage || 0;
                 this.currentQuoteName = draftData.currentQuoteName || null;
                 this.currentClientName = draftData.currentClientName || null;
+                this.currentQuoteTitle = draftData.currentQuoteTitle || "Conference Services Quote";
+                
+                // Update the quote title display if we loaded one
+                const titleElement = document.getElementById('quoteTitle');
+                if (titleElement && this.currentQuoteTitle) {
+                    titleElement.textContent = this.currentQuoteTitle;
+                }
                 
                 // Ensure existing services have tentative property
                 this.days.forEach(day => {
@@ -69,6 +77,7 @@ class QuoteCalculator {
                 discountPercentage: this.discountPercentage,
                 currentQuoteName: this.currentQuoteName,
                 currentClientName: this.currentClientName,
+                currentQuoteTitle: this.currentQuoteTitle,
                 lastSaved: new Date().toISOString()
             };
             localStorage.setItem(this.autoSaveKey, JSON.stringify(draftData));
@@ -83,6 +92,13 @@ class QuoteCalculator {
         this.discountPercentage = 0;
         this.currentQuoteName = null;
         this.currentClientName = null;
+        this.currentQuoteTitle = "Conference Services Quote";
+        
+        // Reset title display
+        const titleElement = document.getElementById('quoteTitle');
+        if (titleElement) {
+            titleElement.textContent = this.currentQuoteTitle;
+        }
         
         // Reset override mode
         if (this.isOverrideMode) {
@@ -866,32 +882,259 @@ class QuoteCalculator {
     }
 
     // Save/Load functionality
-    showSaveModal() {
+    async showSaveModal() {
         // Pre-fill form with current quote info if available
-        document.getElementById('quoteTitle').value = this.currentQuoteName || '';
+        document.getElementById('saveQuoteTitle').value = this.currentQuoteTitle || this.currentQuoteName || '';
         document.getElementById('clientName').value = this.currentClientName || '';
+        
+        // Load previous clients for the dropdown
+        await this.loadClients();
+        
+        // Move dropdown to body if it's not already there
+        this.ensureDropdownInBody();
         
         // Show modal
         document.getElementById('saveModal').style.display = 'flex';
         
+        // Add click outside handler for dropdown
+        this.setupDropdownClickHandler();
+        
         // Focus on title input
         setTimeout(() => {
-            document.getElementById('quoteTitle').focus();
+            document.getElementById('saveQuoteTitle').focus();
             // If pre-filled, select all text for easy replacement
-            if (this.currentQuoteName) {
-                document.getElementById('quoteTitle').select();
+            if (this.currentQuoteTitle || this.currentQuoteName) {
+                document.getElementById('saveQuoteTitle').select();
             }
         }, 100);
     }
 
+    async loadClients() {
+        try {
+            const response = await fetch('/api/clients');
+            const clients = await response.json();
+            
+            // Store clients for filtering
+            this.allClients = clients;
+            this.displayClients(clients);
+        } catch (error) {
+            console.error('Error loading clients:', error);
+        }
+    }
+
+    displayClients(clients) {
+        const dropdown = document.getElementById('clientDropdown');
+        dropdown.innerHTML = '';
+        
+        if (clients.length === 0) {
+            const noResults = document.createElement('div');
+            noResults.className = 'client-dropdown-item no-results';
+            noResults.textContent = 'No previous clients found';
+            dropdown.appendChild(noResults);
+        } else {
+            clients.forEach(client => {
+                const item = document.createElement('div');
+                item.className = 'client-dropdown-item';
+                item.textContent = client;
+                item.onclick = () => this.selectClient(client);
+                dropdown.appendChild(item);
+            });
+        }
+    }
+
+    selectClient(client) {
+        const input = document.getElementById('clientName');
+        input.value = client;
+        this.hideClientDropdown();
+    }
+
+    hideClientDropdown() {
+        const dropdown = document.getElementById('clientDropdown');
+        dropdown.style.display = 'none';
+    }
+
+    showClientDropdown() {
+        const dropdown = document.getElementById('clientDropdown');
+        const input = document.getElementById('clientName');
+        
+        // Position dropdown relative to the input field
+        this.positionDropdown(dropdown, input);
+        dropdown.style.display = 'block';
+    }
+
+    ensureDropdownInBody() {
+        const dropdown = document.getElementById('clientDropdown');
+        if (dropdown && dropdown.parentElement !== document.body) {
+            // Move dropdown to body so it's not constrained by modal overflow
+            document.body.appendChild(dropdown);
+        }
+    }
+
+    positionDropdown(dropdown, input) {
+        const inputRect = input.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const dropdownMaxHeight = 200; // matches CSS max-height
+        
+        // Calculate available space below and above the input
+        const spaceBelow = viewportHeight - inputRect.bottom;
+        const spaceAbove = inputRect.top;
+        
+        // Determine if dropdown should open upward or downward
+        const shouldOpenUpward = spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow;
+        
+        if (shouldOpenUpward) {
+            // Position above the input
+            dropdown.style.top = 'auto';
+            dropdown.style.bottom = (viewportHeight - inputRect.top + 2) + 'px';
+            dropdown.style.maxHeight = Math.min(dropdownMaxHeight, spaceAbove - 10) + 'px';
+        } else {
+            // Position below the input (default)
+            dropdown.style.top = (inputRect.bottom + 2) + 'px';
+            dropdown.style.bottom = 'auto';
+            dropdown.style.maxHeight = Math.min(dropdownMaxHeight, spaceBelow - 10) + 'px';
+        }
+        
+        dropdown.style.left = inputRect.left + 'px';
+        dropdown.style.width = inputRect.width + 'px';
+        dropdown.style.position = 'fixed';
+        dropdown.style.zIndex = '9999';
+    }
+
+    setupDropdownClickHandler() {
+        const dropdown = document.getElementById('clientDropdown');
+        const container = document.querySelector('.client-input-container');
+        
+        // Remove any existing listener to avoid duplicates
+        if (this.dropdownClickHandler) {
+            document.removeEventListener('click', this.dropdownClickHandler);
+        }
+        
+        // Create new click handler
+        this.dropdownClickHandler = (e) => {
+            const isClickInsideContainer = container && container.contains(e.target);
+            const isClickInsideDropdown = dropdown && dropdown.contains(e.target);
+            
+            if (!isClickInsideContainer && !isClickInsideDropdown) {
+                this.hideClientDropdown();
+            }
+        };
+        
+        // Add listener to document for global click detection
+        document.addEventListener('click', this.dropdownClickHandler);
+        
+        // Handle window resize to reposition dropdown
+        if (this.dropdownResizeHandler) {
+            window.removeEventListener('resize', this.dropdownResizeHandler);
+        }
+        
+        this.dropdownResizeHandler = () => {
+            const dropdown = document.getElementById('clientDropdown');
+            if (dropdown && dropdown.style.display === 'block') {
+                const input = document.getElementById('clientName');
+                this.positionDropdown(dropdown, input);
+            }
+        };
+        
+        window.addEventListener('resize', this.dropdownResizeHandler);
+    }
+
+    async autoSaveQuoteTitle(newTitle) {
+        // Only auto-save if we have a currently saved quote
+        if (!this.currentQuoteName) {
+            return;
+        }
+
+        const oldQuoteName = this.currentQuoteName;
+        
+        // If the title is the same as the old name, just update the existing quote
+        if (oldQuoteName === newTitle) {
+            return;
+        }
+
+        const quoteData = {
+            days: this.days,
+            total: this.getFinalTotal(),
+            discountPercentage: this.discountPercentage
+        };
+
+        try {
+            // Save quote with new title
+            const saveResponse = await fetch('/api/save-quote', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    name: newTitle,
+                    quoteData,
+                    clientName: this.currentClientName || null
+                })
+            });
+
+            const saveResult = await saveResponse.json();
+
+            if (saveResponse.status === 409) {
+                // Quote with this name already exists, use overwrite instead
+                const overwriteResponse = await fetch('/api/overwrite-quote', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        name: newTitle,
+                        quoteData,
+                        clientName: this.currentClientName || null
+                    })
+                });
+
+                const overwriteResult = await overwriteResponse.json();
+                if (!overwriteResult.success) {
+                    throw new Error(overwriteResult.error || 'Failed to overwrite quote');
+                }
+            } else if (!saveResult.success) {
+                throw new Error(saveResult.error || 'Failed to save quote');
+            }
+
+            // Successfully saved with new name, now delete the old quote
+            try {
+                await fetch(`/api/saved-quotes/${encodeURIComponent(oldQuoteName)}`, {
+                    method: 'DELETE'
+                });
+                console.log(`🗑️ Deleted old quote: ${oldQuoteName}`);
+            } catch (deleteError) {
+                console.warn('Could not delete old quote:', deleteError);
+                // Don't fail the whole operation if delete fails
+            }
+
+            // Update current quote name to match the new title
+            this.currentQuoteName = newTitle;
+            console.log(`✅ Quote renamed from "${oldQuoteName}" to "${newTitle}"`);
+
+        } catch (error) {
+            throw new Error(`Failed to rename quote: ${error.message}`);
+        }
+    }
+
     closeSaveModal() {
         document.getElementById('saveModal').style.display = 'none';
+        this.hideClientDropdown();
+        
+        // Clean up event listeners
+        if (this.dropdownClickHandler) {
+            document.removeEventListener('click', this.dropdownClickHandler);
+            this.dropdownClickHandler = null;
+        }
+        
+        if (this.dropdownResizeHandler) {
+            window.removeEventListener('resize', this.dropdownResizeHandler);
+            this.dropdownResizeHandler = null;
+        }
     }
 
     async saveQuoteFromModal(event) {
         event.preventDefault();
         
-        const title = document.getElementById('quoteTitle').value.trim();
+        const title = document.getElementById('saveQuoteTitle').value.trim();
         const clientName = document.getElementById('clientName').value.trim();
         
         if (!title) {
@@ -1117,6 +1360,13 @@ class QuoteCalculator {
             this.discountPercentage = quote.quoteData.discountPercentage || 0;
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
+            this.currentQuoteTitle = quote.name; // Use quote name as title
+            
+            // Update the quote title display
+            const titleElement = document.getElementById('quoteTitle');
+            if (titleElement) {
+                titleElement.textContent = this.currentQuoteTitle;
+            }
             
             // Ensure all services have quantity property and days have date property
             this.days.forEach(day => {
@@ -2383,6 +2633,104 @@ function closeSaveModal() {
     calculator.closeSaveModal();
 }
 
+async function saveAsCopy() {
+    const title = document.getElementById('saveQuoteTitle').value.trim();
+    const clientName = document.getElementById('clientName').value.trim();
+    
+    if (!title) {
+        showAlertModal('Please enter a quote title.', 'error');
+        return;
+    }
+
+    // Create copy title
+    const copyTitle = `Copy of ${title}`;
+    
+    const quoteData = {
+        days: calculator.days,
+        total: calculator.getFinalTotal(),
+        discountPercentage: calculator.discountPercentage
+    };
+
+    try {
+        const response = await fetch('/api/save-quote', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                name: copyTitle, 
+                quoteData,
+                clientName: clientName || null
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.status === 409) {
+            // Quote name already exists, try with a number suffix
+            let counter = 2;
+            let uniqueTitle = `${copyTitle} (${counter})`;
+            
+            while (true) {
+                const retryResponse = await fetch('/api/save-quote', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        name: uniqueTitle, 
+                        quoteData,
+                        clientName: clientName || null
+                    })
+                });
+                
+                const retryResult = await retryResponse.json();
+                
+                if (retryResult.success) {
+                    calculator.currentQuoteName = uniqueTitle;
+                    calculator.currentClientName = clientName || null;
+                    calculator.currentQuoteTitle = uniqueTitle;
+                    
+                    // Update title display
+                    const titleElement = document.getElementById('quoteTitle');
+                    if (titleElement) {
+                        titleElement.textContent = uniqueTitle;
+                    }
+                    
+                    calculator.updateClientDisplay();
+                    calculator.closeSaveModal();
+                    showAlertModal(`Quote saved as "${uniqueTitle}"!`, 'success', null, true);
+                    break;
+                } else if (retryResponse.status === 409) {
+                    counter++;
+                    uniqueTitle = `${copyTitle} (${counter})`;
+                } else {
+                    throw new Error(retryResult.error || 'Failed to save quote copy');
+                }
+            }
+        } else if (result.success) {
+            calculator.currentQuoteName = copyTitle;
+            calculator.currentClientName = clientName || null;
+            calculator.currentQuoteTitle = copyTitle;
+            
+            // Update title display
+            const titleElement = document.getElementById('quoteTitle');
+            if (titleElement) {
+                titleElement.textContent = copyTitle;
+            }
+            
+            calculator.updateClientDisplay();
+            calculator.closeSaveModal();
+            showAlertModal(`Quote saved as "${copyTitle}"!`, 'success', null, true);
+        } else {
+            throw new Error(result.error || 'Failed to save quote copy');
+        }
+    } catch (error) {
+        console.error('Error saving quote copy:', error);
+        showAlertModal('Error saving quote copy. Please try again.', 'error');
+    }
+}
+
 function showLoadModal() {
     calculator.showLoadModal();
 }
@@ -2698,5 +3046,90 @@ async function logout() {
         }
     } catch (error) {
         console.error('Logout error:', error);
+    }
+}
+
+// Editable Quote Title Functions
+function editQuoteTitle() {
+    const titleElement = document.getElementById('quoteTitle');
+    const inputElement = document.getElementById('quoteTitleInput');
+    
+    inputElement.value = titleElement.textContent;
+    titleElement.style.display = 'none';
+    inputElement.style.display = 'inline-block';
+    inputElement.focus();
+    inputElement.select();
+}
+
+async function saveQuoteTitle() {
+    const titleElement = document.getElementById('quoteTitle');
+    const inputElement = document.getElementById('quoteTitleInput');
+    
+    const newTitle = inputElement.value.trim();
+    if (newTitle) {
+        titleElement.textContent = newTitle;
+        if (calculator) {
+            const oldTitle = calculator.currentQuoteTitle;
+            calculator.currentQuoteTitle = newTitle;
+            calculator.saveDraftToLocalStorage(); // Save the title change to localStorage
+            
+            // If there's a current quote saved, automatically update it in the database
+            if (calculator.currentQuoteName && oldTitle !== newTitle) {
+                try {
+                    await calculator.autoSaveQuoteTitle(newTitle);
+                } catch (error) {
+                    console.error('Error auto-saving quote title:', error);
+                    // Show a subtle notification
+                    showAlertModal('Title updated locally. Save quote to update database.', 'info');
+                }
+            }
+        }
+    }
+    
+    inputElement.style.display = 'none';
+    titleElement.style.display = 'inline-block';
+}
+
+function handleTitleKeydown(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        saveQuoteTitle();
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        const titleElement = document.getElementById('quoteTitle');
+        const inputElement = document.getElementById('quoteTitleInput');
+        
+        inputElement.style.display = 'none';
+        titleElement.style.display = 'inline-block';
+    }
+}
+
+// Client dropdown functionality
+function toggleClientDropdown() {
+    const dropdown = document.getElementById('clientDropdown');
+    if (dropdown.style.display === 'none' || !dropdown.style.display) {
+        calculator.showClientDropdown();
+    } else {
+        calculator.hideClientDropdown();
+    }
+}
+
+function hideClientDropdown() {
+    calculator.hideClientDropdown();
+}
+
+function filterClients() {
+    if (!calculator.allClients) return;
+    
+    const input = document.getElementById('clientName');
+    const filter = input.value.toLowerCase();
+    
+    if (filter === '') {
+        calculator.displayClients(calculator.allClients);
+    } else {
+        const filtered = calculator.allClients.filter(client => 
+            client.toLowerCase().includes(filter)
+        );
+        calculator.displayClients(filtered);
     }
 } 

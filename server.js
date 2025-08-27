@@ -1099,6 +1099,25 @@ app.delete('/api/saved-quotes/:name', async (req, res) => {
   }
 });
 
+// Get all unique client names endpoint
+app.get('/api/clients', async (req, res) => {
+  try {
+    const clients = await SavedQuote.distinct('clientName', { 
+      clientName: { $ne: null, $ne: '' } 
+    });
+    
+    // Sort alphabetically and filter out any null/empty values
+    const sortedClients = clients
+      .filter(client => client && client.trim())
+      .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    
+    res.json(sortedClients);
+  } catch (error) {
+    console.error('Error fetching clients:', error);
+    res.status(500).json({ error: 'Failed to fetch client names' });
+  }
+});
+
 // Update service order endpoint
 app.post('/api/services/reorder', async (req, res) => {
   try {

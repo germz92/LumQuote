@@ -131,6 +131,44 @@ body {
     margin-bottom: 8px;
 }
 
+/* Editable Quote Title */
+.quote-title-container {
+    position: relative;
+    margin-bottom: 8px;
+}
+
+.editable-title {
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+    display: inline-block;
+    min-width: 300px;
+}
+
+.editable-title:hover {
+    background-color: #f1f5f9;
+}
+
+.editable-title:hover::after {
+    content: " ✏️";
+    opacity: 0.6;
+    font-size: 0.8em;
+}
+
+.title-input {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1e293b;
+    border: 2px solid #4f46e5;
+    border-radius: 6px;
+    padding: 4px 8px;
+    background: white;
+    outline: none;
+    min-width: 300px;
+    font-family: inherit;
+}
+
 .subtitle {
     color: #64748b;
     font-size: 1rem;
@@ -993,6 +1031,94 @@ body {
     border-color: #cbd5e1;
 }
 
+.tertiary-button {
+    background: #fbbf24;
+    color: #92400e;
+    border: 1px solid #f59e0b;
+    padding: 16px 32px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 12px;
+}
+
+.tertiary-button:hover {
+    background: #f59e0b;
+    color: white;
+    border-color: #d97706;
+}
+
+/* Client Input Container */
+.client-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.client-input-container input {
+    flex: 1;
+    padding-right: 40px; /* Make room for dropdown arrow */
+}
+
+.dropdown-arrow {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #64748b;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dropdown-arrow:hover {
+    background-color: #f1f5f9;
+    color: #4f46e5;
+}
+
+.client-dropdown {
+    position: fixed;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 9999;
+    display: none;
+}
+
+.client-dropdown-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background-color 0.15s;
+}
+
+.client-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.client-dropdown-item:hover {
+    background-color: #f9fafb;
+}
+
+.client-dropdown-item.no-results {
+    color: #6b7280;
+    font-style: italic;
+    cursor: default;
+}
+
+.client-dropdown-item.no-results:hover {
+    background-color: transparent;
+}
+
 /* Disclaimer */
 .disclaimer {
     text-align: center;
@@ -1437,6 +1563,13 @@ body {
         margin-top: 8px;
     }
     
+    .tertiary-button {
+        padding: 14px 24px;
+        font-size: 0.875rem;
+        margin-left: 8px;
+        margin-top: 8px;
+    }
+    
     .total-row {
         font-size: 1.25rem;
     }
@@ -1587,6 +1720,12 @@ body {
     }
     
     .secondary-button {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 12px;
+    }
+    
+    .tertiary-button {
         width: 100%;
         margin-left: 0;
         margin-top: 12px;
