@@ -1644,6 +1644,35 @@ body {
     }
 }
 
+@media (max-width: 768px) {
+    /* Modal buttons - center on mobile/tablet */
+    .modal-buttons {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    
+    .modal-buttons .primary-button,
+    .modal-buttons .secondary-button,
+    .modal-buttons .tertiary-button {
+        min-width: 120px;
+        flex: 1;
+        max-width: 150px;
+    }
+    
+    #editServiceModal .modal-buttons {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+    
+    #editServiceModal .modal-buttons button {
+        min-width: 120px;
+        flex: 1;
+        max-width: 150px;
+    }
+}
+
 @media (max-width: 480px) {
     /* Very small screens - improved grid layout */
     .table-header,
@@ -1729,6 +1758,35 @@ body {
         width: 100%;
         margin-left: 0;
         margin-top: 12px;
+    }
+    
+    /* Modal buttons - stack vertically on very small screens */
+    .modal-buttons {
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .modal-buttons .primary-button,
+    .modal-buttons .secondary-button,
+    .modal-buttons .tertiary-button {
+        width: 100%;
+        max-width: 280px;
+        min-width: auto;
+        margin: 0;
+    }
+    
+    #editServiceModal .modal-buttons {
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    #editServiceModal .modal-buttons button {
+        width: 100%;
+        max-width: 280px;
+        min-width: auto;
+        margin: 0;
     }
     
     /* Force text wrapping for long service names */
