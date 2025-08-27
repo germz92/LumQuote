@@ -190,7 +190,6 @@ class QuoteCalculator {
                 serviceRow.dataset.serviceId = service.id;
                 
                 const isEdited = service.isNameEdited || service.isPriceEdited || service.isDescriptionEdited;
-                const overrideClickHandler = this.isOverrideMode ? `onclick="calculator.openEditServiceModal(${dayIndex}, ${serviceIndex})"` : '';
                 const overrideCursor = this.isOverrideMode ? 'override-mode' : '';
                 
                 // Get description - use service-specific description if available, otherwise fall back to global
@@ -207,8 +206,7 @@ class QuoteCalculator {
                     </div>
                     <div class="service-cell">
                         <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${serviceDescription ? 'has-tooltip' : ''} ${service.tentative ? 'tentative' : ''} ${overrideCursor}" 
-                             oncontextmenu="calculator.showTentativeContextMenu(event, ${dayIndex}, ${serviceIndex}); return false;"
-                             ${overrideClickHandler}>
+                             oncontextmenu="calculator.showTentativeContextMenu(event, ${dayIndex}, ${serviceIndex}); return false;">
                             <span class="drag-handle">⋮⋮</span>
                             <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}${service.tentative ? ' (Tentative)' : ''}</span>
                             ${isEdited ? '<span class="edited-badge">Edited</span>' : ''}
@@ -245,8 +243,33 @@ class QuoteCalculator {
                 // Add double-tap handler for tentative marking on mobile
                 serviceRow.addEventListener('touchend', (e) => this.handleServiceDoubleTap(e, dayIndex, serviceIndex));
                 
+                // Add override mode click handler (mobile-friendly)
+                if (this.isOverrideMode) {
+                    const serviceName = serviceRow.querySelector('.service-name');
+                    
+                    // Desktop click handler
+                    serviceName.addEventListener('click', (e) => {
+                        // Only handle click if it's not from a drag handle
+                        if (!e.target.closest('.drag-handle')) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            this.openEditServiceModal(dayIndex, serviceIndex);
+                        }
+                    });
+                    
+                    // Mobile touch handler
+                    serviceName.addEventListener('touchend', (e) => {
+                        // Only handle if it's a tap (not drag) and not on drag handle
+                        if (!this.touchMoved && !this.isDragging && !e.target.closest('.drag-handle')) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            this.openEditServiceModal(dayIndex, serviceIndex);
+                        }
+                    });
+                }
+                
                 // Add click handler for tooltip (only if service has description)
-                if (this.getServiceById(service.id)?.description) {
+                if (!this.isOverrideMode && this.getServiceById(service.id)?.description) {
                     const serviceName = serviceRow.querySelector('.service-name');
                     serviceName.addEventListener('click', (e) => this.handleServiceClick(e, dayIndex, serviceIndex));
                 }
