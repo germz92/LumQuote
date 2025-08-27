@@ -182,6 +182,11 @@ class QuoteCalculator {
         return div.innerHTML;
     }
 
+    escapeJavaScript(text) {
+        if (!text) return "''";
+        return JSON.stringify(text);
+    }
+
     renderDays() {
         const container = document.getElementById('days-container');
         container.innerHTML = '';
@@ -1313,11 +1318,11 @@ class QuoteCalculator {
             const updatedDate = new Date(quote.updatedAt).toLocaleDateString();
             
             return `
-                <div class="quote-item" onclick="calculator.confirmLoadQuote(${JSON.stringify(quote.name)})">
+                <div class="quote-item" data-quote-name="${this.escapeHtml(quote.name)}">
                     <div class="quote-item-header">
                         <h3 class="quote-name">${this.escapeHtml(quote.name)}</h3>
                         <div class="quote-actions">
-                            <button class="delete-quote-btn" onclick="event.stopPropagation(); calculator.deleteQuote(${JSON.stringify(quote.name)})">Delete</button>
+                            <button class="delete-quote-btn" data-quote-name="${this.escapeHtml(quote.name)}">Delete</button>
                         </div>
                     </div>
                     <div class="quote-info">
@@ -1331,6 +1336,28 @@ class QuoteCalculator {
                 </div>
             `;
         }).join('');
+
+        // Add event listeners for quote items and delete buttons
+        setTimeout(() => {
+            // Quote item click handlers
+            container.querySelectorAll('.quote-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    if (!e.target.closest('.delete-quote-btn')) {
+                        const quoteName = item.dataset.quoteName;
+                        this.confirmLoadQuote(quoteName);
+                    }
+                });
+            });
+
+            // Delete button click handlers
+            container.querySelectorAll('.delete-quote-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const quoteName = btn.dataset.quoteName;
+                    this.deleteQuote(quoteName);
+                });
+            });
+        }, 0);
     }
 
     filterQuotes() {
