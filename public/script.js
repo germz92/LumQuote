@@ -46,11 +46,18 @@ class QuoteCalculator {
                 this.currentClientName = draftData.currentClientName || null;
                 this.currentQuoteTitle = draftData.currentQuoteTitle || "Conference Services Quote";
                 
-                // Update the quote title display if we loaded one
-                const titleElement = document.getElementById('quoteTitle');
-                if (titleElement && this.currentQuoteTitle) {
-                    titleElement.textContent = this.currentQuoteTitle;
-                }
+                console.log('📄 Restoring from localStorage:', {
+                    quoteName: this.currentQuoteName,
+                    clientName: this.currentClientName,
+                    quoteTitle: this.currentQuoteTitle
+                });
+                
+                // Update the displays if we loaded data (with slight delay to ensure DOM is ready)
+                setTimeout(() => {
+                    this.updateQuoteTitleDisplay();
+                    this.updateClientDisplay();
+                    console.log('📄 Display updated after localStorage restore');
+                }, 0);
                 
                 // Ensure existing services have tentative property
                 this.days.forEach(day => {
@@ -80,6 +87,11 @@ class QuoteCalculator {
                 currentQuoteTitle: this.currentQuoteTitle,
                 lastSaved: new Date().toISOString()
             };
+            console.log('💾 Saving to localStorage:', {
+                quoteName: draftData.currentQuoteName,
+                clientName: draftData.currentClientName,
+                quoteTitle: draftData.currentQuoteTitle
+            });
             localStorage.setItem(this.autoSaveKey, JSON.stringify(draftData));
         } catch (error) {
             console.warn('⚠️ Error saving draft to localStorage:', error);
@@ -87,6 +99,8 @@ class QuoteCalculator {
     }
 
     clearDraft() {
+        console.log('🗑️ clearDraft() called - clearing all data');
+        console.trace('clearDraft stack trace');
         localStorage.removeItem(this.autoSaveKey);
         this.days = [{ services: [], date: null }];
         this.discountPercentage = 0;
@@ -1269,18 +1283,29 @@ class QuoteCalculator {
 
     updateClientDisplay() {
         const clientDisplay = document.getElementById('client-display');
+        console.log('🔧 updateClientDisplay called:', {
+            clientDisplay: !!clientDisplay,
+            currentClientName: this.currentClientName
+        });
         if (this.currentClientName) {
             clientDisplay.textContent = `Client: ${this.currentClientName}`;
             clientDisplay.style.display = 'inline';
+            console.log('✅ Client display updated to:', this.currentClientName);
         } else {
             clientDisplay.style.display = 'none';
+            console.log('✅ Client display hidden');
         }
     }
 
     updateQuoteTitleDisplay() {
         const titleElement = document.getElementById('quoteTitle');
+        console.log('🔧 updateQuoteTitleDisplay called:', {
+            titleElement: !!titleElement,
+            currentQuoteTitle: this.currentQuoteTitle
+        });
         if (titleElement && this.currentQuoteTitle) {
             titleElement.textContent = this.currentQuoteTitle;
+            console.log('✅ Title updated to:', this.currentQuoteTitle);
         }
     }
 
@@ -1295,6 +1320,7 @@ class QuoteCalculator {
     markQuoteAsModified() {
         // Keep the quote name and client name for saving/PDF, but update display to show it's modified
         // This allows the save modal to be pre-filled and PDF to use existing client name
+        console.log('📝 markQuoteAsModified called');
         this.updateClientDisplay();
     }
 
@@ -1480,6 +1506,9 @@ class QuoteCalculator {
             
             // Close the modal
             this.closeLoadModal();
+            
+            // Save the loaded quote data to localStorage
+            this.saveDraftToLocalStorage();
             
             showAlertModal(`Quote "${quoteName}" loaded successfully!`, 'success', null, true);
         } catch (error) {
