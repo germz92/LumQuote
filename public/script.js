@@ -175,6 +175,13 @@ class QuoteCalculator {
         return this.services.find(service => service._id === serviceId);
     }
 
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     renderDays() {
         const container = document.getElementById('days-container');
         container.innerHTML = '';
@@ -208,9 +215,9 @@ class QuoteCalculator {
                         <div class="service-name ${this.getServiceById(service.id)?.isSubservice ? 'subservice' : ''} ${serviceDescription ? 'has-tooltip' : ''} ${service.tentative ? 'tentative' : ''} ${overrideCursor}" 
                              oncontextmenu="calculator.showTentativeContextMenu(event, ${dayIndex}, ${serviceIndex}); return false;">
                             <span class="drag-handle">⋮⋮</span>
-                            <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${service.name}${service.tentative ? ' (Tentative)' : ''}</span>
+                            <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${this.escapeHtml(service.name)}${service.tentative ? ' (Tentative)' : ''}</span>
                             ${isEdited ? '<span class="edited-badge">Edited</span>' : ''}
-                            ${serviceDescription ? `<div class="tooltip">${serviceDescription}</div>` : ''}
+                            ${serviceDescription ? `<div class="tooltip">${this.escapeHtml(serviceDescription)}</div>` : ''}
                         </div>
                         <button class="remove-service" onclick="calculator.removeService(${dayIndex}, ${serviceIndex})">×</button>
                     </div>
@@ -1306,11 +1313,11 @@ class QuoteCalculator {
             const updatedDate = new Date(quote.updatedAt).toLocaleDateString();
             
             return `
-                <div class="quote-item" onclick="calculator.confirmLoadQuote('${quote.name}')">
+                <div class="quote-item" onclick="calculator.confirmLoadQuote(${JSON.stringify(quote.name)})">
                     <div class="quote-item-header">
-                        <h3 class="quote-name">${quote.name}</h3>
+                        <h3 class="quote-name">${this.escapeHtml(quote.name)}</h3>
                         <div class="quote-actions">
-                            <button class="delete-quote-btn" onclick="event.stopPropagation(); calculator.deleteQuote('${quote.name}')">Delete</button>
+                            <button class="delete-quote-btn" onclick="event.stopPropagation(); calculator.deleteQuote(${JSON.stringify(quote.name)})">Delete</button>
                         </div>
                     </div>
                     <div class="quote-info">
@@ -1319,7 +1326,7 @@ class QuoteCalculator {
                         <span>🎯 Services: ${totalServices}</span>
                         <span>📅 Created: ${createdDate}</span>
                         ${createdDate !== updatedDate ? `<span>✏️ Updated: ${updatedDate}</span>` : ''}
-                        ${quote.clientName ? `<span>👤 Client: ${quote.clientName}</span>` : ''}
+                        ${quote.clientName ? `<span>👤 Client: ${this.escapeHtml(quote.clientName)}</span>` : ''}
                     </div>
                 </div>
             `;
