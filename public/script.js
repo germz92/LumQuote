@@ -1213,6 +1213,10 @@ class QuoteCalculator {
                 // Update current quote info
                 this.currentQuoteName = title;
                 this.currentClientName = clientName || null;
+                this.currentQuoteTitle = title; // Update the main page title
+                
+                // Update displays
+                this.updateQuoteTitleDisplay();
                 this.updateClientDisplay();
                 
                 this.closeSaveModal();
@@ -1246,6 +1250,10 @@ class QuoteCalculator {
                 // Update current quote info
                 this.currentQuoteName = name;
                 this.currentClientName = clientName || null;
+                this.currentQuoteTitle = name; // Update the main page title
+                
+                // Update displays
+                this.updateQuoteTitleDisplay();
                 this.updateClientDisplay();
                 
                 this.closeSaveModal();
@@ -1269,9 +1277,18 @@ class QuoteCalculator {
         }
     }
 
+    updateQuoteTitleDisplay() {
+        const titleElement = document.getElementById('quoteTitle');
+        if (titleElement && this.currentQuoteTitle) {
+            titleElement.textContent = this.currentQuoteTitle;
+        }
+    }
+
     clearCurrentQuote() {
         this.currentQuoteName = null;
         this.currentClientName = null;
+        this.currentQuoteTitle = "Conference Services Quote";
+        this.updateQuoteTitleDisplay();
         this.updateClientDisplay();
     }
 
@@ -2748,12 +2765,8 @@ async function saveAsCopy() {
                     calculator.currentClientName = clientName || null;
                     calculator.currentQuoteTitle = uniqueTitle;
                     
-                    // Update title display
-                    const titleElement = document.getElementById('quoteTitle');
-                    if (titleElement) {
-                        titleElement.textContent = uniqueTitle;
-                    }
-                    
+                    // Update displays
+                    calculator.updateQuoteTitleDisplay();
                     calculator.updateClientDisplay();
                     calculator.closeSaveModal();
                     showAlertModal(`Quote saved as "${uniqueTitle}"!`, 'success', null, true);
@@ -2770,12 +2783,8 @@ async function saveAsCopy() {
             calculator.currentClientName = clientName || null;
             calculator.currentQuoteTitle = copyTitle;
             
-            // Update title display
-            const titleElement = document.getElementById('quoteTitle');
-            if (titleElement) {
-                titleElement.textContent = copyTitle;
-            }
-            
+            // Update displays
+            calculator.updateQuoteTitleDisplay();
             calculator.updateClientDisplay();
             calculator.closeSaveModal();
             showAlertModal(`Quote saved as "${copyTitle}"!`, 'success', null, true);
