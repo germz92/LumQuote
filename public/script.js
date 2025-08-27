@@ -430,15 +430,21 @@ class QuoteCalculator {
                     price: parseFloat(option.dataset.price)
                 };
                 
-                // Validate dependencies before adding
-                const canAdd = await this.validateServiceDependency(service.id, dayIndex);
-                if (canAdd.success) {
+                // Validate dependencies before adding (skip in override mode)
+                if (this.isOverrideMode) {
+                    // In override mode, bypass all dependency checks
                     this.addServiceToDay(dayIndex, service);
                     dropdownRow.remove();
                 } else {
-                    // Show error and don't add service
-                    this.showDependencyError(canAdd.error);
-                    dropdown.value = ''; // Reset dropdown
+                    const canAdd = await this.validateServiceDependency(service.id, dayIndex);
+                    if (canAdd.success) {
+                        this.addServiceToDay(dayIndex, service);
+                        dropdownRow.remove();
+                    } else {
+                        // Show error and don't add service
+                        this.showDependencyError(canAdd.error);
+                        dropdown.value = ''; // Reset dropdown
+                    }
                 }
             }
         });
@@ -482,6 +488,14 @@ class QuoteCalculator {
     removeService(dayIndex, serviceIndex) {
         const serviceToRemove = this.days[dayIndex].services[serviceIndex];
         
+        // In override mode, bypass all dependency checks
+        if (this.isOverrideMode) {
+            this.days[dayIndex].services.splice(serviceIndex, 1);
+            this.renderDays();
+            this.updateTotal();
+            return;
+        }
+        
         // Check if removing this service would leave zero instances of this service type
         const remainingInstances = this.countServiceInstances(serviceToRemove.id, dayIndex, serviceIndex);
         
@@ -522,6 +536,14 @@ class QuoteCalculator {
 
     removeDayByIndex(dayIndex) {
         if (this.days.length > 1) {
+            // In override mode, bypass all dependency checks
+            if (this.isOverrideMode) {
+                this.days.splice(dayIndex, 1);
+                this.renderDays();
+                this.updateTotal();
+                return;
+            }
+            
             // Check if removing this day would break any dependencies
             const dayServices = this.days[dayIndex].services;
             let blockingDependencies = [];
@@ -2082,6 +2104,11 @@ class QuoteCalculator {
     }
 
     validateDrop(dragData, targetDayIndex) {
+        // In override mode, allow all drops without dependency checks
+        if (this.isOverrideMode) {
+            return true;
+        }
+        
         const { dayIndex: sourceDayIndex, serviceId } = dragData;
         
         // If moving to a different day, check dependencies
