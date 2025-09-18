@@ -238,7 +238,9 @@ class QuoteCalculator {
                             ${isEdited ? '<span class="edited-badge">Edited</span>' : ''}
                             ${serviceDescription ? `<div class="tooltip">${this.escapeHtml(serviceDescription)}</div>` : ''}
                         </div>
-                        <button class="remove-service" onclick="calculator.removeService(${dayIndex}, ${serviceIndex})">×</button>
+                        <button class="remove-service" 
+                                onclick="calculator.removeService(${dayIndex}, ${serviceIndex})"
+                                ontouchend="if(event.target === this) { event.preventDefault(); calculator.removeService(${dayIndex}, ${serviceIndex}); }">×</button>
                     </div>
                     <div class="quantity-cell">
                         <input type="number" 
@@ -247,7 +249,8 @@ class QuoteCalculator {
                                min="1" 
                                max="99"
                                onchange="calculator.updateQuantity(${dayIndex}, ${serviceIndex}, this.value)"
-                               onclick="this.select()">
+                               onclick="this.select()"
+                               ontouchend="this.focus()">
                     </div>
                     <div class="price-cell ${service.tentative ? 'tentative' : ''}">
                         ${service.tentative ? `(${this.formatCurrency(service.price * service.quantity)})` : this.formatCurrency(service.price * service.quantity)}
@@ -1346,6 +1349,67 @@ class QuoteCalculator {
         this.updateClientDisplay();
     }
 
+    // Load quote data directly from a quote object (used for calendar navigation)
+    loadQuoteFromData(quote) {
+        try {
+            // Load the quote data
+            this.days = quote.quoteData.days;
+            this.discountPercentage = quote.quoteData.discountPercentage || 0;
+            this.currentQuoteName = quote.name;
+            this.currentClientName = quote.clientName || null;
+            this.currentQuoteTitle = quote.name; // Use quote name as title (matching regular loadQuote)
+            
+            // Update the quote title display
+            const titleElement = document.getElementById('quoteTitle');
+            if (titleElement) {
+                titleElement.textContent = this.currentQuoteTitle;
+            }
+            
+            // Ensure all services have quantity property and days have date property
+            this.days.forEach(day => {
+                if (day.date === undefined) {
+                    day.date = null;
+                }
+                day.services.forEach(service => {
+                    if (!service.quantity) {
+                        service.quantity = 1;
+                    }
+                    if (service.tentative === undefined) {
+                        service.tentative = false;
+                    }
+                });
+            });
+            
+            // Update discount button and input (matching regular loadQuote)
+            const button = document.getElementById('discountBtn');
+            if (this.discountPercentage > 0) {
+                button.textContent = `Modify Discount (${this.discountPercentage}%)`;
+            } else {
+                button.textContent = 'Apply Discount';
+            }
+            document.getElementById('discountInput').value = this.discountPercentage;
+            
+            // Update client display
+            this.updateClientDisplay();
+            
+            // Reset override mode when loading a quote (matching regular loadQuote)
+            if (this.isOverrideMode) {
+                this.toggleOverrideMode();
+            }
+            
+            // Re-render the interface (matching regular loadQuote)
+            this.renderDays();
+            this.updateTotal();
+            
+            // Save the loaded quote data to localStorage (matching regular loadQuote)
+            this.saveDraftToLocalStorage();
+            
+        } catch (error) {
+            console.error('Error loading quote data:', error);
+            throw error;
+        }
+    }
+
     async showLoadModal() {
         document.getElementById('loadModal').style.display = 'flex';
         await this.loadSavedQuotes();
@@ -2201,6 +2265,11 @@ class QuoteCalculator {
 
     // Touch event handlers for mobile drag and drop
     handleTouchStart(event) {
+        // Don't interfere with input elements
+        if (event.target.matches('input, button, select, textarea')) {
+            return;
+        }
+        
         // Only handle touches on the drag handle
         const dragHandle = event.target.closest('.drag-handle');
         if (!dragHandle) return;
@@ -2265,6 +2334,11 @@ class QuoteCalculator {
     }
 
     handleTouchMove(event) {
+        // Don't interfere with input elements
+        if (event.target.matches('input, button, select, textarea')) {
+            return;
+        }
+        
         const touch = event.touches[0];
         const moveDistance = Math.abs(touch.clientX - this.touchStartPos.x) + Math.abs(touch.clientY - this.touchStartPos.y);
         
@@ -2310,6 +2384,11 @@ class QuoteCalculator {
     }
 
     handleTouchEnd(event) {
+        // Don't interfere with input elements
+        if (event.target.matches('input, button, select, textarea')) {
+            return;
+        }
+        
         // Clean up timer
         if (this.touchHoldTimer) {
             clearTimeout(this.touchHoldTimer);
@@ -2752,6 +2831,27 @@ class QuoteCalculator {
 let calculator;
 document.addEventListener('DOMContentLoaded', () => {
     calculator = new QuoteCalculator();
+    
+    // Check if we should load a quote from calendar navigation
+    const loadQuoteData = sessionStorage.getItem('loadQuoteData');
+    if (loadQuoteData) {
+        try {
+            const quoteData = JSON.parse(loadQuoteData);
+            sessionStorage.removeItem('loadQuoteData'); // Clean up
+            
+            // Load the quote data into the calculator
+            calculator.loadQuoteFromData(quoteData);
+            
+            // Show success message
+            setTimeout(() => {
+                showAlertModal(`Quote "${quoteData.name}" loaded successfully!`, 'success');
+            }, 500);
+            
+        } catch (error) {
+            console.error('Error loading quote from calendar:', error);
+            showAlertModal('Failed to load quote from calendar.', 'error');
+        }
+    }
 });
 
 // Global functions for HTML onclick handlers

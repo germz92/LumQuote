@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar View - Quote Scheduler</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="logo-section">
+            <img src="/assets/logo.png" alt="Lumetry Media" class="company-logo">
+        </div>
+        <header class="header">
+            <button class="back-button" onclick="window.location.href='/'">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15,18 9,12 15,6"></polyline>
+                </svg>
+            </button>
+            <div class="header-title">
+                <h1>Quote Calendar</h1>
+                <span class="subtitle">Visual schedule of all saved quotes</span>
+            </div>
+            <div class="header-actions">
+                <a href="/admin" class="admin-link">Admin</a>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="calendar-section">
+                <div class="calendar-controls">
+                    <button class="nav-btn" id="prevMonth">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="15,18 9,12 15,6"></polyline>
+                        </svg>
+                    </button>
+                    <h2 id="currentMonth" class="month-title">Loading...</h2>
+                    <button class="nav-btn" id="nextMonth">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9,18 15,12 9,6"></polyline>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="calendar-header">
+                    <div class="day-header">Sun</div>
+                    <div class="day-header">Mon</div>
+                    <div class="day-header">Tue</div>
+                    <div class="day-header">Wed</div>
+                    <div class="day-header">Thu</div>
+                    <div class="day-header">Fri</div>
+                    <div class="day-header">Sat</div>
+                </div>
+
+                <div id="calendarGrid" class="calendar-grid">
+                    <!-- Calendar days will be generated here -->
+                </div>
+
+                <div class="calendar-legend">
+                    <div class="legend-item">
+                        <div class="legend-color quote-event"></div>
+                        <span>Quote Events</span>
+                    </div>
+                    <p class="legend-note">Click on any event to view quote details</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading calendar...</p>
+        </div>
+    </div>
+
+    <!-- Event Tooltip -->
+    <div id="eventTooltip" class="event-tooltip" style="display: none;">
+        <div class="tooltip-content">
+            <div class="tooltip-header">
+                <h3 id="tooltipTitle">Quote Title</h3>
+                <button class="tooltip-close">&times;</button>
+            </div>
+            <div class="tooltip-body">
+                <div class="tooltip-info">
+                    <span class="info-label">Client:</span>
+                    <span id="tooltipClient">-</span>
+                </div>
+                <div class="tooltip-info">
+                    <span class="info-label">Total:</span>
+                    <span id="tooltipTotal">$0</span>
+                </div>
+                <div class="tooltip-info">
+                    <span class="info-label">Services:</span>
+                    <span id="tooltipServices">0</span>
+                </div>
+                <div class="tooltip-info">
+                    <span class="info-label">Days:</span>
+                    <span id="tooltipDays">0</span>
+                </div>
+            </div>
+            <div class="tooltip-actions">
+                <button class="tooltip-btn primary" id="openQuoteBtn">Open Quote</button>
+                <button class="tooltip-btn secondary" id="closeTooltipBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal (reuse from main app) -->
+    <div id="alertModal" class="modal" style="display: none;">
+        <div class="modal-content alert-modal-content">
+            <div class="modal-header">
+                <h2 id="alertModalTitle">Message</h2>
+                <span class="close" onclick="hideAlertModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="alert-content">
+                    <div id="alertModalIcon" class="alert-icon"></div>
+                    <p id="alertModalMessage">Message content</p>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="primary-button" onclick="hideAlertModal()">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="calendar.js"></script>
+</body>
+</html>

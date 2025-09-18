@@ -239,8 +239,37 @@ body {
 
 .table-controls {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 16px;
+}
+
+.view-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.calendar-view-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    min-width: 36px;
+    height: 36px;
+}
+
+.calendar-view-btn:hover {
+    background: #4338ca;
+}
+
+.calendar-view-btn svg {
+    stroke-width: 2;
 }
 
 .save-load-buttons {
@@ -474,9 +503,9 @@ body {
     border: none;
     color: #ef4444;
     cursor: pointer;
-    padding: 4px;
-    width: 24px;
-    height: 24px;
+    padding: 6px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -485,6 +514,7 @@ body {
     font-weight: bold;
     transition: all 0.2s ease;
     flex-shrink: 0;
+    touch-action: manipulation; /* Improve touch responsiveness */
 }
 
 .remove-service:hover {
@@ -1525,9 +1555,11 @@ body {
     
     .quantity-input {
         width: 45px;
-        padding: 4px 2px;
+        padding: 8px 4px;
         font-size: 16px;
         text-align: center;
+        min-height: 44px; /* Better touch target */
+        box-sizing: border-box;
     }
     
     .price-cell {
@@ -1637,10 +1669,15 @@ body {
     
     /* Remove service button mobile optimization */
     .remove-service {
-        width: 20px;
-        height: 20px;
-        padding: 2px;
-        font-size: 14px;
+        width: 32px;
+        height: 32px;
+        padding: 6px;
+        font-size: 16px;
+        min-height: 44px; /* Better touch target */
+        min-width: 44px;
+        box-sizing: border-box;
+        border-radius: 6px;
+        margin: 2px;
     }
 }
 
@@ -1727,8 +1764,10 @@ body {
     
     .quantity-input {
         width: 40px;
-        padding: 4px 2px;
+        padding: 8px 4px;
         font-size: 16px;
+        min-height: 44px; /* Better touch target */
+        box-sizing: border-box;
     }
     
     .price-cell {
@@ -1737,10 +1776,15 @@ body {
     }
     
     .remove-service {
-        width: 18px;
-        height: 18px;
-        padding: 1px;
-        font-size: 12px;
+        width: 36px;
+        height: 36px;
+        padding: 8px;
+        font-size: 16px;
+        min-height: 44px; /* Better touch target */
+        min-width: 44px;
+        box-sizing: border-box;
+        border-radius: 6px;
+        margin: 2px;
     }
     
     .primary-button {
@@ -2496,6 +2540,425 @@ textarea:focus {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+/* Calendar Styles */
+.calendar-section {
+    margin-top: 24px;
+}
+
+.calendar-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 36px;
+    height: 36px;
+}
+
+.nav-btn:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.nav-btn:active {
+    background: #e2e8f0;
+}
+
+.month-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1e293b;
+    min-width: 200px;
+    text-align: center;
+}
+
+.calendar-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #e2e8f0;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+}
+
+.day-header {
+    background: #f8fafc;
+    padding: 12px 8px;
+    text-align: center;
+    font-weight: 600;
+    color: #64748b;
+    font-size: 0.875rem;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #e2e8f0;
+    border-radius: 0 0 8px 8px;
+    overflow: visible;
+    min-height: 600px;
+    position: relative;
+}
+
+.calendar-day {
+    background: white;
+    min-height: 120px;
+    padding: 8px;
+    position: relative;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+}
+
+.calendar-day.other-month {
+    background: #f8fafc;
+    color: #94a3b8;
+}
+
+.calendar-day.today {
+    background: #fef3c7;
+}
+
+.day-number {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 0.875rem;
+    margin-bottom: 4px;
+}
+
+.calendar-day.other-month .day-number {
+    color: #94a3b8;
+}
+
+.day-events {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+}
+
+.calendar-event {
+    background: #4f46e5;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: relative;
+    min-height: 16px;
+    display: flex;
+    align-items: center;
+}
+
+.calendar-event:hover {
+    background: #4338ca;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-event.event-start:hover::after,
+.calendar-event.event-end:hover::before,
+.calendar-event.event-middle:hover::before,
+.calendar-event.event-middle:hover::after {
+    background: #4338ca;
+}
+
+.calendar-event.event-start {
+    border-radius: 3px 0 0 3px;
+    position: relative;
+    z-index: 2;
+}
+
+.calendar-event.event-start::after {
+    content: '';
+    position: absolute;
+    right: -2px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #4f46e5;
+    z-index: 3;
+}
+
+.calendar-event.event-end {
+    border-radius: 0 3px 3px 0;
+    position: relative;
+    z-index: 2;
+}
+
+.calendar-event.event-end::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #4f46e5;
+    z-index: 3;
+}
+
+.calendar-event.event-middle {
+    border-radius: 0;
+    position: relative;
+    z-index: 2;
+}
+
+.calendar-event.event-middle::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #4f46e5;
+    z-index: 3;
+}
+
+.calendar-event.event-middle::after {
+    content: '';
+    position: absolute;
+    right: -2px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #4f46e5;
+    z-index: 3;
+}
+
+.calendar-event.event-single {
+    border-radius: 3px;
+}
+
+/* New spanning event styles */
+.spanning-event {
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+}
+
+.spanning-event:hover {
+    background-color: #4338ca !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+
+.event-more {
+    color: #64748b;
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    cursor: pointer;
+}
+
+.event-more:hover {
+    color: #4f46e5;
+}
+
+.calendar-legend {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+}
+
+.legend-color.quote-event {
+    background: #4f46e5;
+}
+
+.legend-note {
+    color: #64748b;
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+/* Event Tooltip */
+.event-tooltip {
+    position: absolute;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-width: 320px;
+    overflow: hidden;
+}
+
+.tooltip-content {
+    padding: 0;
+}
+
+.tooltip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.tooltip-header h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+}
+
+.tooltip-close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: #64748b;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+.tooltip-close:hover {
+    background: #e2e8f0;
+    color: #374151;
+}
+
+.tooltip-body {
+    padding: 16px;
+}
+
+.tooltip-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.tooltip-info:last-child {
+    margin-bottom: 0;
+}
+
+.info-label {
+    font-weight: 500;
+    color: #64748b;
+    font-size: 0.875rem;
+}
+
+.tooltip-info span:last-child {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 0.875rem;
+}
+
+.tooltip-actions {
+    padding: 16px;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    gap: 8px;
+}
+
+.tooltip-btn {
+    flex: 1;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tooltip-btn.primary {
+    background: #4f46e5;
+    color: white;
+}
+
+.tooltip-btn.primary:hover {
+    background: #4338ca;
+}
+
+.tooltip-btn.secondary {
+    background: #e2e8f0;
+    color: #64748b;
+}
+
+.tooltip-btn.secondary:hover {
+    background: #cbd5e1;
+    color: #475569;
+}
+
+/* Responsive Calendar */
+@media (max-width: 768px) {
+    .calendar-controls {
+        gap: 16px;
+    }
+    
+    .month-title {
+        font-size: 1.25rem;
+        min-width: 150px;
+    }
+    
+    .calendar-day {
+        min-height: 100px;
+        padding: 4px;
+    }
+    
+    .day-number {
+        font-size: 0.75rem;
+    }
+    
+    .calendar-event {
+        font-size: 0.6875rem;
+        padding: 1px 4px;
+    }
+    
+    .calendar-legend {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .event-tooltip {
+        max-width: 280px;
     }
 }
 

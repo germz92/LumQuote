@@ -916,6 +916,10 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+app.get('/calendar', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'calendar.html'));
+});
+
 // Initialize default services
 async function initializeServices() {
   try {
@@ -1139,4 +1143,79 @@ app.post('/api/services/reorder', async (req, res) => {
     console.error('Error updating service order:', error);
     res.status(500).json({ error: 'Failed to update service order' });
   }
-}); 
+});
+
+// Get calendar events from saved quotes
+app.get('/api/calendar-events', async (req, res) => {
+  try {
+    const quotes = await SavedQuote.find({}, {
+      name: 1,
+      clientName: 1,
+      createdAt: 1,
+      updatedAt: 1,
+      'quoteData.total': 1,
+      'quoteData.days': 1,
+      'quoteData.quoteTitle': 1
+    });
+
+    const events = [];
+
+    quotes.forEach(quote => {
+      const days = quote.quoteData.days || [];
+      
+      // Find days with dates
+      const daysWithDates = days.filter(day => day.date);
+      
+      if (daysWithDates.length === 0) {
+        // Skip quotes with no dates assigned
+        return;
+      }
+
+      // Sort dates to find first and last
+      const sortedDates = daysWithDates
+        .map(day => parseStoredDate(day.date))
+        .sort((a, b) => a - b);
+
+      const firstDate = sortedDates[0];
+      const lastDate = sortedDates[sortedDates.length - 1];
+
+      // Calculate total services
+      const totalServices = days.reduce((sum, day) => sum + (day.services?.length || 0), 0);
+
+      // Create calendar event
+      // For calendar display, we want the event to span from first to last date inclusive
+      const eventEndDate = new Date(lastDate);
+      // Don't add a day to end date since we want it inclusive for same-day end
+      
+      events.push({
+        id: quote._id,
+        title: quote.quoteData.quoteTitle || quote.name,
+        start: formatDateForCalendar(firstDate),
+        end: formatDateForCalendar(eventEndDate),
+        extendedProps: {
+          quoteName: quote.name,
+          clientName: quote.clientName,
+          total: quote.quoteData.total,
+          totalServices: totalServices,
+          dayCount: days.length,
+          daysWithDates: daysWithDates.length,
+          createdAt: quote.createdAt,
+          updatedAt: quote.updatedAt
+        }
+      });
+    });
+
+    res.json(events);
+  } catch (error) {
+    console.error('Error fetching calendar events:', error);
+    res.status(500).json({ error: 'Failed to fetch calendar events' });
+  }
+});
+
+// Helper function to format date for calendar (YYYY-MM-DD)
+function formatDateForCalendar(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+} 
