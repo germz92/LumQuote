@@ -266,8 +266,8 @@ class CalendarView {
         const eventsByWeek = weekRows.map(() => []);
 
         events.forEach(event => {
-            const eventStart = new Date(event.start);
-            const eventEnd = new Date(event.end);
+            const eventStart = this.parseLocalDate(event.start);
+            const eventEnd = this.parseLocalDate(event.end);
 
             // Find which weeks this event touches
             weekRows.forEach((week, weekIndex) => {
@@ -286,65 +286,172 @@ class CalendarView {
 
     renderWeekEvents(events, weekIndex) {
         const grid = document.getElementById('calendarGrid');
-        const weekStartIndex = weekIndex * 7;
-
-        events.forEach((event, eventIndex) => {
-            const eventElement = this.createSpanningEventElement(event, weekIndex, eventIndex);
-            grid.appendChild(eventElement);
+        
+        // Group events by the days they overlap to create proper stacking
+        const eventLayers = this.createEventLayers(events, weekIndex);
+        
+        eventLayers.forEach((layer, layerIndex) => {
+            layer.forEach(event => {
+                const eventElement = this.createEventElement(event, weekIndex, layerIndex);
+                grid.appendChild(eventElement);
+            });
         });
     }
 
-    createSpanningEventElement(event, weekIndex, eventIndex) {
-        const eventStart = new Date(event.start);
-        const eventEnd = new Date(event.end);
+    createEventLayers(events, weekIndex) {
         const weekStartIndex = weekIndex * 7;
-        
-        // Calculate which days in this week the event spans
-        let startDayInWeek = 0;
-        let endDayInWeek = 6;
-        
-        // Find start position within the week
         const weekDates = this.calendarDates.slice(weekStartIndex, weekStartIndex + 7);
-        const startIndex = weekDates.findIndex(date => date >= eventStart);
-        const endIndex = weekDates.findIndex(date => date > eventEnd);
+        const layers = [];
         
-        if (startIndex !== -1) startDayInWeek = startIndex;
-        if (endIndex !== -1) endDayInWeek = endIndex - 1;
-        else {
-            // Event extends beyond this week
-            const lastDateInWeek = weekDates[6];
-            if (eventEnd >= lastDateInWeek) endDayInWeek = 6;
-        }
+        events.forEach(event => {
+            const eventStart = this.parseLocalDate(event.start);
+            const eventEnd = this.parseLocalDate(event.end);
+            
+            // Find the first layer where this event doesn't conflict
+            let placed = false;
+            for (let layerIndex = 0; layerIndex < layers.length; layerIndex++) {
+                const layer = layers[layerIndex];
+                let conflicts = false;
+                
+                // Check if this event conflicts with any event in this layer
+                for (const layerEvent of layer) {
+                    const layerStart = this.parseLocalDate(layerEvent.start);
+                    const layerEnd = this.parseLocalDate(layerEvent.end);
+                    
+                    // Check if events overlap in time within this week
+                    if (this.datesOverlap(eventStart, eventEnd, layerStart, layerEnd, weekDates)) {
+                        conflicts = true;
+                        break;
+                    }
+                }
+                
+                if (!conflicts) {
+                    layer.push(event);
+                    placed = true;
+                    break;
+                }
+            }
+            
+            // If no existing layer works, create a new one
+            if (!placed) {
+                layers.push([event]);
+            }
+        });
+        
+        return layers;
+    }
 
-        // Create the spanning event element
+    parseLocalDate(dateString) {
+        // Parse date as local date without timezone conversion
+        // Format expected: "YYYY-MM-DD"
+        const parts = dateString.split('-');
+        if (parts.length === 3) {
+            return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+        // Fallback to regular parsing if format is different
+        return new Date(dateString);
+    }
+
+    datesOverlap(start1, end1, start2, end2, weekDates) {
+        // Normalize all dates to just date (no time)
+        const normalizeDate = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        
+        const weekStart = normalizeDate(weekDates[0]);
+        const weekEnd = normalizeDate(weekDates[6]);
+        
+        const normStart1 = normalizeDate(start1);
+        const normEnd1 = normalizeDate(end1);
+        const normStart2 = normalizeDate(start2);
+        const normEnd2 = normalizeDate(end2);
+        
+        // Clamp dates to this week's boundaries
+        const clampedStart1 = normStart1 < weekStart ? weekStart : normStart1;
+        const clampedEnd1 = normEnd1 > weekEnd ? weekEnd : normEnd1;
+        const clampedStart2 = normStart2 < weekStart ? weekStart : normStart2;
+        const clampedEnd2 = normEnd2 > weekEnd ? weekEnd : normEnd2;
+        
+        // Check if the clamped ranges overlap
+        return clampedStart1 <= clampedEnd2 && clampedStart2 <= clampedEnd1;
+    }
+
+    createEventElement(event, weekIndex, layerIndex) {
+        // Parse dates without timezone conversion
+        const eventStart = this.parseLocalDate(event.start);
+        const eventEnd = this.parseLocalDate(event.end);
+        const weekStartIndex = weekIndex * 7;
+        const weekDates = this.calendarDates.slice(weekStartIndex, weekStartIndex + 7);
+        
+        // Find which day positions this event spans in this week
+        let startDayIndex = -1;
+        let endDayIndex = -1;
+        
+        // Normalize event dates to just date (no time)
+        const eventStartDate = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate());
+        const eventEndDate = new Date(eventEnd.getFullYear(), eventEnd.getMonth(), eventEnd.getDate());
+        
+        // Find first and last day where event appears
+        for (let i = 0; i < 7; i++) {
+            const dayDate = new Date(weekDates[i].getFullYear(), weekDates[i].getMonth(), weekDates[i].getDate());
+            
+            // Check if this day is within the event range
+            if (dayDate >= eventStartDate && dayDate <= eventEndDate) {
+                if (startDayIndex === -1) {
+                    startDayIndex = i;
+                }
+                endDayIndex = i; // Keep updating to find the last day
+            }
+        }
+        
+        // Handle edge cases
+        if (startDayIndex === -1) startDayIndex = 0; // Event started before this week
+        if (endDayIndex === -1) endDayIndex = 6; // Event ends after this week
+        
+        // Create the event element
         const eventElement = document.createElement('div');
-        eventElement.className = 'spanning-event';
+        eventElement.className = 'calendar-event';
         eventElement.textContent = event.title;
         
-        // Position absolutely to span across days
-        const leftPercent = (startDayInWeek / 7) * 100;
-        const widthPercent = ((endDayInWeek - startDayInWeek + 1) / 7) * 100;
-        const gridRowHeight = 121; // 120px min-height + 1px gap
-        const dayNumberHeight = 25; // Space for day number at top
-        const topOffset = dayNumberHeight + 5 + (eventIndex * 20); // Stack events below day numbers
+        // Calculate dimensions
+        const dayWidth = 100 / 7; // Each day is 1/7 of the calendar width
+        const eventHeight = 18;
+        const eventSpacing = 2;
+        const dayNumberHeight = 25;
+        const eventStartTop = dayNumberHeight + 5;
         
+        // Position the event
         eventElement.style.position = 'absolute';
-        eventElement.style.left = `calc(${leftPercent}% + ${startDayInWeek}px)`;
-        eventElement.style.width = `calc(${widthPercent}% - ${endDayInWeek - startDayInWeek}px)`;
-        eventElement.style.top = `${weekIndex * gridRowHeight + topOffset}px`;
-        eventElement.style.height = '16px';
+        eventElement.style.left = `${startDayIndex * dayWidth}%`;
+        eventElement.style.width = `${(endDayIndex - startDayIndex + 1) * dayWidth}%`;
+        eventElement.style.top = `${weekIndex * 121 + eventStartTop + (layerIndex * (eventHeight + eventSpacing))}px`;
+        eventElement.style.height = `${eventHeight}px`;
+        
+        // Style the event
         eventElement.style.backgroundColor = '#4f46e5';
         eventElement.style.color = 'white';
-        eventElement.style.borderRadius = '3px';
-        eventElement.style.padding = '2px 6px';
+        eventElement.style.borderRadius = '4px';
+        eventElement.style.padding = '2px 8px';
         eventElement.style.fontSize = '0.75rem';
         eventElement.style.fontWeight = '500';
         eventElement.style.cursor = 'pointer';
         eventElement.style.zIndex = '10';
+        eventElement.style.boxSizing = 'border-box';
         eventElement.style.overflow = 'hidden';
         eventElement.style.textOverflow = 'ellipsis';
         eventElement.style.whiteSpace = 'nowrap';
-        eventElement.style.boxSizing = 'border-box';
+        
+        // Add margins to prevent touching edges
+        eventElement.style.marginLeft = '2px';
+        eventElement.style.marginRight = '2px';
+        
+        // Debug specific dates
+        if (event.title && (event.title.toLowerCase().includes('cvent'))) {
+            console.log(`🐛 Event: "${event.title}"`);
+            console.log(`  Raw start: ${event.start}, Raw end: ${event.end}`);
+            console.log(`  Parsed start: ${eventStart.toDateString()}, Parsed end: ${eventEnd.toDateString()}`);
+            console.log(`  Week: ${weekIndex}, Layer: ${layerIndex}`);
+            console.log(`  Start day index: ${startDayIndex}, End day index: ${endDayIndex}`);
+            console.log(`  Week dates: ${weekDates[0].toDateString()} to ${weekDates[6].toDateString()}`);
+        }
 
         // Add click handler
         eventElement.addEventListener('click', (e) => {
