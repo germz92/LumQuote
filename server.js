@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const htmlPdf = require('html-pdf-node');
 const ExcelJS = require('exceljs');
+const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, UnderlineType } = require('docx');
 const fs = require('fs');
 const session = require('express-session');
 require('dotenv').config();
@@ -997,6 +998,242 @@ app.post('/api/generate-excel', async (req, res) => {
     });
   }
 });
+
+// Generate DOCX quote
+app.post('/api/generate-docx', async (req, res) => {
+  try {
+    const { quoteData, quoteName } = req.body;
+    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
+    
+    console.log('🔄 Starting DOCX generation...');
+    
+    // Create document content
+    const children = [];
+    
+    // Header with quote name and client name
+    if (quoteTitle || clientName) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: quoteTitle || 'Quote',
+              bold: true,
+              size: 28,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+        })
+      );
+      
+      if (clientName) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Client: ${clientName}`,
+                size: 24,
+              }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 400 },
+          })
+        );
+      }
+    }
+    
+    // Filter out tentative services and process days
+    const processedDays = days.map(day => ({
+      ...day,
+      services: day.services.filter(service => !service.tentative)
+    })).filter(day => day.services.length > 0); // Remove days with no non-tentative services
+    
+    // Add days with services
+    processedDays.forEach((day, dayIndex) => {
+      // Day header
+      const dayHeader = day.date ? formatDateForDocx(day.date) : `Day ${dayIndex + 1}`;
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: dayHeader,
+              bold: true,
+              size: 24,
+            }),
+          ],
+          spacing: { before: dayIndex > 0 ? 300 : 0, after: 100 },
+        })
+      );
+      
+      // Calculate day total
+      let dayTotal = 0;
+      
+      // Service list for this day
+      day.services.forEach(service => {
+        const serviceTotal = service.price * service.quantity;
+        dayTotal += serviceTotal;
+        
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `• ${service.name} (Qty${service.quantity} - $${service.price.toFixed(2)}): $${serviceTotal.toFixed(2)}`,
+                size: 22,
+              }),
+            ],
+            spacing: { after: 50 },
+            indent: { left: 360 }, // Indent for bullet points
+          })
+        );
+      });
+      
+      // Day total
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `Day Total: $${dayTotal.toFixed(2)}`,
+              bold: true,
+              size: 22,
+            }),
+          ],
+          spacing: { before: 100, after: 200 },
+          indent: { left: 360 },
+        })
+      );
+    });
+    
+    // Grand total section
+    if (processedDays.length > 0) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "Quote Summary",
+              bold: true,
+              size: 24,
+              underline: {
+                type: UnderlineType.SINGLE,
+              },
+            }),
+          ],
+          spacing: { before: 400, after: 200 },
+        })
+      );
+      
+      // Subtotal
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `Subtotal: $${subtotal.toFixed(2)}`,
+              size: 22,
+            }),
+          ],
+          spacing: { after: 50 },
+        })
+      );
+      
+      // Discount (if applicable)
+      if (discountPercentage > 0) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Discount (${discountPercentage}%): -$${discountAmount.toFixed(2)}`,
+                size: 22,
+              }),
+            ],
+            spacing: { after: 50 },
+          })
+        );
+      }
+      
+      // Grand total
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `Total: $${total.toFixed(2)}`,
+              bold: true,
+              size: 26,
+            }),
+          ],
+          spacing: { before: 100 },
+        })
+      );
+    }
+    
+    // Create the document
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: children,
+        },
+      ],
+    });
+    
+    console.log('📄 Creating DOCX buffer...');
+    const docxBuffer = await Packer.toBuffer(doc);
+    
+    // Validate buffer
+    if (!docxBuffer || docxBuffer.length === 0) {
+      throw new Error('Generated DOCX buffer is empty or invalid');
+    }
+    
+    console.log(`✅ DOCX buffer generated successfully (${docxBuffer.length} bytes)`);
+    
+    // Generate filename using same convention as Excel
+    const currentDate = new Date().toISOString().split('T')[0];
+    let filename;
+    
+    if (quoteTitle) {
+      // Sanitize quote title for filename
+      const sanitizedTitle = quoteTitle.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+      filename = `${sanitizedTitle}-${currentDate}.docx`;
+    } else {
+      filename = `lumetry-quote-${currentDate}.docx`;
+    }
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.send(docxBuffer);
+    
+  } catch (error) {
+    console.error('❌ DOCX generation error:', error.message);
+    console.error('❌ Full error stack:', error.stack);
+    
+    // Send a more specific error response
+    const errorMessage = error.message || 'Unknown error occurred';
+    res.status(500).json({ 
+      error: 'Failed to generate DOCX file. Please try again.',
+      details: errorMessage,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+function formatDateForDocx(dateString) {
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid date');
+    }
+    
+    const options = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric'
+    };
+    
+    return date.toLocaleDateString('en-US', options);
+  } catch (error) {
+    console.error('Date formatting error:', error);
+    return dateString || 'No Date Set';
+  }
+}
 
 function formatDateForExcel(date) {
   const options = { 

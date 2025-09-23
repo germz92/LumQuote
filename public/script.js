@@ -152,6 +152,7 @@ class QuoteCalculator {
         document.getElementById('decrease-days').addEventListener('click', () => this.removeDay());
         document.getElementById('generate-pdf').addEventListener('click', () => this.generatePDF());
         document.getElementById('export-excel').addEventListener('click', () => this.exportExcel());
+        document.getElementById('export-docx').addEventListener('click', () => this.exportDocx());
         
         // Save modal form submission
         document.getElementById('saveQuoteForm').addEventListener('submit', (e) => this.saveQuoteFromModal(e));
@@ -708,20 +709,24 @@ class QuoteCalculator {
             tentativeRow.remove();
         }
         
-        // Enable/disable PDF and Excel buttons
+        // Enable/disable PDF, Excel and DOCX buttons
         const pdfButton = document.getElementById('generate-pdf');
         const excelButton = document.getElementById('export-excel');
+        const docxButton = document.getElementById('export-docx');
         const hasServices = this.days.some(day => day.services.length > 0);
         
         pdfButton.disabled = !hasServices;
         excelButton.disabled = !hasServices;
+        docxButton.disabled = !hasServices;
         
         if (hasServices) {
             pdfButton.textContent = 'Download Quote (PDF)';
             excelButton.textContent = 'Export to Excel';
+            docxButton.textContent = 'Export to DOCX';
         } else {
             pdfButton.textContent = 'Select services to generate quote';
             excelButton.textContent = 'Export to Excel';
+            docxButton.textContent = 'Export to DOCX';
         }
     }
 
@@ -873,6 +878,77 @@ class QuoteCalculator {
         } catch (error) {
             console.error('Error exporting Excel:', error);
             showAlertModal('Failed to export Excel file. Please try again.', 'error');
+        }
+    }
+
+    async exportDocx() {
+        let clientName = this.currentClientName;
+        let quoteTitle = this.currentQuoteName;
+        
+        // Only prompt if we don't already have both values
+        if (!clientName || !quoteTitle) {
+            const exportData = await showExportModal(quoteTitle || '', clientName || '');
+            if (exportData === null) return; // User cancelled
+            
+            quoteTitle = exportData.title || null;
+            clientName = exportData.clientName || null;
+        }
+        
+        try {
+            const subtotal = this.calculateTotal();
+            const discountAmount = subtotal * (this.discountPercentage / 100);
+            const total = this.getFinalTotal();
+
+            // Send data to server for DOCX generation
+            const quoteData = {
+                days: this.days,
+                subtotal: subtotal,
+                total: total,
+                discountPercentage: this.discountPercentage,
+                discountAmount: discountAmount,
+                clientName: clientName,
+                quoteTitle: quoteTitle
+            };
+
+            const response = await fetch('/api/generate-docx', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    quoteData,
+                    quoteName: quoteTitle 
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to generate DOCX file');
+            }
+
+            // Get filename from Content-Disposition header
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'quote-export.docx';
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                if (filenameMatch) {
+                    filename = filenameMatch[1];
+                }
+            }
+
+            // Create blob and download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+        } catch (error) {
+            console.error('Error exporting DOCX:', error);
+            showAlertModal('Failed to export DOCX file. Please try again.', 'error');
         }
     }
 
