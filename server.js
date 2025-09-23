@@ -1007,6 +1007,13 @@ app.post('/api/generate-docx', async (req, res) => {
     
     console.log('🔄 Starting DOCX generation...');
     
+    // Load all services to get category information
+    const allServices = await Service.find({});
+    const serviceMap = {};
+    allServices.forEach(service => {
+      serviceMap[service._id.toString()] = service;
+    });
+    
     // Create document content
     const children = [];
     
@@ -1048,9 +1055,9 @@ app.post('/api/generate-docx', async (req, res) => {
       services: day.services.filter(service => !service.tentative)
     })).filter(day => day.services.length > 0); // Remove days with no non-tentative services
     
-    // Add days with services
+    // Add days with services grouped by categories
     processedDays.forEach((day, dayIndex) => {
-      // Day header
+      // Day header (centered)
       const dayHeader = day.date ? formatDateForDocx(day.date) : `Day ${dayIndex + 1}`;
       children.push(
         new Paragraph({
@@ -1061,28 +1068,76 @@ app.post('/api/generate-docx', async (req, res) => {
               size: 24,
             }),
           ],
-          spacing: { before: dayIndex > 0 ? 300 : 0, after: 100 },
+          alignment: AlignmentType.CENTER,
+          spacing: { before: dayIndex > 0 ? 300 : 0, after: 200 },
         })
       );
       
-      // Calculate day total
+      // Group services by category
+      const servicesByCategory = {};
+      day.services.forEach(service => {
+        // Look up the service definition to get category
+        const serviceDefinition = serviceMap[service.id];
+        const category = serviceDefinition?.category || 'Other';
+        if (!servicesByCategory[category]) {
+          servicesByCategory[category] = [];
+        }
+        servicesByCategory[category].push(service);
+      });
+      
       let dayTotal = 0;
       
-      // Service list for this day
-      day.services.forEach(service => {
-        const serviceTotal = service.price * service.quantity;
-        dayTotal += serviceTotal;
+      // Process each category
+      Object.keys(servicesByCategory).sort().forEach(category => {
+        const categoryServices = servicesByCategory[category];
+        let categoryTotal = 0;
         
+        // Category header
         children.push(
           new Paragraph({
             children: [
               new TextRun({
-                text: `• ${service.name} (Qty${service.quantity} - $${service.price.toFixed(2)}): $${serviceTotal.toFixed(2)}`,
+                text: category,
+                bold: true,
                 size: 22,
               }),
             ],
-            spacing: { after: 50 },
-            indent: { left: 360 }, // Indent for bullet points
+            spacing: { before: 100, after: 50 },
+          })
+        );
+        
+        // Services in this category
+        categoryServices.forEach(service => {
+          const serviceTotal = service.price * service.quantity;
+          categoryTotal += serviceTotal;
+          dayTotal += serviceTotal;
+          
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `• ${service.name} (Qty${service.quantity} - $${service.price.toFixed(2)}): $${serviceTotal.toFixed(2)}`,
+                  size: 22,
+                }),
+              ],
+              spacing: { after: 50 },
+              indent: { left: 360 }, // Indent for bullet points
+            })
+          );
+        });
+        
+        // Category total
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Category Total: $${categoryTotal.toFixed(2)}`,
+                bold: true,
+                size: 22,
+              }),
+            ],
+            spacing: { before: 50, after: 100 },
+            indent: { left: 360 },
           })
         );
       });
@@ -1094,11 +1149,10 @@ app.post('/api/generate-docx', async (req, res) => {
             new TextRun({
               text: `Day Total: $${dayTotal.toFixed(2)}`,
               bold: true,
-              size: 22,
+              size: 24,
             }),
           ],
           spacing: { before: 100, after: 200 },
-          indent: { left: 360 },
         })
       );
     });
