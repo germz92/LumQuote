@@ -201,6 +201,38 @@ class QuoteCalculator {
         return JSON.stringify(text);
     }
 
+    getQuoteDateRange(days) {
+        // Find all days with dates
+        const daysWithDates = days.filter(day => day.date);
+        
+        if (daysWithDates.length === 0) {
+            return null; // No dates assigned
+        }
+        
+        // Parse and sort dates
+        const dates = daysWithDates
+            .map(day => this.parseStoredDate(day.date))
+            .filter(date => date) // Filter out invalid dates
+            .sort((a, b) => a - b);
+        
+        if (dates.length === 0) {
+            return null; // No valid dates
+        }
+        
+        const startDate = dates[0];
+        const endDate = dates[dates.length - 1];
+        
+        // Format dates for display
+        const startFormatted = this.formatDate(startDate);
+        
+        if (dates.length === 1) {
+            return startFormatted; // Single date
+        } else {
+            const endFormatted = this.formatDate(endDate);
+            return `${startFormatted} - ${endFormatted}`; // Date range
+        }
+    }
+
     renderDays() {
         const container = document.getElementById('days-container');
         container.innerHTML = '';
@@ -224,7 +256,9 @@ class QuoteCalculator {
                 serviceRow.innerHTML = `
                     <div class="day-cell">
                         ${serviceIndex === 0 ? `
-                                                    <span class="day-header ${day.date ? 'has-date' : ''}" onclick="calculator.showCalendar(${dayIndex}, this)">
+                                                    <span class="day-header ${day.date ? 'has-date' : ''}" 
+                                  onclick="calculator.showCalendar(${dayIndex}, this)"
+                                  ontouchend="event.preventDefault(); event.stopPropagation(); calculator.showCalendar(${dayIndex}, this);">
                             ${day.date ? this.formatDate(this.parseStoredDate(day.date)) : `Day ${dayIndex + 1}`}
                         </span>
                             ${this.days.length > 1 ? `<button class="remove-day-btn" onclick="calculator.removeDayByIndex(${dayIndex})">×</button>` : ''}
@@ -318,7 +352,9 @@ class QuoteCalculator {
                 
                 emptyRow.innerHTML = `
                     <div class="day-cell">
-                        <span class="day-header ${day.date ? 'has-date' : ''}" onclick="calculator.showCalendar(${dayIndex}, this)">
+                        <span class="day-header ${day.date ? 'has-date' : ''}" 
+                              onclick="calculator.showCalendar(${dayIndex}, this)"
+                              ontouchend="event.preventDefault(); event.stopPropagation(); calculator.showCalendar(${dayIndex}, this);">
                             ${day.date ? this.formatDate(this.parseStoredDate(day.date)) : `Day ${dayIndex + 1}`}
                         </span>
                         ${this.days.length > 1 ? `<button class="remove-day-btn" onclick="calculator.removeDayByIndex(${dayIndex})">×</button>` : ''}
@@ -960,6 +996,7 @@ class QuoteCalculator {
         // Pre-fill form with current quote info if available
         document.getElementById('saveQuoteTitle').value = this.currentQuoteTitle || this.currentQuoteName || '';
         document.getElementById('clientName').value = this.currentClientName || '';
+        document.getElementById('eventLocation').value = this.currentLocation || '';
         
         // Load previous clients for the dropdown
         await this.loadClients();
@@ -1210,6 +1247,7 @@ class QuoteCalculator {
         
         const title = document.getElementById('saveQuoteTitle').value.trim();
         const clientName = document.getElementById('clientName').value.trim();
+        const location = document.getElementById('eventLocation').value.trim();
         
         if (!title) {
             showAlertModal('Please enter a quote title.', 'error');
@@ -1231,7 +1269,8 @@ class QuoteCalculator {
                 body: JSON.stringify({ 
                     name: title, 
                     quoteData,
-                    clientName: clientName || null
+                    clientName: clientName || null,
+                    location: location || null
                 })
             });
 
@@ -1246,17 +1285,19 @@ class QuoteCalculator {
                     'Cancel'
                 );
                 if (overwrite) {
-                    await this.overwriteQuote(title, quoteData, clientName);
+                    await this.overwriteQuote(title, quoteData, clientName, location);
                 }
             } else if (result.success) {
                 // Update current quote info
                 this.currentQuoteName = title;
                 this.currentClientName = clientName || null;
+                this.currentLocation = location || null;
                 this.currentQuoteTitle = title; // Update the main page title
                 
                 // Update displays
                 this.updateQuoteTitleDisplay();
                 this.updateClientDisplay();
+                this.updateLocationDisplay();
                 
                 this.closeSaveModal();
                 showAlertModal('Quote saved successfully!', 'success', null, true);
@@ -1269,7 +1310,7 @@ class QuoteCalculator {
         }
     }
 
-    async overwriteQuote(name, quoteData, clientName) {
+    async overwriteQuote(name, quoteData, clientName, location) {
         try {
             const response = await fetch('/api/overwrite-quote', {
                 method: 'POST',
@@ -1279,7 +1320,8 @@ class QuoteCalculator {
                 body: JSON.stringify({ 
                     name, 
                     quoteData,
-                    clientName: clientName || null
+                    clientName: clientName || null,
+                    location: location || null
                 })
             });
 
@@ -1289,11 +1331,13 @@ class QuoteCalculator {
                 // Update current quote info
                 this.currentQuoteName = name;
                 this.currentClientName = clientName || null;
+                this.currentLocation = location || null;
                 this.currentQuoteTitle = name; // Update the main page title
                 
                 // Update displays
                 this.updateQuoteTitleDisplay();
                 this.updateClientDisplay();
+                this.updateLocationDisplay();
                 
                 this.closeSaveModal();
                 showAlertModal('Quote updated successfully!', 'success', null, true);
@@ -1334,12 +1378,32 @@ class QuoteCalculator {
         }
     }
 
+    updateLocationDisplay() {
+        const locationDisplay = document.getElementById('location-display');
+        console.log('🔧 updateLocationDisplay called:', {
+            locationDisplay: !!locationDisplay,
+            currentLocation: this.currentLocation
+        });
+        if (locationDisplay) {
+            if (this.currentLocation) {
+                locationDisplay.textContent = `📍 ${this.currentLocation}`;
+                locationDisplay.style.display = 'block';
+                console.log('✅ Location display updated to:', this.currentLocation);
+            } else {
+                locationDisplay.style.display = 'none';
+                console.log('✅ Location display hidden');
+            }
+        }
+    }
+
     clearCurrentQuote() {
         this.currentQuoteName = null;
         this.currentClientName = null;
+        this.currentLocation = null;
         this.currentQuoteTitle = "Conference Services Quote";
         this.updateQuoteTitleDisplay();
         this.updateClientDisplay();
+        this.updateLocationDisplay();
     }
 
     markQuoteAsModified() {
@@ -1357,6 +1421,7 @@ class QuoteCalculator {
             this.discountPercentage = quote.quoteData.discountPercentage || 0;
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
+            this.currentLocation = quote.location || null;
             this.currentQuoteTitle = quote.name; // Use quote name as title (matching regular loadQuote)
             
             // Update the quote title display
@@ -1391,6 +1456,7 @@ class QuoteCalculator {
             
             // Update client display
             this.updateClientDisplay();
+            this.updateLocationDisplay();
             
             // Reset override mode when loading a quote (matching regular loadQuote)
             if (this.isOverrideMode) {
@@ -1445,6 +1511,7 @@ class QuoteCalculator {
             const totalServices = quote.quoteData.days.reduce((sum, day) => sum + day.services.length, 0);
             const createdDate = new Date(quote.createdAt).toLocaleDateString();
             const updatedDate = new Date(quote.updatedAt).toLocaleDateString();
+            const dateRange = this.getQuoteDateRange(quote.quoteData.days);
             
             return `
                 <div class="quote-item" data-quote-name="${this.escapeHtml(quote.name)}">
@@ -1458,9 +1525,11 @@ class QuoteCalculator {
                         <span>💰 Total: ${this.formatCurrency(quote.quoteData.total)}</span>
                         <span>📅 Days: ${quote.quoteData.days.length}</span>
                         <span>🎯 Services: ${totalServices}</span>
+                        ${dateRange ? `<span>📅 Service Dates: ${dateRange}</span>` : ''}
                         <span>📅 Created: ${createdDate}</span>
                         ${createdDate !== updatedDate ? `<span>✏️ Updated: ${updatedDate}</span>` : ''}
                         ${quote.clientName ? `<span>👤 Client: ${this.escapeHtml(quote.clientName)}</span>` : ''}
+                        ${quote.location ? `<span>📍 Location: ${this.escapeHtml(quote.location)}</span>` : ''}
                     </div>
                 </div>
             `;
@@ -1493,7 +1562,8 @@ class QuoteCalculator {
         const searchTerm = document.getElementById('searchQuotes').value.toLowerCase();
         const filtered = this.allQuotes.filter(quote => 
             quote.name.toLowerCase().includes(searchTerm) ||
-            (quote.clientName && quote.clientName.toLowerCase().includes(searchTerm))
+            (quote.clientName && quote.clientName.toLowerCase().includes(searchTerm)) ||
+            (quote.location && quote.location.toLowerCase().includes(searchTerm))
         );
         this.displayQuotes(filtered);
     }
@@ -1546,6 +1616,7 @@ class QuoteCalculator {
             this.discountPercentage = quote.quoteData.discountPercentage || 0;
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
+            this.currentLocation = quote.location || null;
             this.currentQuoteTitle = quote.name; // Use quote name as title
             
             // Update the quote title display
@@ -1580,6 +1651,7 @@ class QuoteCalculator {
             
             // Update client display
             this.updateClientDisplay();
+            this.updateLocationDisplay();
             
             // Reset override mode when loading a quote
             if (this.isOverrideMode) {
@@ -2866,6 +2938,7 @@ function closeSaveModal() {
 async function saveAsCopy() {
     const title = document.getElementById('saveQuoteTitle').value.trim();
     const clientName = document.getElementById('clientName').value.trim();
+    const location = document.getElementById('eventLocation').value.trim();
     
     if (!title) {
         showAlertModal('Please enter a quote title.', 'error');
@@ -2890,7 +2963,8 @@ async function saveAsCopy() {
             body: JSON.stringify({ 
                 name: copyTitle, 
                 quoteData,
-                clientName: clientName || null
+                clientName: clientName || null,
+                location: location || null
             })
         });
 

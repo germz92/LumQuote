@@ -63,6 +63,14 @@ body {
     margin-top: 2px;
 }
 
+.location-display {
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-top: 4px;
+    font-style: italic;
+}
+
 .back-button {
     display: flex;
     align-items: center;
@@ -1870,10 +1878,11 @@ body {
     border-radius: 12px;
     width: 90%;
     max-width: 800px;
-    max-height: 80vh;
+    max-height: 90vh;
     overflow: hidden;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
+
 
 .modal-header {
     display: flex;
@@ -2049,10 +2058,47 @@ body {
     cursor: pointer;
     transition: color 0.2s ease;
     user-select: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(79, 70, 229, 0.1);
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    position: relative;
+    z-index: 10;
 }
 
 .day-header:hover {
     color: #4f46e5;
+}
+
+/* Mobile-friendly active state */
+.day-header:active {
+    background-color: rgba(79, 70, 229, 0.1) !important;
+    transform: scale(0.98);
+}
+
+/* Ensure touch targets are large enough on mobile */
+@media (max-width: 768px) {
+    .day-header {
+        min-height: 48px;
+        min-width: 48px;
+        font-size: 14px;
+        padding: 12px 8px;
+        border-radius: 8px;
+        background-color: rgba(248, 250, 252, 0.8);
+        border: 1px solid rgba(226, 232, 240, 0.5);
+        margin-right: 4px;
+        z-index: 15;
+    }
+    
+    .day-cell {
+        padding-right: 8px;
+        border-right: 2px solid #f1f5f9;
+        position: relative;
+        z-index: 10;
+    }
 }
 
 .day-header.has-date {
@@ -2064,8 +2110,10 @@ body {
 
 /* Calendar Modal Styles */
 .calendar-modal-content {
-    max-width: 400px;
-    width: 90%;
+    max-width: 600px;
+    width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
     margin: 0; /* Remove margin since parent handles centering */
     position: relative;
     transform: translateZ(0);
@@ -2076,18 +2124,29 @@ body {
 }
 
 #calendar-container {
-    padding: 20px;
+    padding: 8px;
 }
 
 /* Ensure calendar modal is always centered on all screen sizes */
-@media (max-width: 480px) {
+@media (max-width: 640px) {
     .calendar-modal-content {
-        width: 95%;
-        max-width: 350px;
+        width: 98%;
+        max-width: 500px;
     }
     
     #calendar-container {
-        padding: 15px;
+        padding: 1px;
+    }
+}
+
+@media (max-width: 480px) {
+    .calendar-modal-content {
+        width: 98%;
+        max-width: 420px;
+    }
+    
+    #calendar-container {
+        padding: 1px;
     }
 }
 
@@ -2114,11 +2173,12 @@ body {
     z-index: auto;
 }
 
-.calendar-header {
+#calendar-container .calendar-header,
+.calendar-modal-content .calendar-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px;
+    padding: 8px;
     border-bottom: 1px solid #e2e8f0;
 }
 
@@ -2148,67 +2208,90 @@ body {
     font-size: 16px;
 }
 
-.calendar-grid {
+/* Modal calendar grid styling - more specific selector */
+#calendar-container .calendar-grid,
+.calendar-modal-content .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
+    grid-template-rows: 28px repeat(6, 36px);
     gap: 1px;
     background: #f1f5f9;
-    margin: 16px;
-    border-radius: 8px;
-    overflow: hidden;
+    margin: 8px 8px 4px 8px;
+    border-radius: 6px;
+    overflow: visible;
+    min-height: auto !important;
+    height: auto !important;
 }
 
-.calendar-day-header {
+/* Modal calendar day header styling - more specific selector */
+#calendar-container .calendar-day-header,
+.calendar-modal-content .calendar-day-header {
     background: #f8fafc;
-    padding: 12px 8px;
+    padding: 4px;
     text-align: center;
     font-weight: 600;
     font-size: 12px;
     color: #64748b;
     text-transform: uppercase;
-}
-
-.calendar-day {
-    background: white;
-    padding: 12px 8px;
-    text-align: center;
-    cursor: pointer;
-    font-size: 14px;
-    color: #1e293b;
-    transition: all 0.2s;
-    min-height: 40px;
+    height: 28px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.calendar-day:hover {
+/* Modal calendar day styling - more specific selector */
+#calendar-container .calendar-day,
+.calendar-modal-content .calendar-day {
+    background: white;
+    padding: 4px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 14px;
+    color: #1e293b;
+    transition: all 0.2s;
+    height: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#calendar-container .calendar-day:hover,
+.calendar-modal-content .calendar-day:hover {
     background: #f1f5f9;
 }
 
-.calendar-day.other-month {
+#calendar-container .calendar-day.other-month,
+.calendar-modal-content .calendar-day.other-month {
     color: #cbd5e1;
     cursor: not-allowed;
 }
 
-.calendar-day.today {
+#calendar-container .calendar-day.today,
+.calendar-modal-content .calendar-day.today {
     background: #dbeafe;
     color: #1d4ed8;
     font-weight: 600;
 }
 
-.calendar-day.selected {
+#calendar-container .calendar-day.selected,
+.calendar-modal-content .calendar-day.selected {
     background: #059669;
     color: white;
     font-weight: 600;
 }
 
-.calendar-actions {
+#calendar-container .calendar-actions,
+.calendar-modal-content .calendar-actions {
     display: flex;
     justify-content: space-between;
-    padding: 16px;
+    padding: 8px;
     border-top: 1px solid #e2e8f0;
-    gap: 12px;
+    gap: 8px;
+    margin-top: 4px;
 }
 
 .calendar-btn {

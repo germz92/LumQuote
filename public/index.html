@@ -32,6 +32,7 @@
                 <div class="quote-title-container">
                     <h2 id="quoteTitle" class="editable-title" onclick="editQuoteTitle()" title="Click to edit quote title">Conference Services Quote</h2>
                     <input type="text" id="quoteTitleInput" class="title-input" style="display: none;" placeholder="Enter quote title" onblur="saveQuoteTitle()" onkeydown="handleTitleKeydown(event)">
+                    <div id="location-display" class="location-display" style="display: none;"></div>
                 </div>
                 <p class="subtitle">Select days and services to calculate your quote</p>
 
@@ -159,6 +160,10 @@
                                 <!-- Previous clients will be loaded here -->
                             </div>
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="eventLocation">Event Location (Optional)</label>
+                        <input type="text" id="eventLocation" placeholder="Enter event location">
                     </div>
                     <div class="modal-buttons">
                         <button type="button" class="secondary-button" onclick="closeSaveModal()">Cancel</button>

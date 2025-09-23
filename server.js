@@ -615,7 +615,7 @@ async function generateQuoteHTML(quoteData) {
 // Generate Excel quote
 app.post('/api/generate-excel', async (req, res) => {
   try {
-    const { quoteData, quoteName } = req.body;
+    const { quoteData, quoteName, enableBorders = true } = req.body;
     const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
     
     console.log('🔄 Starting Excel generation...');
@@ -627,14 +627,14 @@ app.post('/api/generate-excel', async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Quote');
     
-    // Set column widths
+    // Set column headers (widths will be auto-fitted later)
     worksheet.columns = [
-      { header: 'Date', key: 'date', width: 25 },
-      { header: 'Item', key: 'item', width: 40 },
-      { header: 'Qty', key: 'qty', width: 8 },
-      { header: 'Rate', key: 'rate', width: 15 },
-      { header: 'Price', key: 'price', width: 15 },
-      { header: 'Description', key: 'description', width: 50 }
+      { header: 'Date', key: 'date' },
+      { header: 'Item', key: 'item' },
+      { header: 'Qty', key: 'qty' },
+      { header: 'Rate', key: 'rate' },
+      { header: 'Price', key: 'price' },
+      { header: 'Description', key: 'description' }
     ];
     
     let currentRow = 1;
@@ -867,10 +867,106 @@ app.post('/api/generate-excel', async (req, res) => {
       tentativeRow.font = { name: 'Arial', size: 11 };
     }
     
+    // Add borders to all used cells for grid lines (if enabled)
+    if (enableBorders) {
+      try {
+        const lastRow = worksheet.lastRow?.number || currentRow;
+        const lastCol = 6; // We have 6 columns (A-F)
+        
+        // Ensure we have valid row numbers
+        if (lastRow > 0 && lastCol > 0) {
+        // Define border style
+        const borderStyle = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+        
+        // Apply borders to all cells in the used range
+        for (let row = 1; row <= Math.min(lastRow, 1000); row++) { // Limit to prevent memory issues
+          for (let col = 1; col <= lastCol; col++) {
+            try {
+              const cell = worksheet.getCell(row, col);
+              cell.border = borderStyle;
+            } catch (cellError) {
+              console.warn(`⚠️ Could not apply border to cell ${row},${col}:`, cellError.message);
+            }
+          }
+        }
+          console.log(`✅ Borders applied to ${lastRow} rows and ${lastCol} columns`);
+        } else {
+          console.warn('⚠️ Invalid row/column numbers, skipping border application');
+        }
+      } catch (borderError) {
+        console.error('❌ Error applying borders:', borderError.message);
+        // Continue without borders if there's an issue
+      }
+    } else {
+      console.log('📝 Borders disabled for this export');
+    }
+    
+    // Auto-fit column widths based on content
+    console.log('🔄 Auto-fitting column widths...');
+    try {
+      // Define column-specific minimum widths
+      const columnMinWidths = {
+        'A': 20, // Date column
+        'B': 30, // Item column
+        'C': 8,  // Qty column
+        'D': 12, // Rate column
+        'E': 12, // Price column
+        'F': 40  // Description column
+      };
+      
+      worksheet.columns.forEach((column, index) => {
+        let maxLength = 0;
+        const columnLetter = String.fromCharCode(65 + index); // A, B, C, etc.
+        const minWidth = columnMinWidths[columnLetter] || 8;
+        
+        // Check each cell in the column to find the longest content
+        worksheet.getColumn(columnLetter).eachCell({ includeEmpty: false }, (cell) => {
+          let cellValue = '';
+          
+          if (cell.value) {
+            cellValue = cell.value.toString();
+            
+            // Handle wrapped text - estimate line breaks
+            if (cell.alignment && cell.alignment.wrapText) {
+              // For wrapped text, consider the width needed for readability
+              const words = cellValue.split(' ');
+              const longestWord = Math.max(...words.map(word => word.length));
+              maxLength = Math.max(maxLength, longestWord);
+            } else {
+              maxLength = Math.max(maxLength, cellValue.length);
+            }
+          }
+        });
+        
+        // Calculate width with padding and limits
+        // Use column-specific minimum, maximum of 100 characters
+        const calculatedWidth = Math.max(minWidth, Math.min(maxLength + 3, 100));
+        column.width = calculatedWidth;
+        
+        console.log(`📏 Column ${columnLetter} (${column.header || 'Unknown'}): ${maxLength} chars -> width ${calculatedWidth}`);
+      });
+      
+      console.log('✅ Column widths auto-fitted successfully');
+    } catch (autofitError) {
+      console.error('❌ Error auto-fitting columns:', autofitError.message);
+      // Continue without auto-fitting if there's an issue
+    }
+    
     // Generate Excel buffer
+    console.log('🔄 Generating Excel buffer...');
     const excelBuffer = await workbook.xlsx.writeBuffer();
     
-    console.log('✅ Excel generated successfully');
+    // Validate buffer
+    if (!excelBuffer || excelBuffer.length === 0) {
+      throw new Error('Generated Excel buffer is empty or invalid');
+    }
+    
+    console.log(`✅ Excel buffer generated successfully (${excelBuffer.length} bytes)`);
     
     // Generate filename using same convention as PDF
     const currentDate = new Date().toISOString().split('T')[0];
@@ -890,9 +986,14 @@ app.post('/api/generate-excel', async (req, res) => {
     
   } catch (error) {
     console.error('❌ Excel generation error:', error.message);
+    console.error('❌ Full error stack:', error.stack);
+    
+    // Send a more specific error response
+    const errorMessage = error.message || 'Unknown error occurred';
     res.status(500).json({ 
       error: 'Failed to generate Excel file. Please try again.',
-      details: error.message 
+      details: errorMessage,
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -975,7 +1076,8 @@ app.listen(PORT, () => {
 const savedQuoteSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   quoteData: { type: Object, required: true },
-  clientName: { type: String, default: null }
+  clientName: { type: String, default: null },
+  location: { type: String, default: null }
 }, { timestamps: true });
 
 const SavedQuote = mongoose.model('SavedQuote', savedQuoteSchema, 'savedQuotes');
@@ -983,7 +1085,7 @@ const SavedQuote = mongoose.model('SavedQuote', savedQuoteSchema, 'savedQuotes')
 // Save quote endpoint
 app.post('/api/save-quote', async (req, res) => {
   try {
-    const { name, quoteData, clientName } = req.body;
+    const { name, quoteData, clientName, location } = req.body;
     
     if (!name || !quoteData) {
       return res.status(400).json({ error: 'Name and quote data are required' });
@@ -1007,7 +1109,8 @@ app.post('/api/save-quote', async (req, res) => {
     const savedQuote = new SavedQuote({
       name,
       quoteData,
-      clientName: clientName || null
+      clientName: clientName || null,
+      location: location || null
     });
 
     const result = await savedQuote.save();
@@ -1021,7 +1124,7 @@ app.post('/api/save-quote', async (req, res) => {
 // Overwrite existing quote endpoint
 app.post('/api/overwrite-quote', async (req, res) => {
   try {
-    const { name, quoteData, clientName } = req.body;
+    const { name, quoteData, clientName, location } = req.body;
     
     if (!name || !quoteData) {
       return res.status(400).json({ error: 'Name and quote data are required' });
@@ -1031,7 +1134,8 @@ app.post('/api/overwrite-quote', async (req, res) => {
       { name },
       { 
         quoteData,
-        clientName: clientName || null
+        clientName: clientName || null,
+        location: location || null
       },
       { new: true }
     );
@@ -1053,6 +1157,7 @@ app.get('/api/saved-quotes', async (req, res) => {
     const quotes = await SavedQuote.find({}, {
       name: 1,
       clientName: 1,
+      location: 1,
       createdAt: 1,
       updatedAt: 1,
       // Include basic quote info for preview
