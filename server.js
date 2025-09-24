@@ -347,7 +347,7 @@ function formatDateForPDF(date) {
 }
 
 async function generateQuoteHTML(quoteData) {
-  const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
+  const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
   
   // Get all services for subservice checking
   const allServices = await Service.find();
@@ -415,6 +415,27 @@ async function generateQuoteHTML(quoteData) {
       `;
     }
   });
+  
+  // Add markups as separate line items
+  if (markups && markups.length > 0) {
+    markups.forEach(markup => {
+      servicesHTML += `
+        <tr>
+          <td style="color: #1e293b;"></td>
+          <td style="color: #1e293b;">
+            ${markup.name}
+            ${markup.description ? `<br><small style="color: #64748b; font-size: 10px; line-height: 1.3;">${markup.description}</small>` : ''}
+          </td>
+          <td style="text-align: center; color: #1e293b;">
+            1
+          </td>
+          <td style="text-align: right; font-weight: 600; color: #1e293b;">
+            ${formatCurrency(markup.markupAmount)}
+          </td>
+        </tr>
+      `;
+    });
+  }
   
   return `
     <!DOCTYPE html>
@@ -572,9 +593,10 @@ async function generateQuoteHTML(quoteData) {
       
       <div class="totals-and-footer">
         <div class="totals">
-          ${discountPercentage > 0 ? `
+          ${(discountPercentage > 0 || (markupsTotal && markupsTotal > 0)) ? `
             <div>Subtotal: ${formatCurrency(subtotal)}</div>
-            <div>Discount (${discountPercentage}%): -${formatCurrency(discountAmount)}</div>
+            ${markupsTotal && markupsTotal > 0 ? `<div>Markups: ${formatCurrency(markupsTotal)}</div>` : ''}
+            ${discountPercentage > 0 ? `<div>Discount (${discountPercentage}%): -${formatCurrency(discountAmount)}</div>` : ''}
             <div class="total-final">Grand Total: ${formatCurrency(total)}</div>
           ` : `
             <div class="total-final">Grand Total: ${formatCurrency(total)}</div>
@@ -617,7 +639,7 @@ async function generateQuoteHTML(quoteData) {
 app.post('/api/generate-excel', async (req, res) => {
   try {
     const { quoteData, quoteName, enableBorders = true } = req.body;
-    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
+    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
     
     console.log('🔄 Starting Excel generation...');
     
@@ -764,12 +786,40 @@ app.post('/api/generate-excel', async (req, res) => {
       }
     });
     
+    // Add markups as line items
+    if (markups && markups.length > 0) {
+      markups.forEach(markup => {
+        const row = worksheet.addRow({
+          date: '',
+          item: markup.name,
+          qty: 1,
+          rate: formatCurrency(markup.markupAmount),
+          price: formatCurrency(markup.markupAmount),
+          description: markup.description || ''
+        });
+        
+        // Set Arial font for all cells
+        row.font = { name: 'Arial', size: 11 };
+        
+        // Set quantity column to left-aligned
+        row.getCell('qty').alignment = { horizontal: 'left' };
+        
+        // Enable text wrapping for description column if there's a description
+        if (markup.description) {
+          row.getCell('description').alignment = { wrapText: true, vertical: 'top' };
+          row.height = Math.max(20, Math.ceil(markup.description.length / 60) * 15);
+        }
+        
+        currentRow++;
+      });
+    }
+    
     // Add empty row
     worksheet.addRow({});
     currentRow++;
     
-    // Add summary rows based on discount
-    if (discountPercentage > 0) {
+    // Add summary rows based on discount or markups
+    if (discountPercentage > 0 || (markupsTotal && markupsTotal > 0)) {
       // Subtotal row
       const subtotalRow = worksheet.addRow({
         date: '',
@@ -782,17 +832,33 @@ app.post('/api/generate-excel', async (req, res) => {
       subtotalRow.getCell('description').alignment = { horizontal: 'left' };
       subtotalRow.font = { name: 'Arial', size: 11 };
       
-      // Discount row
-      const discountRow = worksheet.addRow({
-        date: '',
-        item: `${discountPercentage}% Discount`,
-        qty: '',
-        rate: '',
-        price: formatCurrency(discountAmount),
-        description: 'Discount'
-      });
-      discountRow.getCell('description').alignment = { horizontal: 'left' };
-      discountRow.font = { name: 'Arial', size: 11 };
+      // Markups row (if any)
+      if (markupsTotal && markupsTotal > 0) {
+        const markupsRow = worksheet.addRow({
+          date: '',
+          item: '',
+          qty: '',
+          rate: '',
+          price: formatCurrency(markupsTotal),
+          description: 'Markups'
+        });
+        markupsRow.getCell('description').alignment = { horizontal: 'left' };
+        markupsRow.font = { name: 'Arial', size: 11 };
+      }
+      
+      // Discount row (if any)
+      if (discountPercentage > 0) {
+        const discountRow = worksheet.addRow({
+          date: '',
+          item: `${discountPercentage}% Discount`,
+          qty: '',
+          rate: '',
+          price: formatCurrency(discountAmount),
+          description: 'Discount'
+        });
+        discountRow.getCell('description').alignment = { horizontal: 'left' };
+        discountRow.font = { name: 'Arial', size: 11 };
+      }
       
       // Grand Total row
       const grandTotalRow = worksheet.addRow({
@@ -910,20 +976,20 @@ app.post('/api/generate-excel', async (req, res) => {
     // Auto-fit column widths based on content
     console.log('🔄 Auto-fitting column widths...');
     try {
-      // Define column-specific minimum widths
-      const columnMinWidths = {
-        'A': 20, // Date column
-        'B': 30, // Item column
-        'C': 8,  // Qty column
-        'D': 12, // Rate column
-        'E': 12, // Price column
-        'F': 40  // Description column
+      // Define column-specific default and maximum widths
+      const columnSettings = {
+        'A': { autofit: true, max: 35 },   // Date column - always autofit
+        'B': { default: 25, max: 50 },     // Item column
+        'C': { default: 5, max: 8 },       // Qty column - small default
+        'D': { default: 8, max: 12 },      // Rate column - small default
+        'E': { default: 10, max: 15 },     // Price column - small default
+        'F': { default: 30, max: 60 }      // Description column
       };
       
       worksheet.columns.forEach((column, index) => {
         let maxLength = 0;
         const columnLetter = String.fromCharCode(65 + index); // A, B, C, etc.
-        const minWidth = columnMinWidths[columnLetter] || 8;
+        const settings = columnSettings[columnLetter] || { default: 8, max: 20 };
         
         // Check each cell in the column to find the longest content
         worksheet.getColumn(columnLetter).eachCell({ includeEmpty: false }, (cell) => {
@@ -944,12 +1010,23 @@ app.post('/api/generate-excel', async (req, res) => {
           }
         });
         
-        // Calculate width with padding and limits
-        // Use column-specific minimum, maximum of 100 characters
-        const calculatedWidth = Math.max(minWidth, Math.min(maxLength + 3, 100));
+        // Calculate width based on column type
+        let calculatedWidth;
+        if (settings.autofit) {
+          // Date column: always autofit to content with padding, cap at max
+          calculatedWidth = Math.min(maxLength + 3, settings.max);
+        } else if (maxLength + 2 > settings.default) {
+          // Other columns: use default unless content needs more space
+          calculatedWidth = Math.min(maxLength + 2, settings.max);
+        } else {
+          // Content fits in default width
+          calculatedWidth = settings.default;
+        }
+        
         column.width = calculatedWidth;
         
-        console.log(`📏 Column ${columnLetter} (${column.header || 'Unknown'}): ${maxLength} chars -> width ${calculatedWidth}`);
+        const widthType = settings.autofit ? 'autofit' : `default ${settings.default}`;
+        console.log(`📏 Column ${columnLetter} (${column.header || 'Unknown'}): ${maxLength} chars -> ${widthType}, calculated ${calculatedWidth}`);
       });
       
       console.log('✅ Column widths auto-fitted successfully');
@@ -1003,7 +1080,7 @@ app.post('/api/generate-excel', async (req, res) => {
 app.post('/api/generate-docx', async (req, res) => {
   try {
     const { quoteData, quoteName } = req.body;
-    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
+    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
     
     console.log('🔄 Starting DOCX generation...');
     
@@ -1187,6 +1264,21 @@ app.post('/api/generate-docx', async (req, res) => {
           spacing: { after: 50 },
         })
       );
+      
+      // Markups (if applicable)
+      if (markupsTotal && markupsTotal > 0) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Markups: $${markupsTotal.toFixed(2)}`,
+                size: 22,
+              }),
+            ],
+            spacing: { after: 50 },
+          })
+        );
+      }
       
       // Discount (if applicable)
       if (discountPercentage > 0) {

@@ -572,6 +572,179 @@ body {
     color: #4f46e5;
 }
 
+/* Markup section */
+.markup-section {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.markup-button {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.markup-button:hover {
+    background: #059669;
+}
+
+.markup-list {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.markup-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+}
+
+.markup-info {
+    flex: 1;
+}
+
+.markup-name {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+
+.markup-details {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.markup-amount {
+    font-weight: 600;
+    color: #10b981;
+    font-size: 16px;
+    margin-right: 12px;
+}
+
+.markup-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.markup-edit-btn, .markup-remove-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.markup-edit-btn {
+    background: #3b82f6;
+    color: white;
+}
+
+.markup-edit-btn:hover {
+    background: #2563eb;
+}
+
+.markup-remove-btn {
+    background: #ef4444;
+    color: white;
+}
+
+.markup-remove-btn:hover {
+    background: #dc2626;
+}
+
+/* Markup service list styles */
+.markup-service-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 12px;
+    background: #f8fafc;
+}
+
+.markup-day-group {
+    margin-bottom: 16px;
+}
+
+.markup-day-group:last-child {
+    margin-bottom: 0;
+}
+
+.markup-day-header {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.markup-service-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+}
+
+.markup-service-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.markup-service-label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.markup-service-name {
+    color: #374151;
+    font-size: 14px;
+}
+
+.markup-service-price {
+    color: #64748b;
+    font-size: 12px;
+    margin-left: auto;
+}
+
+.markup-service-item.subservice {
+    margin-left: 20px;
+}
+
+.markup-service-item.subservice .markup-service-name {
+    color: #64748b;
+    font-size: 13px;
+}
+
+.markup-no-services {
+    color: #64748b;
+    font-style: italic;
+    text-align: center;
+    padding: 20px;
+}
+
 /* Discount section */
 .discount-section {
     background: white;
