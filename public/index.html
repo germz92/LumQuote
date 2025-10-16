@@ -22,6 +22,7 @@
                 <span id="client-display" class="client-display" style="display: none;"></span>
             </div>
             <div class="header-actions">
+                <a href="/quotes" class="admin-link">Quotes</a>
                 <a href="/admin" class="admin-link">Admin</a>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
@@ -58,7 +59,7 @@
                     </div>
                     <div class="save-load-buttons">
                         <button class="save-btn" onclick="showSaveModal()">Save</button>
-                        <button class="load-btn" onclick="showLoadModal()">Load</button>
+                        <button class="load-btn" onclick="window.location.href='/quotes'">Load</button>
                         <button class="clear-btn" onclick="clearQuote()">Clear</button>
                         <button class="override-btn" id="overrideBtn" onclick="calculator.toggleOverrideMode()">Override</button>
                     </div>
@@ -184,28 +185,6 @@
                         <button type="submit" class="primary-button">Save Quote</button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Load Quote Modal -->
-    <div id="loadModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Load Saved Quote</h2>
-                <span class="close" onclick="closeLoadModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="search-sort-controls">
-                    <input type="text" id="searchQuotes" placeholder="Search quotes..." onkeyup="filterQuotes()">
-                    <select id="sortQuotes" onchange="sortQuotes()">
-                        <option value="newest">Newest First</option>
-                        <option value="oldest">Oldest First</option>
-                    </select>
-                </div>
-                <div id="quotesContainer" class="quotes-list">
-                    <!-- Saved quotes will be loaded here -->
-                </div>
             </div>
         </div>
     </div>

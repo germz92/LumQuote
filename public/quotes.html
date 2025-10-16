@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Quotes - Quote Calculator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="logo-section">
+            <img src="/assets/logo.png" alt="Lumetry Media" class="company-logo">
+        </div>
+        <header class="header">
+            <button class="back-button" onclick="window.location.href='/'">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="15,18 9,12 15,6"></polyline>
+                </svg>
+            </button>
+            <div class="header-title">
+                <h1>Manage Quotes</h1>
+                <span class="subtitle">Load, archive, or delete saved quotes</span>
+            </div>
+            <div class="header-actions">
+                <a href="/calendar" class="admin-link">Calendar</a>
+                <a href="/admin" class="admin-link">Admin</a>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="quotes-page-section">
+                <!-- Sticky header with controls -->
+                <div class="quotes-controls-header">
+                    <div class="search-filter-controls">
+                        <input type="text" 
+                               id="searchQuotes" 
+                               class="search-input" 
+                               placeholder="Search quotes by name, client, or location..." 
+                               onkeyup="quotesManager.filterAndSort()">
+                        
+                        <select id="sortQuotes" 
+                                class="sort-select" 
+                                onchange="quotesManager.filterAndSort()">
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                            <option value="name-asc">Name (A-Z)</option>
+                            <option value="name-desc">Name (Z-A)</option>
+                        </select>
+
+                        <input type="date" 
+                               id="dateFilter" 
+                               class="date-filter" 
+                               placeholder="Filter by service date"
+                               onchange="quotesManager.filterAndSort()">
+                        
+                        <button class="clear-filters-btn" 
+                                id="clearFiltersBtn" 
+                                onclick="quotesManager.clearFilters()" 
+                                style="display: none;">
+                            Clear Filters
+                        </button>
+                    </div>
+
+                    <div class="archive-toggle-container">
+                        <button class="archive-toggle-btn" 
+                                id="archiveToggleBtn" 
+                                onclick="quotesManager.toggleArchiveView()">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 8v13H3V8"></path>
+                                <path d="M1 3h22v5H1z"></path>
+                                <path d="M10 12h4"></path>
+                            </svg>
+                            <span id="archiveToggleText">View Archived</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Quotes list -->
+                <div id="quotesContainer" class="quotes-grid">
+                    <!-- Quotes will be loaded here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Alert Modal -->
+    <div id="alertModal" class="modal" style="display: none;">
+        <div class="modal-content alert-modal-content">
+            <div class="modal-header">
+                <h2 id="alertModalTitle">Message</h2>
+                <span class="close" onclick="hideAlertModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="alert-content">
+                    <div id="alertModalIcon" class="alert-icon"></div>
+                    <p id="alertModalMessage">Message content</p>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="primary-button" onclick="hideAlertModal()">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal" style="display: none;">
+        <div class="modal-content confirm-modal-content">
+            <div class="modal-header">
+                <h2 id="confirmModalTitle">Confirm</h2>
+                <span class="close" onclick="hideConfirmModal(false)">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="confirm-content">
+                    <div class="confirm-icon">⚠️</div>
+                    <p id="confirmModalMessage">Are you sure?</p>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="secondary-button" onclick="hideConfirmModal(false)">Cancel</button>
+                    <button type="button" class="primary-button" id="confirmModalOk" onclick="hideConfirmModal(true)">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="quotes.js"></script>
+</body>
+</html>
+

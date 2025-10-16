@@ -347,7 +347,7 @@ function formatDateForPDF(date) {
 }
 
 async function generateQuoteHTML(quoteData) {
-  const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
+  const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
   
   // Get all services for subservice checking
   const allServices = await Service.find();
@@ -415,6 +415,27 @@ async function generateQuoteHTML(quoteData) {
       `;
     }
   });
+  
+  // Add markups as separate line items
+  if (markups && markups.length > 0) {
+    markups.forEach(markup => {
+      servicesHTML += `
+        <tr>
+          <td style="color: #1e293b;"></td>
+          <td style="color: #1e293b;">
+            ${markup.name}
+            ${markup.description ? `<br><small style="color: #64748b; font-size: 10px; line-height: 1.3;">${markup.description}</small>` : ''}
+          </td>
+          <td style="text-align: center; color: #1e293b;">
+            1
+          </td>
+          <td style="text-align: right; font-weight: 600; color: #1e293b;">
+            ${formatCurrency(markup.markupAmount)}
+          </td>
+        </tr>
+      `;
+    });
+  }
   
   return `
     <!DOCTYPE html>
@@ -572,9 +593,10 @@ async function generateQuoteHTML(quoteData) {
       
       <div class="totals-and-footer">
         <div class="totals">
-          ${discountPercentage > 0 ? `
+          ${(discountPercentage > 0 || (markupsTotal && markupsTotal > 0)) ? `
             <div>Subtotal: ${formatCurrency(subtotal)}</div>
-            <div>Discount (${discountPercentage}%): -${formatCurrency(discountAmount)}</div>
+            ${markupsTotal && markupsTotal > 0 ? `<div>Markups: ${formatCurrency(markupsTotal)}</div>` : ''}
+            ${discountPercentage > 0 ? `<div>Discount (${discountPercentage}%): -${formatCurrency(discountAmount)}</div>` : ''}
             <div class="total-final">Grand Total: ${formatCurrency(total)}</div>
           ` : `
             <div class="total-final">Grand Total: ${formatCurrency(total)}</div>
@@ -617,7 +639,7 @@ async function generateQuoteHTML(quoteData) {
 app.post('/api/generate-excel', async (req, res) => {
   try {
     const { quoteData, quoteName, enableBorders = true } = req.body;
-    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
+    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
     
     console.log('🔄 Starting Excel generation...');
     
@@ -764,12 +786,40 @@ app.post('/api/generate-excel', async (req, res) => {
       }
     });
     
+    // Add markups as line items
+    if (markups && markups.length > 0) {
+      markups.forEach(markup => {
+        const row = worksheet.addRow({
+          date: '',
+          item: markup.name,
+          qty: 1,
+          rate: formatCurrency(markup.markupAmount),
+          price: formatCurrency(markup.markupAmount),
+          description: markup.description || ''
+        });
+        
+        // Set Arial font for all cells
+        row.font = { name: 'Arial', size: 11 };
+        
+        // Set quantity column to left-aligned
+        row.getCell('qty').alignment = { horizontal: 'left' };
+        
+        // Enable text wrapping for description column if there's a description
+        if (markup.description) {
+          row.getCell('description').alignment = { wrapText: true, vertical: 'top' };
+          row.height = Math.max(20, Math.ceil(markup.description.length / 60) * 15);
+        }
+        
+        currentRow++;
+      });
+    }
+    
     // Add empty row
     worksheet.addRow({});
     currentRow++;
     
-    // Add summary rows based on discount
-    if (discountPercentage > 0) {
+    // Add summary rows based on discount or markups
+    if (discountPercentage > 0 || (markupsTotal && markupsTotal > 0)) {
       // Subtotal row
       const subtotalRow = worksheet.addRow({
         date: '',
@@ -782,17 +832,33 @@ app.post('/api/generate-excel', async (req, res) => {
       subtotalRow.getCell('description').alignment = { horizontal: 'left' };
       subtotalRow.font = { name: 'Arial', size: 11 };
       
-      // Discount row
-      const discountRow = worksheet.addRow({
-        date: '',
-        item: `${discountPercentage}% Discount`,
-        qty: '',
-        rate: '',
-        price: formatCurrency(discountAmount),
-        description: 'Discount'
-      });
-      discountRow.getCell('description').alignment = { horizontal: 'left' };
-      discountRow.font = { name: 'Arial', size: 11 };
+      // Markups row (if any)
+      if (markupsTotal && markupsTotal > 0) {
+        const markupsRow = worksheet.addRow({
+          date: '',
+          item: '',
+          qty: '',
+          rate: '',
+          price: formatCurrency(markupsTotal),
+          description: 'Markups'
+        });
+        markupsRow.getCell('description').alignment = { horizontal: 'left' };
+        markupsRow.font = { name: 'Arial', size: 11 };
+      }
+      
+      // Discount row (if any)
+      if (discountPercentage > 0) {
+        const discountRow = worksheet.addRow({
+          date: '',
+          item: `${discountPercentage}% Discount`,
+          qty: '',
+          rate: '',
+          price: formatCurrency(discountAmount),
+          description: 'Discount'
+        });
+        discountRow.getCell('description').alignment = { horizontal: 'left' };
+        discountRow.font = { name: 'Arial', size: 11 };
+      }
       
       // Grand Total row
       const grandTotalRow = worksheet.addRow({
@@ -1014,7 +1080,7 @@ app.post('/api/generate-excel', async (req, res) => {
 app.post('/api/generate-docx', async (req, res) => {
   try {
     const { quoteData, quoteName } = req.body;
-    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
+    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
     
     console.log('🔄 Starting DOCX generation...');
     
@@ -1199,6 +1265,21 @@ app.post('/api/generate-docx', async (req, res) => {
         })
       );
       
+      // Markups (if applicable)
+      if (markupsTotal && markupsTotal > 0) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `Markups: $${markupsTotal.toFixed(2)}`,
+                size: 22,
+              }),
+            ],
+            spacing: { after: 50 },
+          })
+        );
+      }
+      
       // Discount (if applicable)
       if (discountPercentage > 0) {
         children.push(
@@ -1323,6 +1404,10 @@ app.get('/calendar', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'calendar.html'));
 });
 
+app.get('/quotes', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'quotes.html'));
+});
+
 // Initialize default services
 async function initializeServices() {
   try {
@@ -1379,7 +1464,8 @@ const savedQuoteSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   quoteData: { type: Object, required: true },
   clientName: { type: String, default: null },
-  location: { type: String, default: null }
+  location: { type: String, default: null },
+  archived: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const SavedQuote = mongoose.model('SavedQuote', savedQuoteSchema, 'savedQuotes');
@@ -1460,11 +1546,13 @@ app.get('/api/saved-quotes', async (req, res) => {
       name: 1,
       clientName: 1,
       location: 1,
+      archived: 1,  // Include archived field
       createdAt: 1,
       updatedAt: 1,
       // Include basic quote info for preview
       'quoteData.total': 1,
-      'quoteData.days': 1
+      'quoteData.days': 1,
+      'quoteData.quoteTitle': 1
     }).sort({ updatedAt: -1 });
 
     res.json(quotes);
@@ -1507,6 +1595,44 @@ app.delete('/api/saved-quotes/:name', async (req, res) => {
   } catch (error) {
     console.error('Error deleting quote:', error);
     res.status(500).json({ error: 'Failed to delete quote' });
+  }
+});
+
+// Archive/Unarchive quote endpoint
+app.post('/api/archive-quote/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const { archived } = req.body;
+    
+    console.log('📦 Archive request received:', {
+      name,
+      archived,
+      decodedName: decodeURIComponent(name)
+    });
+    
+    if (typeof archived !== 'boolean') {
+      return res.status(400).json({ error: 'Archived status must be a boolean' });
+    }
+
+    const result = await SavedQuote.findOneAndUpdate(
+      { name },
+      { archived },
+      { new: true }
+    );
+
+    if (!result) {
+      console.error('❌ Quote not found with name:', name);
+      // List all quote names to help debug
+      const allQuotes = await SavedQuote.find({}, { name: 1 });
+      console.log('📋 Available quote names:', allQuotes.map(q => q.name));
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+
+    console.log('✅ Quote archived successfully:', result.name, 'archived:', result.archived);
+    res.json({ success: true, archived: result.archived });
+  } catch (error) {
+    console.error('Error archiving/unarchiving quote:', error);
+    res.status(500).json({ error: 'Failed to update quote archive status' });
   }
 });
 
@@ -1555,7 +1681,8 @@ app.post('/api/services/reorder', async (req, res) => {
 // Get calendar events from saved quotes
 app.get('/api/calendar-events', async (req, res) => {
   try {
-    const quotes = await SavedQuote.find({}, {
+    // Only get non-archived quotes for calendar
+    const quotes = await SavedQuote.find({ archived: { $ne: true } }, {
       name: 1,
       clientName: 1,
       createdAt: 1,
