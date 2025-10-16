@@ -347,7 +347,7 @@ function formatDateForPDF(date) {
 }
 
 async function generateQuoteHTML(quoteData) {
-  const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
+  const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
   
   // Get all services for subservice checking
   const allServices = await Service.find();
@@ -415,27 +415,6 @@ async function generateQuoteHTML(quoteData) {
       `;
     }
   });
-  
-  // Add markups as separate line items
-  if (markups && markups.length > 0) {
-    markups.forEach(markup => {
-      servicesHTML += `
-        <tr>
-          <td style="color: #1e293b;"></td>
-          <td style="color: #1e293b;">
-            ${markup.name}
-            ${markup.description ? `<br><small style="color: #64748b; font-size: 10px; line-height: 1.3;">${markup.description}</small>` : ''}
-          </td>
-          <td style="text-align: center; color: #1e293b;">
-            1
-          </td>
-          <td style="text-align: right; font-weight: 600; color: #1e293b;">
-            ${formatCurrency(markup.markupAmount)}
-          </td>
-        </tr>
-      `;
-    });
-  }
   
   return `
     <!DOCTYPE html>
@@ -593,10 +572,9 @@ async function generateQuoteHTML(quoteData) {
       
       <div class="totals-and-footer">
         <div class="totals">
-          ${(discountPercentage > 0 || (markupsTotal && markupsTotal > 0)) ? `
+          ${discountPercentage > 0 ? `
             <div>Subtotal: ${formatCurrency(subtotal)}</div>
-            ${markupsTotal && markupsTotal > 0 ? `<div>Markups: ${formatCurrency(markupsTotal)}</div>` : ''}
-            ${discountPercentage > 0 ? `<div>Discount (${discountPercentage}%): -${formatCurrency(discountAmount)}</div>` : ''}
+            <div>Discount (${discountPercentage}%): -${formatCurrency(discountAmount)}</div>
             <div class="total-final">Grand Total: ${formatCurrency(total)}</div>
           ` : `
             <div class="total-final">Grand Total: ${formatCurrency(total)}</div>
@@ -639,7 +617,7 @@ async function generateQuoteHTML(quoteData) {
 app.post('/api/generate-excel', async (req, res) => {
   try {
     const { quoteData, quoteName, enableBorders = true } = req.body;
-    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
+    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
     
     console.log('🔄 Starting Excel generation...');
     
@@ -786,40 +764,12 @@ app.post('/api/generate-excel', async (req, res) => {
       }
     });
     
-    // Add markups as line items
-    if (markups && markups.length > 0) {
-      markups.forEach(markup => {
-        const row = worksheet.addRow({
-          date: '',
-          item: markup.name,
-          qty: 1,
-          rate: formatCurrency(markup.markupAmount),
-          price: formatCurrency(markup.markupAmount),
-          description: markup.description || ''
-        });
-        
-        // Set Arial font for all cells
-        row.font = { name: 'Arial', size: 11 };
-        
-        // Set quantity column to left-aligned
-        row.getCell('qty').alignment = { horizontal: 'left' };
-        
-        // Enable text wrapping for description column if there's a description
-        if (markup.description) {
-          row.getCell('description').alignment = { wrapText: true, vertical: 'top' };
-          row.height = Math.max(20, Math.ceil(markup.description.length / 60) * 15);
-        }
-        
-        currentRow++;
-      });
-    }
-    
     // Add empty row
     worksheet.addRow({});
     currentRow++;
     
-    // Add summary rows based on discount or markups
-    if (discountPercentage > 0 || (markupsTotal && markupsTotal > 0)) {
+    // Add summary rows based on discount
+    if (discountPercentage > 0) {
       // Subtotal row
       const subtotalRow = worksheet.addRow({
         date: '',
@@ -832,33 +782,17 @@ app.post('/api/generate-excel', async (req, res) => {
       subtotalRow.getCell('description').alignment = { horizontal: 'left' };
       subtotalRow.font = { name: 'Arial', size: 11 };
       
-      // Markups row (if any)
-      if (markupsTotal && markupsTotal > 0) {
-        const markupsRow = worksheet.addRow({
-          date: '',
-          item: '',
-          qty: '',
-          rate: '',
-          price: formatCurrency(markupsTotal),
-          description: 'Markups'
-        });
-        markupsRow.getCell('description').alignment = { horizontal: 'left' };
-        markupsRow.font = { name: 'Arial', size: 11 };
-      }
-      
-      // Discount row (if any)
-      if (discountPercentage > 0) {
-        const discountRow = worksheet.addRow({
-          date: '',
-          item: `${discountPercentage}% Discount`,
-          qty: '',
-          rate: '',
-          price: formatCurrency(discountAmount),
-          description: 'Discount'
-        });
-        discountRow.getCell('description').alignment = { horizontal: 'left' };
-        discountRow.font = { name: 'Arial', size: 11 };
-      }
+      // Discount row
+      const discountRow = worksheet.addRow({
+        date: '',
+        item: `${discountPercentage}% Discount`,
+        qty: '',
+        rate: '',
+        price: formatCurrency(discountAmount),
+        description: 'Discount'
+      });
+      discountRow.getCell('description').alignment = { horizontal: 'left' };
+      discountRow.font = { name: 'Arial', size: 11 };
       
       // Grand Total row
       const grandTotalRow = worksheet.addRow({
@@ -1080,7 +1014,7 @@ app.post('/api/generate-excel', async (req, res) => {
 app.post('/api/generate-docx', async (req, res) => {
   try {
     const { quoteData, quoteName } = req.body;
-    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
+    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle } = quoteData;
     
     console.log('🔄 Starting DOCX generation...');
     
@@ -1264,21 +1198,6 @@ app.post('/api/generate-docx', async (req, res) => {
           spacing: { after: 50 },
         })
       );
-      
-      // Markups (if applicable)
-      if (markupsTotal && markupsTotal > 0) {
-        children.push(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `Markups: $${markupsTotal.toFixed(2)}`,
-                size: 22,
-              }),
-            ],
-            spacing: { after: 50 },
-          })
-        );
-      }
       
       // Discount (if applicable)
       if (discountPercentage > 0) {

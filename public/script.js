@@ -3,7 +3,6 @@ class QuoteCalculator {
         this.services = [];
         this.days = [{ services: [], date: null }];
         this.discountPercentage = 0;
-        this.markups = [];
         this.currentQuoteName = null;
         this.currentClientName = null;
         this.currentQuoteTitle = "Conference Services Quote";
@@ -28,19 +27,12 @@ class QuoteCalculator {
         this.init();
     }
 
-    setupEventListeners() {
-        // Event listeners for other functionality can be added here
-        // Markup event listeners are set up when the modals are shown
-        console.log('✅ Base event listeners set up');
-    }
-
     async init() {
         await this.loadServices();
         this.loadDraftFromLocalStorage();
         this.setupEventListeners();
         this.renderDays();
         this.updateTotal();
-        this.renderMarkups();
     }
 
     loadDraftFromLocalStorage() {
@@ -50,7 +42,6 @@ class QuoteCalculator {
                 const draftData = JSON.parse(savedDraft);
                 this.days = draftData.days || [{ services: [], date: null }];
                 this.discountPercentage = draftData.discountPercentage || 0;
-                this.markups = draftData.markups || [];
                 this.currentQuoteName = draftData.currentQuoteName || null;
                 this.currentClientName = draftData.currentClientName || null;
                 this.currentQuoteTitle = draftData.currentQuoteTitle || "Conference Services Quote";
@@ -91,7 +82,6 @@ class QuoteCalculator {
             const draftData = {
                 days: this.days,
                 discountPercentage: this.discountPercentage,
-                markups: this.markups,
                 currentQuoteName: this.currentQuoteName,
                 currentClientName: this.currentClientName,
                 currentQuoteTitle: this.currentQuoteTitle,
@@ -114,7 +104,6 @@ class QuoteCalculator {
         localStorage.removeItem(this.autoSaveKey);
         this.days = [{ services: [], date: null }];
         this.discountPercentage = 0;
-        this.markups = [];
         this.currentQuoteName = null;
         this.currentClientName = null;
         this.currentQuoteTitle = "Conference Services Quote";
@@ -131,7 +120,6 @@ class QuoteCalculator {
         }
         
         this.renderDays();
-        this.renderMarkups();
         this.updateTotal();
         this.updateClientDisplay();
         console.log('🗑️ Draft cleared from localStorage');
@@ -677,55 +665,23 @@ class QuoteCalculator {
 
     updateTotal() {
         const subtotal = this.calculateTotal();
-        const markupsTotal = this.calculateMarkupsTotal();
-        const subtotalWithMarkups = subtotal + markupsTotal;
-        const discountAmount = subtotalWithMarkups * (this.discountPercentage / 100);
-        const total = subtotalWithMarkups - discountAmount;
+        const discountAmount = subtotal * (this.discountPercentage / 100);
+        const total = subtotal - discountAmount;
         const tentativeTotal = this.calculateTentativeTotal();
         
-        // Update display based on whether discount is applied or markups exist
-        if (this.discountPercentage > 0 || markupsTotal > 0) {
-            // Show subtotal, markups (if any), discount (if any), and total
+        // Update display based on whether discount is applied
+        if (this.discountPercentage > 0) {
+            // Show subtotal, discount, and total
             document.getElementById('subtotalRow').style.display = 'flex';
+            document.getElementById('discountRow').style.display = 'flex';
             document.getElementById('subtotal-amount').textContent = this.formatCurrency(subtotal);
-            
-            // Handle markups row
-            let markupsRow = document.getElementById('markupsRow');
-            if (markupsTotal > 0) {
-                if (!markupsRow) {
-                    // Create markups row if it doesn't exist
-                    const subtotalRowElement = document.getElementById('subtotalRow');
-                    markupsRow = document.createElement('div');
-                    markupsRow.className = 'summary-row';
-                    markupsRow.id = 'markupsRow';
-                    markupsRow.innerHTML = `
-                        <span>Markups</span>
-                        <span id="markups-amount">$0</span>
-                    `;
-                    subtotalRowElement.parentNode.insertBefore(markupsRow, subtotalRowElement.nextSibling);
-                }
-                markupsRow.style.display = 'flex';
-                document.getElementById('markups-amount').textContent = this.formatCurrency(markupsTotal);
-            } else if (markupsRow) {
-                markupsRow.style.display = 'none';
-            }
-            
-            // Handle discount row
-            if (this.discountPercentage > 0) {
-                document.getElementById('discountRow').style.display = 'flex';
-                document.getElementById('discount-label').textContent = `Discount (${this.discountPercentage}%)`;
-                document.getElementById('discount-amount').textContent = `-${this.formatCurrency(discountAmount)}`;
-            } else {
-                document.getElementById('discountRow').style.display = 'none';
-            }
-            
+            document.getElementById('discount-label').textContent = `Discount (${this.discountPercentage}%)`;
+            document.getElementById('discount-amount').textContent = `-${this.formatCurrency(discountAmount)}`;
             document.getElementById('total-amount').textContent = this.formatCurrency(total);
         } else {
-            // Hide subtotal, markups, and discount rows, show only total
+            // Hide subtotal and discount rows, show only total
             document.getElementById('subtotalRow').style.display = 'none';
             document.getElementById('discountRow').style.display = 'none';
-            const markupsRow = document.getElementById('markupsRow');
-            if (markupsRow) markupsRow.style.display = 'none';
             document.getElementById('total-amount').textContent = this.formatCurrency(subtotal);
         }
         
@@ -792,16 +748,12 @@ class QuoteCalculator {
 
         try {
             const subtotal = this.calculateTotal();
-            const markupsTotal = this.calculateMarkupsTotal();
-            const subtotalWithMarkups = subtotal + markupsTotal;
             const quoteData = {
                 days: this.days,
                 subtotal: subtotal,
-                markups: this.markups,
-                markupsTotal: markupsTotal,
                 total: this.getFinalTotal(),
                 discountPercentage: this.discountPercentage,
-                discountAmount: subtotalWithMarkups * (this.discountPercentage / 100),
+                discountAmount: subtotal * (this.discountPercentage / 100),
                 clientName: clientName,
                 quoteTitle: quoteTitle
             };
@@ -873,17 +825,13 @@ class QuoteCalculator {
         
         try {
             const subtotal = this.calculateTotal();
-            const markupsTotal = this.calculateMarkupsTotal();
-            const subtotalWithMarkups = subtotal + markupsTotal;
-            const discountAmount = subtotalWithMarkups * (this.discountPercentage / 100);
+            const discountAmount = subtotal * (this.discountPercentage / 100);
             const total = this.getFinalTotal();
 
             // Send data to server for XLSX generation
             const quoteData = {
                 days: this.days,
                 subtotal: subtotal,
-                markups: this.markups,
-                markupsTotal: markupsTotal,
                 total: total,
                 discountPercentage: this.discountPercentage,
                 discountAmount: discountAmount,
@@ -948,17 +896,13 @@ class QuoteCalculator {
         
         try {
             const subtotal = this.calculateTotal();
-            const markupsTotal = this.calculateMarkupsTotal();
-            const subtotalWithMarkups = subtotal + markupsTotal;
-            const discountAmount = subtotalWithMarkups * (this.discountPercentage / 100);
+            const discountAmount = subtotal * (this.discountPercentage / 100);
             const total = this.getFinalTotal();
 
             // Send data to server for DOCX generation
             const quoteData = {
                 days: this.days,
                 subtotal: subtotal,
-                markups: this.markups,
-                markupsTotal: markupsTotal,
                 total: total,
                 discountPercentage: this.discountPercentage,
                 discountAmount: discountAmount,
@@ -1389,8 +1333,7 @@ class QuoteCalculator {
         const quoteData = {
             days: this.days,
             total: this.getFinalTotal(),
-            discountPercentage: this.discountPercentage,
-            markups: this.markups
+            discountPercentage: this.discountPercentage
         };
 
         try {
@@ -1552,7 +1495,6 @@ class QuoteCalculator {
             // Load the quote data
             this.days = quote.quoteData.days;
             this.discountPercentage = quote.quoteData.discountPercentage || 0;
-            this.markups = quote.quoteData.markups || [];
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
             this.currentLocation = quote.location || null;
@@ -1599,7 +1541,6 @@ class QuoteCalculator {
             
             // Re-render the interface (matching regular loadQuote)
             this.renderDays();
-            this.renderMarkups();
             this.updateTotal();
             
             // Save the loaded quote data to localStorage (matching regular loadQuote)
@@ -1749,7 +1690,6 @@ class QuoteCalculator {
             // Load the quote data
             this.days = quote.quoteData.days;
             this.discountPercentage = quote.quoteData.discountPercentage || 0;
-            this.markups = quote.quoteData.markups || [];
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
             this.currentLocation = quote.location || null;
@@ -1796,7 +1736,6 @@ class QuoteCalculator {
             
             // Re-render the interface
             this.renderDays();
-            this.renderMarkups();
             this.updateTotal();
             
             // Close the modal
@@ -1898,10 +1837,8 @@ class QuoteCalculator {
 
     getFinalTotal() {
         const subtotal = this.calculateTotal();
-        const markupsTotal = this.calculateMarkupsTotal();
-        const subtotalWithMarkups = subtotal + markupsTotal;
-        const discountAmount = subtotalWithMarkups * (this.discountPercentage / 100);
-        return subtotalWithMarkups - discountAmount;
+        const discountAmount = subtotal * (this.discountPercentage / 100);
+        return subtotal - discountAmount;
     }
 
     // Calendar Methods
@@ -3035,347 +2972,6 @@ class QuoteCalculator {
         this.updateTotal();
         this.saveDraftToLocalStorage();
         this.markQuoteAsModified();
-    }
-
-    // ============== MARKUP FUNCTIONALITY ==============
-
-    showMarkupModal() {
-        const modal = document.getElementById('markupModal');
-        this.populateMarkupServiceList('markupServiceList');
-        
-        // Reset form
-        document.getElementById('markupForm').reset();
-        
-        // Set up event listener for this modal if not already done
-        this.setupMarkupEventListeners();
-        
-        modal.style.display = 'flex';
-    }
-
-    setupMarkupEventListeners() {
-        const markupForm = document.getElementById('markupForm');
-        if (markupForm && !markupForm.hasAttribute('data-listener-added')) {
-            markupForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                console.log('📝 Markup form submitted');
-                this.addMarkup();
-            });
-            markupForm.setAttribute('data-listener-added', 'true');
-            console.log('✅ Markup form event listener added');
-        }
-        
-        const editMarkupForm = document.getElementById('editMarkupForm');
-        if (editMarkupForm && !editMarkupForm.hasAttribute('data-listener-added')) {
-            editMarkupForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                console.log('📝 Edit markup form submitted');
-                this.updateMarkup();
-            });
-            editMarkupForm.setAttribute('data-listener-added', 'true');
-            console.log('✅ Edit markup form event listener added');
-        }
-    }
-
-    hideMarkupModal() {
-        document.getElementById('markupModal').style.display = 'none';
-    }
-
-    populateMarkupServiceList(containerId) {
-        const container = document.getElementById(containerId);
-        
-        // Check if there are any services across all days
-        const hasServices = this.days.some(day => day.services.length > 0);
-        
-        if (!hasServices) {
-            container.innerHTML = '<div class="markup-no-services">No services available to apply markup to.</div>';
-            return;
-        }
-
-        let html = '';
-        
-        this.days.forEach((day, dayIndex) => {
-            if (day.services.length > 0) {
-                const dayLabel = day.date ? this.formatDate(this.parseStoredDate(day.date)) : `Day ${dayIndex + 1}`;
-                
-                html += `<div class="markup-day-group">`;
-                html += `<div class="markup-day-header">${dayLabel}</div>`;
-                
-                day.services.forEach((service, serviceIndex) => {
-                    const serviceId = `${dayIndex}-${serviceIndex}`;
-                    const serviceDefinition = this.getServiceById(service.id);
-                    const isSubservice = serviceDefinition?.isSubservice || false;
-                    const itemClass = isSubservice ? 'subservice' : '';
-                    const displayName = isSubservice ? `└─ ${service.name}` : service.name;
-                    const totalPrice = service.price * (service.quantity || 1);
-                    
-                    html += `
-                        <div class="markup-service-item ${itemClass}">
-                            <input type="checkbox" id="service-${serviceId}" value="${serviceId}">
-                            <label for="service-${serviceId}" class="markup-service-label">
-                                <span class="markup-service-name">${displayName}</span>
-                                <span class="markup-service-price">${this.formatCurrency(totalPrice)}</span>
-                            </label>
-                        </div>
-                    `;
-                });
-                
-                html += '</div>';
-            }
-        });
-        
-        container.innerHTML = html;
-    }
-
-    addMarkup() {
-        console.log('🔄 addMarkup() called');
-        const form = document.getElementById('markupForm');
-        if (!form) {
-            console.error('❌ markupForm not found');
-            return;
-        }
-        
-        const formData = new FormData(form);
-        
-        const name = formData.get('markupName') || document.getElementById('markupName').value.trim();
-        const description = formData.get('markupDescription') || document.getElementById('markupDescription').value.trim();
-        const percentage = parseFloat(formData.get('markupPercentage') || document.getElementById('markupPercentage').value);
-        
-        console.log('📝 Form data:', { name, description, percentage });
-        
-        // Validate inputs
-        if (!name) {
-            showAlertModal('Please enter a markup name.', 'error');
-            return;
-        }
-        
-        if (isNaN(percentage) || percentage < 0) {
-            showAlertModal('Please enter a valid percentage.', 'error');
-            return;
-        }
-        
-        // Get selected services
-        const checkboxes = document.querySelectorAll('#markupServiceList input[type="checkbox"]:checked');
-        
-        if (checkboxes.length === 0) {
-            showAlertModal('Please select at least one service to apply markup to.', 'error');
-            return;
-        }
-        
-        const selectedServices = Array.from(checkboxes).map(cb => {
-            const [dayIndex, serviceIndex] = cb.value.split('-').map(Number);
-            return {
-                dayIndex,
-                serviceIndex,
-                service: this.days[dayIndex].services[serviceIndex]
-            };
-        });
-        
-        // Calculate markup amount
-        const baseAmount = selectedServices.reduce((total, { service }) => {
-            return total + (service.price * (service.quantity || 1));
-        }, 0);
-        
-        const markupAmount = baseAmount * (percentage / 100);
-        
-        // Create markup object
-        const markup = {
-            id: Date.now().toString(), // Simple ID generation
-            name,
-            description,
-            percentage,
-            baseAmount,
-            markupAmount,
-            selectedServices: selectedServices.map(s => ({
-                dayIndex: s.dayIndex,
-                serviceIndex: s.serviceIndex,
-                serviceName: s.service.name,
-                servicePrice: s.service.price,
-                serviceQuantity: s.service.quantity || 1
-            }))
-        };
-        
-        // Add to markups array
-        this.markups.push(markup);
-        
-        // Update display
-        this.renderMarkups();
-        this.updateTotal();
-        this.saveDraftToLocalStorage();
-        this.markQuoteAsModified();
-        
-        // Hide modal and show success message
-        this.hideMarkupModal();
-        showAlertModal(`Markup "${name}" added successfully!`, 'success', null, true);
-    }
-
-    renderMarkups() {
-        const container = document.getElementById('markupList');
-        
-        if (this.markups.length === 0) {
-            container.style.display = 'none';
-            return;
-        }
-        
-        container.style.display = 'block';
-        
-        container.innerHTML = this.markups.map(markup => `
-            <div class="markup-item">
-                <div class="markup-info">
-                    <div class="markup-name">${markup.name}</div>
-                    <div class="markup-details">
-                        ${markup.percentage}% on ${this.formatCurrency(markup.baseAmount)}${markup.description ? ` • ${markup.description}` : ''}
-                    </div>
-                </div>
-                <div class="markup-amount">${this.formatCurrency(markup.markupAmount)}</div>
-                <div class="markup-actions">
-                    <button class="markup-edit-btn" onclick="calculator.editMarkup('${markup.id}')">Edit</button>
-                    <button class="markup-remove-btn" onclick="calculator.removeMarkup('${markup.id}')">Remove</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    editMarkup(markupId) {
-        const markup = this.markups.find(m => m.id === markupId);
-        if (!markup) return;
-        
-        const modal = document.getElementById('editMarkupModal');
-        modal.dataset.markupId = markupId;
-        
-        // Populate form with current values
-        document.getElementById('editMarkupName').value = markup.name;
-        document.getElementById('editMarkupDescription').value = markup.description || '';
-        document.getElementById('editMarkupPercentage').value = markup.percentage;
-        
-        // Populate service list and check previously selected services
-        this.populateMarkupServiceList('editMarkupServiceList');
-        
-        // Set up event listeners if not already done
-        this.setupMarkupEventListeners();
-        
-        // Check the previously selected services
-        setTimeout(() => {
-            markup.selectedServices.forEach(selectedService => {
-                const serviceId = `${selectedService.dayIndex}-${selectedService.serviceIndex}`;
-                const checkbox = document.querySelector(`#editMarkupServiceList input[value="${serviceId}"]`);
-                if (checkbox) {
-                    checkbox.checked = true;
-                }
-            });
-        }, 100);
-        
-        modal.style.display = 'flex';
-    }
-
-    hideEditMarkupModal() {
-        document.getElementById('editMarkupModal').style.display = 'none';
-    }
-
-    updateMarkup() {
-        const modal = document.getElementById('editMarkupModal');
-        const markupId = modal.dataset.markupId;
-        const markupIndex = this.markups.findIndex(m => m.id === markupId);
-        
-        if (markupIndex === -1) return;
-        
-        const name = document.getElementById('editMarkupName').value.trim();
-        const description = document.getElementById('editMarkupDescription').value.trim();
-        const percentage = parseFloat(document.getElementById('editMarkupPercentage').value);
-        
-        // Validate inputs
-        if (!name) {
-            showAlertModal('Please enter a markup name.', 'error');
-            return;
-        }
-        
-        if (isNaN(percentage) || percentage < 0) {
-            showAlertModal('Please enter a valid percentage.', 'error');
-            return;
-        }
-        
-        // Get selected services
-        const checkboxes = document.querySelectorAll('#editMarkupServiceList input[type="checkbox"]:checked');
-        
-        if (checkboxes.length === 0) {
-            showAlertModal('Please select at least one service to apply markup to.', 'error');
-            return;
-        }
-        
-        const selectedServices = Array.from(checkboxes).map(cb => {
-            const [dayIndex, serviceIndex] = cb.value.split('-').map(Number);
-            return {
-                dayIndex,
-                serviceIndex,
-                service: this.days[dayIndex].services[serviceIndex]
-            };
-        });
-        
-        // Calculate new markup amount
-        const baseAmount = selectedServices.reduce((total, { service }) => {
-            return total + (service.price * (service.quantity || 1));
-        }, 0);
-        
-        const markupAmount = baseAmount * (percentage / 100);
-        
-        // Update markup object
-        this.markups[markupIndex] = {
-            ...this.markups[markupIndex],
-            name,
-            description,
-            percentage,
-            baseAmount,
-            markupAmount,
-            selectedServices: selectedServices.map(s => ({
-                dayIndex: s.dayIndex,
-                serviceIndex: s.serviceIndex,
-                serviceName: s.service.name,
-                servicePrice: s.service.price,
-                serviceQuantity: s.service.quantity || 1
-            }))
-        };
-        
-        // Update display
-        this.renderMarkups();
-        this.updateTotal();
-        this.saveDraftToLocalStorage();
-        this.markQuoteAsModified();
-        
-        // Hide modal and show success message
-        this.hideEditMarkupModal();
-        showAlertModal(`Markup "${name}" updated successfully!`, 'success', null, true);
-    }
-
-    async removeMarkup(markupId) {
-        const markup = this.markups.find(m => m.id === markupId);
-        if (!markup) return;
-        
-        const confirmed = await showConfirmModal(
-            `Are you sure you want to remove the markup "${markup.name}"?`,
-            `Remove Markup`,
-            'Remove',
-            'Cancel'
-        );
-        
-        if (confirmed) {
-            this.markups = this.markups.filter(m => m.id !== markupId);
-            this.renderMarkups();
-            this.updateTotal();
-            this.saveDraftToLocalStorage();
-            this.markQuoteAsModified();
-            
-            showAlertModal(`Markup "${markup.name}" removed successfully!`, 'success', null, true);
-        }
-    }
-
-    calculateMarkupsTotal() {
-        return this.markups.reduce((total, markup) => total + markup.markupAmount, 0);
-    }
-
-    // Update the calculateTotal method to include markups
-    calculateTotalWithMarkups() {
-        const serviceTotal = this.calculateTotal();
-        const markupsTotal = this.calculateMarkupsTotal();
-        return serviceTotal + markupsTotal;
     }
 }
 
