@@ -2,12 +2,37 @@ class QuotesManager {
     constructor() {
         this.allQuotes = [];
         this.showingArchived = false;
+        this.users = [];
         this.init();
     }
 
     async init() {
+        await this.loadUsers();
         await this.loadQuotes();
         this.filterAndSort();
+    }
+
+    async loadUsers() {
+        try {
+            const response = await fetch('/api/users');
+            if (!response.ok) {
+                throw new Error('Failed to load users');
+            }
+            this.users = await response.json();
+            
+            // Populate user filter dropdown
+            const userFilter = document.getElementById('userFilter');
+            userFilter.innerHTML = '<option value="">All Users</option>';
+            this.users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user._id;
+                option.textContent = user.name;
+                userFilter.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading users:', error);
+            this.users = [];
+        }
     }
 
     async loadQuotes() {
@@ -38,18 +63,20 @@ class QuotesManager {
         const searchTerm = document.getElementById('searchQuotes').value.toLowerCase();
         const sortBy = document.getElementById('sortQuotes').value;
         const dateFilter = document.getElementById('dateFilter').value;
+        const userFilter = document.getElementById('userFilter').value;
 
         console.log('🔍 Filter and sort called:', {
             showingArchived: this.showingArchived,
             totalQuotes: this.allQuotes.length,
             searchTerm,
             sortBy,
-            dateFilter
+            dateFilter,
+            userFilter
         });
 
         // Update clear filters button visibility
         const clearBtn = document.getElementById('clearFiltersBtn');
-        if (searchTerm || dateFilter) {
+        if (searchTerm || dateFilter || userFilter) {
             clearBtn.style.display = 'inline-block';
         } else {
             clearBtn.style.display = 'none';
@@ -90,6 +117,13 @@ class QuotesManager {
             });
         }
 
+        // Filter by user
+        if (userFilter) {
+            filtered = filtered.filter(quote => {
+                return quote.createdBy && quote.createdBy._id === userFilter;
+            });
+        }
+
         // Sort
         filtered.sort((a, b) => {
             switch (sortBy) {
@@ -105,6 +139,24 @@ class QuotesManager {
                     return new Date(b.createdAt) - new Date(a.createdAt);
                 case 'created-oldest':
                     return new Date(a.createdAt) - new Date(b.createdAt);
+                case 'booked-first':
+                    // Booked (true) first, then not booked (false)
+                    const aBooked = a.booked || false;
+                    const bBooked = b.booked || false;
+                    if (aBooked === bBooked) {
+                        // If same booking status, sort by service date (newest)
+                        return this.compareServiceDates(b, a);
+                    }
+                    return bBooked - aBooked; // true (1) before false (0)
+                case 'not-booked-first':
+                    // Not booked (false) first, then booked (true)
+                    const aBookedNot = a.booked || false;
+                    const bBookedNot = b.booked || false;
+                    if (aBookedNot === bBookedNot) {
+                        // If same booking status, sort by service date (newest)
+                        return this.compareServiceDates(b, a);
+                    }
+                    return aBookedNot - bBookedNot; // false (0) before true (1)
                 case 'name-asc':
                     return a.name.localeCompare(b.name);
                 case 'name-desc':
@@ -188,6 +240,7 @@ class QuotesManager {
         const quoteTitle = quote.quoteData?.quoteTitle || quote.name;
         const isArchived = quote.archived || false;
         const isBooked = quote.booked || false;
+        const createdBy = quote.createdBy?.name || 'Unknown User';
         
         // Calculate total services
         const totalServices = days.reduce((sum, day) => sum + (day.services?.length || 0), 0);
@@ -222,6 +275,10 @@ class QuotesManager {
                                 <span class="info-value">${this.escapeHtml(location)}</span>
                             </div>
                         ` : ''}
+                        <div class="info-row">
+                            <span class="info-label">Created By:</span>
+                            <span class="info-value">${this.escapeHtml(createdBy)}</span>
+                        </div>
                         ${dateRange ? `
                             <div class="info-row">
                                 <span class="info-label">Dates:</span>
@@ -335,6 +392,7 @@ class QuotesManager {
     clearFilters() {
         document.getElementById('searchQuotes').value = '';
         document.getElementById('dateFilter').value = '';
+        document.getElementById('userFilter').value = '';
         this.filterAndSort();
     }
 

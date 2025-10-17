@@ -7,10 +7,12 @@ class QuoteCalculator {
         this.currentQuoteName = null;
         this.currentClientName = null;
         this.currentBooked = false;
+        this.currentCreatedBy = null;
         this.currentQuoteTitle = "Conference Services Quote";
         this.activeCalendar = null;
         this.autoSaveKey = 'quote_calculator_draft';
         this.isOverrideMode = false;
+        this.users = [];
         
         // Drag and drop state
         this.draggedElement = null;
@@ -119,6 +121,7 @@ class QuoteCalculator {
         this.currentQuoteName = null;
         this.currentClientName = null;
         this.currentBooked = false;
+        this.currentCreatedBy = null;
         this.currentQuoteTitle = "Conference Services Quote";
         
         // Reset title display
@@ -1136,6 +1139,10 @@ class QuoteCalculator {
         // Load previous clients for the dropdown
         await this.loadClients();
         
+        // Load users for the Created By dropdown
+        await this.loadUsers();
+        document.getElementById('createdBySelect').value = this.currentCreatedBy || '';
+        
         // Move dropdown to body if it's not already there
         this.ensureDropdownInBody();
         
@@ -1153,6 +1160,27 @@ class QuoteCalculator {
                 document.getElementById('saveQuoteTitle').select();
             }
         }, 100);
+    }
+
+    async loadUsers() {
+        try {
+            const response = await fetch('/api/users');
+            const users = await response.json();
+            this.users = users;
+            
+            const select = document.getElementById('createdBySelect');
+            // Keep the blank option
+            select.innerHTML = '<option value="">-- Select User --</option>';
+            
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user._id;
+                option.textContent = user.name;
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading users:', error);
+        }
     }
 
     async loadClients() {
@@ -1384,6 +1412,7 @@ class QuoteCalculator {
         const clientName = document.getElementById('clientName').value.trim();
         const location = document.getElementById('eventLocation').value.trim();
         const booked = document.getElementById('bookedCheckbox').checked;
+        const createdBy = document.getElementById('createdBySelect').value || null;
         
         if (!title) {
             showAlertModal('Please enter a quote title.', 'error');
@@ -1408,7 +1437,8 @@ class QuoteCalculator {
                     quoteData,
                     clientName: clientName || null,
                     location: location || null,
-                    booked: booked
+                    booked: booked,
+                    createdBy: createdBy
                 })
             });
 
@@ -1423,7 +1453,7 @@ class QuoteCalculator {
                     'Cancel'
                 );
                 if (overwrite) {
-                    await this.overwriteQuote(title, quoteData, clientName, location, booked);
+                    await this.overwriteQuote(title, quoteData, clientName, location, booked, createdBy);
                 }
             } else if (result.success) {
                 // Update current quote info
@@ -1448,7 +1478,7 @@ class QuoteCalculator {
         }
     }
 
-    async overwriteQuote(name, quoteData, clientName, location, booked) {
+    async overwriteQuote(name, quoteData, clientName, location, booked, createdBy) {
         try {
             const response = await fetch('/api/overwrite-quote', {
                 method: 'POST',
@@ -1460,7 +1490,8 @@ class QuoteCalculator {
                     quoteData,
                     clientName: clientName || null,
                     location: location || null,
-                    booked: booked
+                    booked: booked,
+                    createdBy: createdBy
                 })
             });
 
@@ -1540,6 +1571,7 @@ class QuoteCalculator {
         this.currentClientName = null;
         this.currentLocation = null;
         this.currentBooked = false;
+        this.currentCreatedBy = null;
         this.currentQuoteTitle = "Conference Services Quote";
         this.updateQuoteTitleDisplay();
         this.updateClientDisplay();
@@ -1564,6 +1596,7 @@ class QuoteCalculator {
             this.currentClientName = quote.clientName || null;
             this.currentLocation = quote.location || null;
             this.currentBooked = quote.booked || false;
+            this.currentCreatedBy = quote.createdBy?._id || null;
             this.currentQuoteTitle = quote.name; // Use quote name as title (matching regular loadQuote)
             
             // Update the quote title display
@@ -1762,6 +1795,7 @@ class QuoteCalculator {
             this.currentClientName = quote.clientName || null;
             this.currentLocation = quote.location || null;
             this.currentBooked = quote.booked || false;
+            this.currentCreatedBy = quote.createdBy?._id || null;
             this.currentQuoteTitle = quote.name; // Use quote name as title
             
             // Update the quote title display
@@ -3429,6 +3463,7 @@ async function saveAsCopy() {
     const clientName = document.getElementById('clientName').value.trim();
     const location = document.getElementById('eventLocation').value.trim();
     const booked = document.getElementById('bookedCheckbox').checked;
+    const createdBy = document.getElementById('createdBySelect').value || null;
     
     if (!title) {
         showAlertModal('Please enter a quote title.', 'error');
@@ -3455,7 +3490,8 @@ async function saveAsCopy() {
                 quoteData,
                 clientName: clientName || null,
                 location: location || null,
-                booked: booked
+                booked: booked,
+                createdBy: createdBy
             })
         });
 
@@ -3477,7 +3513,8 @@ async function saveAsCopy() {
                         quoteData,
                         clientName: clientName || null,
                         location: location || null,
-                        booked: booked
+                        booked: booked,
+                        createdBy: createdBy
                     })
                 });
                 

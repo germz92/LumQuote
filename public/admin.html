@@ -97,6 +97,34 @@
                     </div>
                 </div>
             </div>
+
+            <div class="admin-section">
+                <h2>Manage Users</h2>
+                <p class="subtitle">Add, edit, or remove users who can create quotes</p>
+
+                <div class="add-service-form">
+                    <h3>Add New User</h3>
+                    <form id="user-form">
+                        <div class="form-group">
+                            <label for="user-name">User Name</label>
+                            <input type="text" id="user-name" required>
+                        </div>
+                        <button type="submit" class="primary-button">
+                            <span id="user-form-button-text">Add User</span>
+                        </button>
+                        <button type="button" id="cancel-user-edit" class="secondary-button" style="display: none;">
+                            Cancel Edit
+                        </button>
+                    </form>
+                </div>
+
+                <div class="services-list">
+                    <h3>Current Users</h3>
+                    <div id="users-container">
+                        <!-- Users will be loaded here -->
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 

@@ -1459,6 +1459,13 @@ app.listen(PORT, () => {
   initializeServices();
 });
 
+// User Schema
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true }
+}, { timestamps: true });
+
+const User = mongoose.model('User', userSchema, 'users');
+
 // Saved Quote Schema
 const savedQuoteSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
@@ -1466,15 +1473,94 @@ const savedQuoteSchema = new mongoose.Schema({
   clientName: { type: String, default: null },
   location: { type: String, default: null },
   archived: { type: Boolean, default: false },
-  booked: { type: Boolean, default: false }
+  booked: { type: Boolean, default: false },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, { timestamps: true });
 
 const SavedQuote = mongoose.model('SavedQuote', savedQuoteSchema, 'savedQuotes');
 
+// User management endpoints
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await User.find().sort({ name: 1 });
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+app.post('/api/users', async (req, res) => {
+  try {
+    const { name } = req.body;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'User name is required' });
+    }
+
+    const existingUser = await User.findOne({ name: name.trim() });
+    if (existingUser) {
+      return res.status(409).json({ error: 'User name already exists' });
+    }
+
+    const user = new User({ name: name.trim() });
+    await user.save();
+    res.status(201).json(user);
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const { name } = req.body;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'User name is required' });
+    }
+
+    const existingUser = await User.findOne({ name: name.trim(), _id: { $ne: req.params.id } });
+    if (existingUser) {
+      return res.status(409).json({ error: 'User name already exists' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { name: name.trim() },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
 // Save quote endpoint
 app.post('/api/save-quote', async (req, res) => {
   try {
-    const { name, quoteData, clientName, location, booked } = req.body;
+    const { name, quoteData, clientName, location, booked, createdBy } = req.body;
     
     if (!name || !quoteData) {
       return res.status(400).json({ error: 'Name and quote data are required' });
@@ -1500,7 +1586,8 @@ app.post('/api/save-quote', async (req, res) => {
       quoteData,
       clientName: clientName || null,
       location: location || null,
-      booked: booked || false
+      booked: booked || false,
+      createdBy: createdBy || null
     });
 
     const result = await savedQuote.save();
@@ -1514,7 +1601,7 @@ app.post('/api/save-quote', async (req, res) => {
 // Overwrite existing quote endpoint
 app.post('/api/overwrite-quote', async (req, res) => {
   try {
-    const { name, quoteData, clientName, location, booked } = req.body;
+    const { name, quoteData, clientName, location, booked, createdBy } = req.body;
     
     if (!name || !quoteData) {
       return res.status(400).json({ error: 'Name and quote data are required' });
@@ -1526,7 +1613,8 @@ app.post('/api/overwrite-quote', async (req, res) => {
         quoteData,
         clientName: clientName || null,
         location: location || null,
-        booked: booked || false
+        booked: booked || false,
+        createdBy: createdBy || null
       },
       { new: true }
     );
@@ -1551,13 +1639,16 @@ app.get('/api/saved-quotes', async (req, res) => {
       location: 1,
       archived: 1,  // Include archived field
       booked: 1,    // Include booked field
+      createdBy: 1, // Include createdBy field
       createdAt: 1,
       updatedAt: 1,
       // Include basic quote info for preview
       'quoteData.total': 1,
       'quoteData.days': 1,
       'quoteData.quoteTitle': 1
-    }).sort({ updatedAt: -1 });
+    })
+    .populate('createdBy', 'name')
+    .sort({ updatedAt: -1 });
 
     res.json(quotes);
   } catch (error) {
@@ -1571,7 +1662,7 @@ app.get('/api/load-quote/:name', async (req, res) => {
   try {
     const { name } = req.params;
     
-    const quote = await SavedQuote.findOne({ name });
+    const quote = await SavedQuote.findOne({ name }).populate('createdBy', 'name');
     
     if (!quote) {
       return res.status(404).json({ error: 'Quote not found' });
