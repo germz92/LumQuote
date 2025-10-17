@@ -93,16 +93,24 @@ class QuotesManager {
         // Sort
         filtered.sort((a, b) => {
             switch (sortBy) {
+                case 'service-date-newest':
+                    return this.compareServiceDates(b, a);
+                case 'service-date-oldest':
+                    return this.compareServiceDates(a, b);
                 case 'newest':
                     return new Date(b.updatedAt) - new Date(a.updatedAt);
                 case 'oldest':
                     return new Date(a.updatedAt) - new Date(b.updatedAt);
+                case 'created-newest':
+                    return new Date(b.createdAt) - new Date(a.createdAt);
+                case 'created-oldest':
+                    return new Date(a.createdAt) - new Date(b.createdAt);
                 case 'name-asc':
                     return a.name.localeCompare(b.name);
                 case 'name-desc':
                     return b.name.localeCompare(a.name);
                 default:
-                    return new Date(b.updatedAt) - new Date(a.updatedAt);
+                    return this.compareServiceDates(b, a); // Default to service date newest
             }
         });
 
@@ -126,6 +134,26 @@ class QuotesManager {
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
+    }
+
+    compareServiceDates(quoteA, quoteB) {
+        // Get the first service date from each quote
+        const daysA = quoteA.quoteData?.days || [];
+        const daysB = quoteB.quoteData?.days || [];
+        
+        const datesA = daysA.filter(day => day.date).map(day => this.parseStoredDate(day.date)).filter(date => date);
+        const datesB = daysB.filter(day => day.date).map(day => this.parseStoredDate(day.date)).filter(date => date);
+        
+        // If no dates, put at the end
+        if (datesA.length === 0 && datesB.length === 0) return 0;
+        if (datesA.length === 0) return 1;
+        if (datesB.length === 0) return -1;
+        
+        // Sort dates and compare the earliest dates
+        datesA.sort((a, b) => a - b);
+        datesB.sort((a, b) => a - b);
+        
+        return datesA[0] - datesB[0];
     }
 
     displayQuotes(quotes) {
@@ -159,6 +187,7 @@ class QuotesManager {
         const location = quote.location || '';
         const quoteTitle = quote.quoteData?.quoteTitle || quote.name;
         const isArchived = quote.archived || false;
+        const isBooked = quote.booked || false;
         
         // Calculate total services
         const totalServices = days.reduce((sum, day) => sum + (day.services?.length || 0), 0);
@@ -172,6 +201,7 @@ class QuotesManager {
 
         return `
             <div class="quote-card ${isArchived ? 'archived' : ''}" data-quote-name="${this.escapeHtml(quote.name)}">
+                ${isBooked ? '<div class="booked-banner">BOOKED</div>' : ''}
                 <div class="quote-card-header">
                     <div class="quote-card-title-section">
                         <h3 class="quote-card-title">${this.escapeHtml(quoteTitle)}</h3>

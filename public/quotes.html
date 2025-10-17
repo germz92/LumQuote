@@ -42,8 +42,12 @@
                         <select id="sortQuotes" 
                                 class="sort-select" 
                                 onchange="quotesManager.filterAndSort()">
-                            <option value="newest">Newest First</option>
-                            <option value="oldest">Oldest First</option>
+                            <option value="service-date-newest" selected>Service Date (Newest)</option>
+                            <option value="service-date-oldest">Service Date (Oldest)</option>
+                            <option value="newest">Updated (Newest)</option>
+                            <option value="oldest">Updated (Oldest)</option>
+                            <option value="created-newest">Created (Newest)</option>
+                            <option value="created-oldest">Created (Oldest)</option>
                             <option value="name-asc">Name (A-Z)</option>
                             <option value="name-desc">Name (Z-A)</option>
                         </select>

@@ -2950,6 +2950,7 @@ textarea:focus {
 .calendar-legend {
     margin-top: 24px;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 24px;
@@ -2973,6 +2974,10 @@ textarea:focus {
 
 .legend-color.quote-event {
     background: #4f46e5;
+}
+
+.legend-color.booked-event {
+    background: #dc2626;
 }
 
 .legend-note {
@@ -3448,6 +3453,27 @@ textarea:focus {
     border-radius: 4px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+.booked-banner {
+    position: relative;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #dc2626;
+    color: white;
+    text-align: center;
+    padding: 8px;
+    margin: -20px -20px 16px -20px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 12px 12px 0 0;
+}
+
+.quote-card {
+    position: relative;
 }
 
 .quote-card-total {

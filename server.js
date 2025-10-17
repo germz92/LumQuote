@@ -1465,7 +1465,8 @@ const savedQuoteSchema = new mongoose.Schema({
   quoteData: { type: Object, required: true },
   clientName: { type: String, default: null },
   location: { type: String, default: null },
-  archived: { type: Boolean, default: false }
+  archived: { type: Boolean, default: false },
+  booked: { type: Boolean, default: false }
 }, { timestamps: true });
 
 const SavedQuote = mongoose.model('SavedQuote', savedQuoteSchema, 'savedQuotes');
@@ -1473,7 +1474,7 @@ const SavedQuote = mongoose.model('SavedQuote', savedQuoteSchema, 'savedQuotes')
 // Save quote endpoint
 app.post('/api/save-quote', async (req, res) => {
   try {
-    const { name, quoteData, clientName, location } = req.body;
+    const { name, quoteData, clientName, location, booked } = req.body;
     
     if (!name || !quoteData) {
       return res.status(400).json({ error: 'Name and quote data are required' });
@@ -1498,7 +1499,8 @@ app.post('/api/save-quote', async (req, res) => {
       name,
       quoteData,
       clientName: clientName || null,
-      location: location || null
+      location: location || null,
+      booked: booked || false
     });
 
     const result = await savedQuote.save();
@@ -1512,7 +1514,7 @@ app.post('/api/save-quote', async (req, res) => {
 // Overwrite existing quote endpoint
 app.post('/api/overwrite-quote', async (req, res) => {
   try {
-    const { name, quoteData, clientName, location } = req.body;
+    const { name, quoteData, clientName, location, booked } = req.body;
     
     if (!name || !quoteData) {
       return res.status(400).json({ error: 'Name and quote data are required' });
@@ -1523,7 +1525,8 @@ app.post('/api/overwrite-quote', async (req, res) => {
       { 
         quoteData,
         clientName: clientName || null,
-        location: location || null
+        location: location || null,
+        booked: booked || false
       },
       { new: true }
     );
@@ -1547,6 +1550,7 @@ app.get('/api/saved-quotes', async (req, res) => {
       clientName: 1,
       location: 1,
       archived: 1,  // Include archived field
+      booked: 1,    // Include booked field
       createdAt: 1,
       updatedAt: 1,
       // Include basic quote info for preview
@@ -1685,6 +1689,7 @@ app.get('/api/calendar-events', async (req, res) => {
     const quotes = await SavedQuote.find({ archived: { $ne: true } }, {
       name: 1,
       clientName: 1,
+      booked: 1,
       createdAt: 1,
       updatedAt: 1,
       'quoteData.total': 1,
@@ -1733,6 +1738,7 @@ app.get('/api/calendar-events', async (req, res) => {
           totalServices: totalServices,
           dayCount: days.length,
           daysWithDates: daysWithDates.length,
+          booked: quote.booked || false,
           createdAt: quote.createdAt,
           updatedAt: quote.updatedAt
         }

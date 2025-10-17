@@ -426,7 +426,9 @@ class CalendarView {
         eventElement.style.height = `${eventHeight}px`;
         
         // Style the event
-        eventElement.style.backgroundColor = '#4f46e5';
+        // Use red color for booked events, blue for regular events
+        const isBooked = event.extendedProps?.booked || false;
+        eventElement.style.backgroundColor = isBooked ? '#dc2626' : '#4f46e5';
         eventElement.style.color = 'white';
         eventElement.style.borderRadius = '4px';
         eventElement.style.padding = '2px 8px';

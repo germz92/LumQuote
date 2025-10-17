@@ -6,6 +6,7 @@ class QuoteCalculator {
         this.markups = [];
         this.currentQuoteName = null;
         this.currentClientName = null;
+        this.currentBooked = false;
         this.currentQuoteTitle = "Conference Services Quote";
         this.activeCalendar = null;
         this.autoSaveKey = 'quote_calculator_draft';
@@ -117,6 +118,7 @@ class QuoteCalculator {
         this.markups = [];
         this.currentQuoteName = null;
         this.currentClientName = null;
+        this.currentBooked = false;
         this.currentQuoteTitle = "Conference Services Quote";
         
         // Reset title display
@@ -1129,6 +1131,7 @@ class QuoteCalculator {
         document.getElementById('saveQuoteTitle').value = this.currentQuoteTitle || this.currentQuoteName || '';
         document.getElementById('clientName').value = this.currentClientName || '';
         document.getElementById('eventLocation').value = this.currentLocation || '';
+        document.getElementById('bookedCheckbox').checked = this.currentBooked || false;
         
         // Load previous clients for the dropdown
         await this.loadClients();
@@ -1380,6 +1383,7 @@ class QuoteCalculator {
         const title = document.getElementById('saveQuoteTitle').value.trim();
         const clientName = document.getElementById('clientName').value.trim();
         const location = document.getElementById('eventLocation').value.trim();
+        const booked = document.getElementById('bookedCheckbox').checked;
         
         if (!title) {
             showAlertModal('Please enter a quote title.', 'error');
@@ -1403,7 +1407,8 @@ class QuoteCalculator {
                     name: title, 
                     quoteData,
                     clientName: clientName || null,
-                    location: location || null
+                    location: location || null,
+                    booked: booked
                 })
             });
 
@@ -1418,7 +1423,7 @@ class QuoteCalculator {
                     'Cancel'
                 );
                 if (overwrite) {
-                    await this.overwriteQuote(title, quoteData, clientName, location);
+                    await this.overwriteQuote(title, quoteData, clientName, location, booked);
                 }
             } else if (result.success) {
                 // Update current quote info
@@ -1443,7 +1448,7 @@ class QuoteCalculator {
         }
     }
 
-    async overwriteQuote(name, quoteData, clientName, location) {
+    async overwriteQuote(name, quoteData, clientName, location, booked) {
         try {
             const response = await fetch('/api/overwrite-quote', {
                 method: 'POST',
@@ -1454,7 +1459,8 @@ class QuoteCalculator {
                     name, 
                     quoteData,
                     clientName: clientName || null,
-                    location: location || null
+                    location: location || null,
+                    booked: booked
                 })
             });
 
@@ -1533,6 +1539,7 @@ class QuoteCalculator {
         this.currentQuoteName = null;
         this.currentClientName = null;
         this.currentLocation = null;
+        this.currentBooked = false;
         this.currentQuoteTitle = "Conference Services Quote";
         this.updateQuoteTitleDisplay();
         this.updateClientDisplay();
@@ -1556,6 +1563,7 @@ class QuoteCalculator {
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
             this.currentLocation = quote.location || null;
+            this.currentBooked = quote.booked || false;
             this.currentQuoteTitle = quote.name; // Use quote name as title (matching regular loadQuote)
             
             // Update the quote title display
@@ -1753,6 +1761,7 @@ class QuoteCalculator {
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
             this.currentLocation = quote.location || null;
+            this.currentBooked = quote.booked || false;
             this.currentQuoteTitle = quote.name; // Use quote name as title
             
             // Update the quote title display
@@ -3419,6 +3428,7 @@ async function saveAsCopy() {
     const title = document.getElementById('saveQuoteTitle').value.trim();
     const clientName = document.getElementById('clientName').value.trim();
     const location = document.getElementById('eventLocation').value.trim();
+    const booked = document.getElementById('bookedCheckbox').checked;
     
     if (!title) {
         showAlertModal('Please enter a quote title.', 'error');
@@ -3444,7 +3454,8 @@ async function saveAsCopy() {
                 name: copyTitle, 
                 quoteData,
                 clientName: clientName || null,
-                location: location || null
+                location: location || null,
+                booked: booked
             })
         });
 
@@ -3464,7 +3475,9 @@ async function saveAsCopy() {
                     body: JSON.stringify({ 
                         name: uniqueTitle, 
                         quoteData,
-                        clientName: clientName || null
+                        clientName: clientName || null,
+                        location: location || null,
+                        booked: booked
                     })
                 });
                 
