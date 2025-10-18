@@ -42,12 +42,12 @@
                         <select id="sortQuotes" 
                                 class="sort-select" 
                                 onchange="quotesManager.filterAndSort()">
-                            <option value="service-date-newest" selected>Service Date (Newest)</option>
+                            <option value="created-newest" selected>Created (Newest)</option>
+                            <option value="created-oldest">Created (Oldest)</option>
+                            <option value="service-date-newest">Service Date (Newest)</option>
                             <option value="service-date-oldest">Service Date (Oldest)</option>
                             <option value="newest">Updated (Newest)</option>
                             <option value="oldest">Updated (Oldest)</option>
-                            <option value="created-newest">Created (Newest)</option>
-                            <option value="created-oldest">Created (Oldest)</option>
                             <option value="booked-first">Booked First</option>
                             <option value="not-booked-first">Not Booked First</option>
                             <option value="name-asc">Name (A-Z)</option>
@@ -140,6 +140,49 @@
                     <button type="button" class="secondary-button" onclick="hideConfirmModal(false)">Cancel</button>
                     <button type="button" class="primary-button" id="confirmModalOk" onclick="hideConfirmModal(true)">Confirm</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Quote Modal -->
+    <div id="editQuoteModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Quote Details</h2>
+                <span class="close" onclick="quotesManager.closeEditModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editQuoteForm" onsubmit="quotesManager.saveQuoteEdit(event)">
+                    <div class="form-group">
+                        <label for="editQuoteName">Quote Name</label>
+                        <input type="text" id="editQuoteName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editQuoteClient">Client Name</label>
+                        <input type="text" id="editQuoteClient" placeholder="Enter client name">
+                    </div>
+                    <div class="form-group">
+                        <label for="editQuoteLocation">Event Location</label>
+                        <input type="text" id="editQuoteLocation" placeholder="Enter event location">
+                    </div>
+                    <div class="form-group">
+                        <label for="editQuoteCreatedBy">Created By</label>
+                        <select id="editQuoteCreatedBy" class="created-by-select">
+                            <option value="">-- Select User --</option>
+                            <!-- Users will be loaded here -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="editQuoteBooked">
+                            <span>Mark as Booked</span>
+                        </label>
+                    </div>
+                    <div class="modal-buttons">
+                        <button type="button" class="secondary-button" onclick="quotesManager.closeEditModal()">Cancel</button>
+                        <button type="submit" class="primary-button">Save Changes</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

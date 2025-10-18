@@ -162,7 +162,7 @@ class QuotesManager {
                 case 'name-desc':
                     return b.name.localeCompare(a.name);
                 default:
-                    return this.compareServiceDates(b, a); // Default to service date newest
+                    return new Date(b.createdAt) - new Date(a.createdAt); // Default to created newest
             }
         });
 
@@ -189,23 +189,35 @@ class QuotesManager {
     }
 
     compareServiceDates(quoteA, quoteB) {
-        // Get the first service date from each quote
+        // Get the earliest service date from each quote (for multi-day quotes, use start date)
         const daysA = quoteA.quoteData?.days || [];
         const daysB = quoteB.quoteData?.days || [];
         
-        const datesA = daysA.filter(day => day.date).map(day => this.parseStoredDate(day.date)).filter(date => date);
-        const datesB = daysB.filter(day => day.date).map(day => this.parseStoredDate(day.date)).filter(date => date);
+        // Parse and filter valid dates
+        const datesA = daysA
+            .filter(day => day.date)
+            .map(day => this.parseStoredDate(day.date))
+            .filter(date => date && !isNaN(date.getTime())); // Ensure valid date objects
+        
+        const datesB = daysB
+            .filter(day => day.date)
+            .map(day => this.parseStoredDate(day.date))
+            .filter(date => date && !isNaN(date.getTime()));
         
         // If no dates, put at the end
         if (datesA.length === 0 && datesB.length === 0) return 0;
         if (datesA.length === 0) return 1;
         if (datesB.length === 0) return -1;
         
-        // Sort dates and compare the earliest dates
-        datesA.sort((a, b) => a - b);
-        datesB.sort((a, b) => a - b);
+        // Sort dates to get the earliest (start date) for each quote
+        datesA.sort((a, b) => a.getTime() - b.getTime());
+        datesB.sort((a, b) => a.getTime() - b.getTime());
         
-        return datesA[0] - datesB[0];
+        // Compare the earliest dates (start dates)
+        const earliestA = datesA[0].getTime();
+        const earliestB = datesB[0].getTime();
+        
+        return earliestA - earliestB;
     }
 
     displayQuotes(quotes) {
@@ -300,6 +312,9 @@ class QuotesManager {
                     <button class="quote-action-btn primary" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
                         Load Quote
                     </button>
+                    <button class="quote-action-btn secondary" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')">
+                        Edit
+                    </button>
                     ${isArchived ? `
                         <button class="quote-action-btn secondary" onclick="quotesManager.unarchiveQuote('${this.escapeJs(quote.name)}')">
                             Unarchive
@@ -309,9 +324,25 @@ class QuotesManager {
                             Archive
                         </button>
                     `}
-                    <button class="quote-action-btn danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')">
-                        Delete
-                    </button>
+                    <div class="quote-overflow-menu">
+                        <button class="quote-overflow-btn" onclick="quotesManager.toggleOverflowMenu(event, '${this.escapeJs(quote.name)}')" aria-label="More actions">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                <circle cx="12" cy="12" r="1"></circle>
+                                <circle cx="12" cy="5" r="1"></circle>
+                                <circle cx="12" cy="19" r="1"></circle>
+                            </svg>
+                        </button>
+                        <div class="quote-overflow-dropdown" id="overflow-${this.escapeHtml(quote.name).replace(/\s/g, '-')}" style="display: none;">
+                            <button class="overflow-menu-item" onclick="quotesManager.toggleBookedStatus('${this.escapeJs(quote.name)}', ${!isBooked})">
+                                <span class="overflow-icon">${isBooked ? '☐' : '☑'}</span>
+                                <span>${isBooked ? 'Mark as Not Booked' : 'Mark as Booked'}</span>
+                            </button>
+                            <button class="overflow-menu-item danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')">
+                                <span class="overflow-icon">🗑️</span>
+                                <span>Delete</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -351,12 +382,25 @@ class QuotesManager {
     parseStoredDate(dateString) {
         if (!dateString) return null;
         
-        // Handle both ISO format and YYYY-MM-DD format
-        if (dateString.includes('T')) {
-            return new Date(dateString);
-        } else {
-            const [year, month, day] = dateString.split('-').map(Number);
-            return new Date(year, month - 1, day);
+        try {
+            // Handle both ISO format and YYYY-MM-DD format
+            if (dateString.includes('T')) {
+                const date = new Date(dateString);
+                return isNaN(date.getTime()) ? null : date;
+            } else {
+                // Parse YYYY-MM-DD format explicitly to avoid timezone issues
+                const parts = dateString.split('-');
+                if (parts.length !== 3) return null;
+                
+                const [year, month, day] = parts.map(Number);
+                if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+                
+                const date = new Date(year, month - 1, day);
+                return isNaN(date.getTime()) ? null : date;
+            }
+        } catch (error) {
+            console.error('Error parsing date:', dateString, error);
+            return null;
         }
     }
 
@@ -529,6 +573,81 @@ class QuotesManager {
         }
     }
 
+    toggleOverflowMenu(event, quoteName) {
+        event.stopPropagation();
+        const safeName = quoteName.replace(/\s/g, '-');
+        const dropdown = document.getElementById(`overflow-${safeName}`);
+        const card = event.target.closest('.quote-card');
+        
+        // Close all other dropdowns and remove elevated class from other cards
+        document.querySelectorAll('.quote-overflow-dropdown').forEach(dd => {
+            if (dd !== dropdown) {
+                dd.style.display = 'none';
+            }
+        });
+        document.querySelectorAll('.quote-card').forEach(c => {
+            if (c !== card) {
+                c.classList.remove('menu-open');
+            }
+        });
+        
+        // Toggle this dropdown
+        if (dropdown.style.display === 'none') {
+            dropdown.style.display = 'block';
+            card.classList.add('menu-open'); // Keep card elevated while menu is open
+            
+            // Close dropdown when clicking outside
+            setTimeout(() => {
+                const closeDropdown = (e) => {
+                    if (!e.target.closest('.quote-overflow-menu')) {
+                        dropdown.style.display = 'none';
+                        card.classList.remove('menu-open');
+                        document.removeEventListener('click', closeDropdown);
+                    }
+                };
+                document.addEventListener('click', closeDropdown);
+            }, 0);
+        } else {
+            dropdown.style.display = 'none';
+            card.classList.remove('menu-open');
+        }
+    }
+
+    async toggleBookedStatus(quoteName, newBookedStatus) {
+        try {
+            this.showLoading(true);
+
+            const response = await fetch(`/api/update-quote-metadata/${encodeURIComponent(quoteName)}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    newName: quoteName,
+                    booked: newBookedStatus
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to update booked status');
+            }
+
+            await this.loadQuotes();
+            this.filterAndSort();
+
+            const statusText = newBookedStatus ? 'booked' : 'not booked';
+            showAlertModal(`Quote marked as ${statusText}!`, 'success', null, true);
+
+        } catch (error) {
+            console.error('Error updating booked status:', error);
+            showAlertModal('Failed to update booked status. Please try again.', 'error');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
     async deleteQuote(quoteName) {
         const confirmed = await showConfirmModal(
             `Are you sure you want to permanently delete "${quoteName}"? This action cannot be undone.`,
@@ -558,6 +677,100 @@ class QuotesManager {
         } catch (error) {
             console.error('Error deleting quote:', error);
             showAlertModal('Failed to delete quote. Please try again.', 'error');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    async openEditModal(quoteName) {
+        const quote = this.allQuotes.find(q => q.name === quoteName);
+        if (!quote) {
+            showAlertModal('Quote not found.', 'error');
+            return;
+        }
+
+        // Store the original quote name for the update
+        this.editingQuoteName = quoteName;
+
+        // Populate form fields
+        document.getElementById('editQuoteName').value = quote.name;
+        document.getElementById('editQuoteClient').value = quote.clientName || '';
+        document.getElementById('editQuoteLocation').value = quote.location || '';
+        document.getElementById('editQuoteBooked').checked = quote.booked || false;
+
+        // Populate users dropdown
+        const userSelect = document.getElementById('editQuoteCreatedBy');
+        userSelect.innerHTML = '<option value="">-- Select User --</option>';
+        this.users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user._id;
+            option.textContent = user.name;
+            if (quote.createdBy && quote.createdBy._id === user._id) {
+                option.selected = true;
+            }
+            userSelect.appendChild(option);
+        });
+
+        // Show modal
+        document.getElementById('editQuoteModal').style.display = 'flex';
+    }
+
+    closeEditModal() {
+        document.getElementById('editQuoteModal').style.display = 'none';
+        this.editingQuoteName = null;
+    }
+
+    async saveQuoteEdit(event) {
+        event.preventDefault();
+
+        const newName = document.getElementById('editQuoteName').value.trim();
+        const clientName = document.getElementById('editQuoteClient').value.trim();
+        const location = document.getElementById('editQuoteLocation').value.trim();
+        const createdBy = document.getElementById('editQuoteCreatedBy').value || null;
+        const booked = document.getElementById('editQuoteBooked').checked;
+
+        if (!newName) {
+            showAlertModal('Please enter a quote name.', 'error');
+            return;
+        }
+
+        try {
+            this.showLoading(true);
+
+            const response = await fetch(`/api/update-quote-metadata/${encodeURIComponent(this.editingQuoteName)}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    newName,
+                    clientName: clientName || null,
+                    location: location || null,
+                    createdBy,
+                    booked
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.status === 409) {
+                showAlertModal('A quote with this name already exists.', 'error');
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to update quote');
+            }
+
+            await this.loadQuotes();
+            this.filterAndSort();
+            this.closeEditModal();
+
+            showAlertModal('Quote updated successfully!', 'success', null, true);
+
+        } catch (error) {
+            console.error('Error updating quote:', error);
+            showAlertModal('Failed to update quote. Please try again.', 'error');
         } finally {
             this.showLoading(false);
         }

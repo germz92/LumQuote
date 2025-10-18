@@ -1675,6 +1675,60 @@ app.get('/api/load-quote/:name', async (req, res) => {
   }
 });
 
+// Update quote metadata endpoint
+app.put('/api/update-quote-metadata/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const { newName, clientName, location, createdBy, booked } = req.body;
+    
+    if (!newName) {
+      return res.status(400).json({ error: 'New name is required' });
+    }
+
+    // Check if the quote exists
+    const existingQuote = await SavedQuote.findOne({ name });
+    if (!existingQuote) {
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+
+    // If name is changing, check if new name already exists
+    if (name !== newName) {
+      const nameConflict = await SavedQuote.findOne({ name: newName });
+      if (nameConflict) {
+        return res.status(409).json({ error: 'A quote with this name already exists' });
+      }
+    }
+
+    // Build update object with only provided fields
+    const updateFields = { name: newName };
+    
+    if (clientName !== undefined) {
+      updateFields.clientName = clientName || null;
+    }
+    if (location !== undefined) {
+      updateFields.location = location || null;
+    }
+    if (createdBy !== undefined) {
+      updateFields.createdBy = createdBy || null;
+    }
+    if (booked !== undefined) {
+      updateFields.booked = booked || false;
+    }
+
+    // Update the quote metadata
+    const result = await SavedQuote.findOneAndUpdate(
+      { name },
+      updateFields,
+      { new: true }
+    );
+
+    res.json({ success: true, quote: result });
+  } catch (error) {
+    console.error('Error updating quote metadata:', error);
+    res.status(500).json({ error: 'Failed to update quote' });
+  }
+});
+
 // Delete saved quote endpoint
 app.delete('/api/saved-quotes/:name', async (req, res) => {
   try {
