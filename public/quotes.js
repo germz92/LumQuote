@@ -272,7 +272,26 @@ class QuotesManager {
                         <h3 class="quote-card-title">${this.escapeHtml(quoteTitle)}</h3>
                         ${isArchived ? '<span class="archived-badge">Archived</span>' : ''}
                     </div>
-                    <div class="quote-card-total">${this.formatCurrency(total)}</div>
+                    <div class="quote-card-header-right">
+                        <div class="quote-card-total">${this.formatCurrency(total)}</div>
+                        <div class="quote-overflow-menu">
+                            <button class="quote-overflow-btn" onclick="quotesManager.toggleOverflowMenu(event, '${this.escapeJs(quote.name)}')" aria-label="More actions">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                    <circle cx="12" cy="12" r="1"></circle>
+                                    <circle cx="12" cy="5" r="1"></circle>
+                                    <circle cx="12" cy="19" r="1"></circle>
+                                </svg>
+                            </button>
+                            <div class="quote-overflow-dropdown" id="overflow-${this.escapeHtml(quote.name).replace(/\s/g, '-')}" style="display: none;">
+                                <button class="overflow-menu-item" onclick="quotesManager.toggleBookedStatus('${this.escapeJs(quote.name)}', ${!isBooked})">
+                                    ${isBooked ? 'Mark as Not Booked' : 'Mark as Booked'}
+                                </button>
+                                <button class="overflow-menu-item danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="quote-card-body">
@@ -324,25 +343,6 @@ class QuotesManager {
                             Archive
                         </button>
                     `}
-                    <div class="quote-overflow-menu">
-                        <button class="quote-overflow-btn" onclick="quotesManager.toggleOverflowMenu(event, '${this.escapeJs(quote.name)}')" aria-label="More actions">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                                <circle cx="12" cy="12" r="1"></circle>
-                                <circle cx="12" cy="5" r="1"></circle>
-                                <circle cx="12" cy="19" r="1"></circle>
-                            </svg>
-                        </button>
-                        <div class="quote-overflow-dropdown" id="overflow-${this.escapeHtml(quote.name).replace(/\s/g, '-')}" style="display: none;">
-                            <button class="overflow-menu-item" onclick="quotesManager.toggleBookedStatus('${this.escapeJs(quote.name)}', ${!isBooked})">
-                                <span class="overflow-icon">${isBooked ? '☐' : '☑'}</span>
-                                <span>${isBooked ? 'Mark as Not Booked' : 'Mark as Booked'}</span>
-                            </button>
-                            <button class="overflow-menu-item danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')">
-                                <span class="overflow-icon">🗑️</span>
-                                <span>Delete</span>
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
         `;

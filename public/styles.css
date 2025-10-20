@@ -3402,6 +3402,7 @@ textarea:focus {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     position: relative;
     overflow: visible; /* Allow dropdown to overflow */
+    z-index: 1;
 }
 
 .quote-card:hover,
@@ -3429,6 +3430,13 @@ textarea:focus {
     margin-bottom: 16px;
     padding-bottom: 12px;
     border-bottom: 2px solid #e2e8f0;
+    position: relative;
+}
+
+.quote-card-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .quote-card-title-section {
@@ -3483,7 +3491,79 @@ textarea:focus {
     font-weight: 700;
     color: #4f46e5;
     white-space: nowrap;
-    margin-left: 12px;
+}
+
+/* Overflow Menu Styles */
+.quote-overflow-menu {
+    position: relative;
+}
+
+.quote-overflow-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 4px;
+    background: transparent;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #64748b;
+}
+
+.quote-overflow-btn:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #334155;
+}
+
+.quote-overflow-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.quote-overflow-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 200px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 50;
+    overflow: hidden;
+}
+
+.overflow-menu-item {
+    width: 100%;
+    padding: 12px 16px;
+    background: white;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.875rem;
+    color: #334155;
+    font-weight: 500;
+}
+
+.overflow-menu-item:hover {
+    background: #f8fafc;
+}
+
+.overflow-menu-item.danger {
+    color: #dc2626;
+}
+
+.overflow-menu-item.danger:hover {
+    background: #fef2f2;
+}
+
+.quote-card.menu-open {
+    z-index: 10;
 }
 
 .quote-card-body {
@@ -3674,12 +3754,17 @@ textarea:focus {
     }
     
     .quote-card-header {
+        align-items: flex-start;
+    }
+    
+    .quote-card-header-right {
         flex-direction: column;
-        gap: 12px;
+        align-items: flex-end;
+        gap: 8px;
     }
     
     .quote-card-total {
-        margin-left: 0;
+        font-size: 1.125rem;
     }
     
     .quote-card-actions {
