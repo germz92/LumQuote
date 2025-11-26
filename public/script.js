@@ -57,17 +57,24 @@ class QuoteCalculator {
                 this.currentQuoteName = draftData.currentQuoteName || null;
                 this.currentClientName = draftData.currentClientName || null;
                 this.currentQuoteTitle = draftData.currentQuoteTitle || "Conference Services Quote";
+                this.currentLocation = draftData.currentLocation || null;
+                this.currentBooked = draftData.currentBooked || false;
+                this.currentCreatedBy = draftData.currentCreatedBy || null;
                 
                 console.log('📄 Restoring from localStorage:', {
                     quoteName: this.currentQuoteName,
                     clientName: this.currentClientName,
-                    quoteTitle: this.currentQuoteTitle
+                    quoteTitle: this.currentQuoteTitle,
+                    location: this.currentLocation,
+                    booked: this.currentBooked,
+                    createdBy: this.currentCreatedBy
                 });
                 
                 // Update the displays if we loaded data (with slight delay to ensure DOM is ready)
                 setTimeout(() => {
                     this.updateQuoteTitleDisplay();
                     this.updateClientDisplay();
+                    this.updateLocationDisplay();
                     console.log('📄 Display updated after localStorage restore');
                 }, 0);
                 
@@ -98,12 +105,18 @@ class QuoteCalculator {
                 currentQuoteName: this.currentQuoteName,
                 currentClientName: this.currentClientName,
                 currentQuoteTitle: this.currentQuoteTitle,
+                currentLocation: this.currentLocation,
+                currentBooked: this.currentBooked,
+                currentCreatedBy: this.currentCreatedBy,
                 lastSaved: new Date().toISOString()
             };
             console.log('💾 Saving to localStorage:', {
                 quoteName: draftData.currentQuoteName,
                 clientName: draftData.currentClientName,
-                quoteTitle: draftData.currentQuoteTitle
+                quoteTitle: draftData.currentQuoteTitle,
+                location: draftData.currentLocation,
+                booked: draftData.currentBooked,
+                createdBy: draftData.currentCreatedBy
             });
             localStorage.setItem(this.autoSaveKey, JSON.stringify(draftData));
         } catch (error) {
@@ -256,6 +269,33 @@ class QuoteCalculator {
         container.innerHTML = '';
 
         this.days.forEach((day, dayIndex) => {
+            // On mobile, add day header as separate row first
+            if (day.services.length > 0 && window.innerWidth < 768) {
+                const dayHeaderRow = document.createElement('div');
+                dayHeaderRow.className = 'day-row mobile-day-header-row';
+                dayHeaderRow.innerHTML = `
+                    <div class="day-cell">
+                        <span class="day-header ${day.date ? 'has-date' : ''}" 
+                              onclick="calculator.showCalendar(${dayIndex}, this)"
+                              ontouchend="event.preventDefault(); event.stopPropagation(); calculator.showCalendar(${dayIndex}, this);">
+                            ${day.date ? this.formatDate(this.parseStoredDate(day.date)) : `Day ${dayIndex + 1}`}
+                        </span>
+                        ${this.days.length > 1 ? `<button class="remove-day-btn" onclick="calculator.removeDayByIndex(${dayIndex})">×</button>` : ''}
+                    </div>
+                `;
+                container.appendChild(dayHeaderRow);
+                
+                // Add column headers after day header
+                const columnHeaderRow = document.createElement('div');
+                columnHeaderRow.className = 'mobile-column-header';
+                columnHeaderRow.innerHTML = `
+                    <div class="header-service">SERVICE</div>
+                    <div class="header-qty">QTY</div>
+                    <div class="header-price">PRICE</div>
+                `;
+                container.appendChild(columnHeaderRow);
+            }
+            
             // Render each service as its own row
             day.services.forEach((service, serviceIndex) => {
                 const serviceRow = document.createElement('div');
@@ -271,9 +311,12 @@ class QuoteCalculator {
                 // Get description - use service-specific description if available, otherwise fall back to global
                 const serviceDescription = service.description !== undefined ? service.description : this.getServiceById(service.id)?.description;
                 
+                // On mobile, don't include day header in service rows
+                const includeDayHeader = window.innerWidth >= 768 && serviceIndex === 0;
+                
                 serviceRow.innerHTML = `
                     <div class="day-cell">
-                        ${serviceIndex === 0 ? `
+                        ${includeDayHeader ? `
                                                     <span class="day-header ${day.date ? 'has-date' : ''}" 
                                   onclick="calculator.showCalendar(${dayIndex}, this)"
                                   ontouchend="event.preventDefault(); event.stopPropagation(); calculator.showCalendar(${dayIndex}, this);">
@@ -360,6 +403,33 @@ class QuoteCalculator {
 
             // Add the "Add Service" row for each day
             if (day.services.length === 0) {
+                // On mobile, add day header first
+                if (window.innerWidth < 768) {
+                    const dayHeaderRow = document.createElement('div');
+                    dayHeaderRow.className = 'day-row mobile-day-header-row';
+                    dayHeaderRow.innerHTML = `
+                        <div class="day-cell">
+                            <span class="day-header ${day.date ? 'has-date' : ''}" 
+                                  onclick="calculator.showCalendar(${dayIndex}, this)"
+                                  ontouchend="event.preventDefault(); event.stopPropagation(); calculator.showCalendar(${dayIndex}, this);">
+                                ${day.date ? this.formatDate(this.parseStoredDate(day.date)) : `Day ${dayIndex + 1}`}
+                            </span>
+                            ${this.days.length > 1 ? `<button class="remove-day-btn" onclick="calculator.removeDayByIndex(${dayIndex})">×</button>` : ''}
+                        </div>
+                    `;
+                    container.appendChild(dayHeaderRow);
+                    
+                    // Add column headers
+                    const columnHeaderRow = document.createElement('div');
+                    columnHeaderRow.className = 'mobile-column-header';
+                    columnHeaderRow.innerHTML = `
+                        <div class="header-service">SERVICE</div>
+                        <div class="header-qty">QTY</div>
+                        <div class="header-price">PRICE</div>
+                    `;
+                    container.appendChild(columnHeaderRow);
+                }
+                
                 // Empty day row with drop zone functionality
                 const emptyRow = document.createElement('div');
                 emptyRow.className = 'day-row empty-day-drop-zone';
@@ -368,14 +438,19 @@ class QuoteCalculator {
                 emptyRow.dataset.isDropZone = 'true';
                 emptyRow.dataset.isEmpty = 'true';
                 
+                // On desktop, include day header; on mobile, don't
+                const includeDayHeader = window.innerWidth >= 768;
+                
                 emptyRow.innerHTML = `
                     <div class="day-cell">
-                        <span class="day-header ${day.date ? 'has-date' : ''}" 
-                              onclick="calculator.showCalendar(${dayIndex}, this)"
-                              ontouchend="event.preventDefault(); event.stopPropagation(); calculator.showCalendar(${dayIndex}, this);">
-                            ${day.date ? this.formatDate(this.parseStoredDate(day.date)) : `Day ${dayIndex + 1}`}
-                        </span>
-                        ${this.days.length > 1 ? `<button class="remove-day-btn" onclick="calculator.removeDayByIndex(${dayIndex})">×</button>` : ''}
+                        ${includeDayHeader ? `
+                            <span class="day-header ${day.date ? 'has-date' : ''}" 
+                                  onclick="calculator.showCalendar(${dayIndex}, this)"
+                                  ontouchend="event.preventDefault(); event.stopPropagation(); calculator.showCalendar(${dayIndex}, this);">
+                                ${day.date ? this.formatDate(this.parseStoredDate(day.date)) : `Day ${dayIndex + 1}`}
+                            </span>
+                            ${this.days.length > 1 ? `<button class="remove-day-btn" onclick="calculator.removeDayByIndex(${dayIndex})">×</button>` : ''}
+                        ` : ''}
                     </div>
                     <div class="service-cell empty-service">
                         <span class="empty-text">No services selected</span>
@@ -2517,8 +2592,20 @@ class QuoteCalculator {
         }
     }
 
+    // Helper method to check if drag-and-drop should be enabled on touch devices
+    isTouchDragEnabled() {
+        // Disable touch drag on screens smaller than 768px (mobile phones)
+        // Keep enabled on tablets and larger devices
+        return window.innerWidth >= 768;
+    }
+
     // Touch event handlers for mobile drag and drop
     handleTouchStart(event) {
+        // Disable touch drag on mobile devices (< 768px)
+        if (!this.isTouchDragEnabled()) {
+            return;
+        }
+        
         // Don't interfere with input elements
         if (event.target.matches('input, button, select, textarea')) {
             return;
@@ -2588,6 +2675,11 @@ class QuoteCalculator {
     }
 
     handleTouchMove(event) {
+        // Disable touch drag on mobile devices (< 768px)
+        if (!this.isTouchDragEnabled()) {
+            return;
+        }
+        
         // Don't interfere with input elements
         if (event.target.matches('input, button, select, textarea')) {
             return;
@@ -2638,6 +2730,11 @@ class QuoteCalculator {
     }
 
     handleTouchEnd(event) {
+        // Disable touch drag on mobile devices (< 768px)
+        if (!this.isTouchDragEnabled()) {
+            return;
+        }
+        
         // Don't interfere with input elements
         if (event.target.matches('input, button, select, textarea')) {
             return;
@@ -2945,12 +3042,12 @@ class QuoteCalculator {
         const originalPriceSpan = document.getElementById('originalUnitPrice');
         const originalDescriptionSpan = document.getElementById('originalServiceDescription');
         
-        // Set current values
+        // Set current values (use current edited values, not original)
         serviceNameInput.value = service.name;
-        unitPriceInput.value = service.originalUnitPrice || service.price;
-        descriptionTextarea.value = service.description || originalService?.description || '';
+        unitPriceInput.value = service.price; // Use current price, not originalUnitPrice
+        descriptionTextarea.value = service.description !== undefined ? service.description : (originalService?.description || '');
         
-        // Set original values for reference
+        // Set original values for reference (what the service was before any edits)
         originalNameSpan.textContent = originalService?.name || service.originalName || service.name;
         originalPriceSpan.textContent = this.formatCurrency(originalService?.price || service.originalUnitPrice || service.price);
         originalDescriptionSpan.textContent = originalService?.description || service.originalDescription || 'No description';

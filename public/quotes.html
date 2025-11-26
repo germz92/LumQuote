@@ -9,19 +9,15 @@
 <body>
     <div class="container">
         <div class="logo-section">
-            <img src="/assets/logo.png" alt="Lumetry Media" class="company-logo">
+            <img src="/assets/logo.png" alt="Lumetry Media" class="company-logo" onclick="window.location.href='/'" style="cursor: pointer;">
         </div>
         <header class="header">
-            <button class="back-button" onclick="window.location.href='/'">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="15,18 9,12 15,6"></polyline>
-                </svg>
-            </button>
             <div class="header-title">
                 <h1>Manage Quotes</h1>
                 <span class="subtitle">Load, archive, or delete saved quotes</span>
             </div>
             <div class="header-actions">
+                <a href="/calculator" class="admin-link" onclick="clearQuoteData(event)">New Quote</a>
                 <a href="/calendar" class="admin-link">Calendar</a>
                 <a href="/admin" class="admin-link">Admin</a>
                 <button class="logout-btn" onclick="logout()">Logout</button>

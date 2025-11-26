@@ -470,11 +470,11 @@ class QuotesManager {
             
             const quoteData = await response.json();
             
-            // Store quote data in session storage for main page to load
+            // Store quote data in session storage for calculator page to load
             sessionStorage.setItem('loadQuoteData', JSON.stringify(quoteData));
             
-            // Navigate to main page
-            window.location.href = '/';
+            // Navigate to calculator page
+            window.location.href = '/calculator';
             
         } catch (error) {
             console.error('Error loading quote:', error);
@@ -886,6 +886,17 @@ async function logout() {
     } catch (error) {
         console.error('Logout error:', error);
     }
+}
+
+// Clear quote data function (for New Quote button)
+function clearQuoteData(event) {
+    event.preventDefault();
+    // Clear localStorage draft
+    localStorage.removeItem('quote_calculator_draft');
+    // Clear sessionStorage
+    sessionStorage.removeItem('loadQuoteData');
+    // Navigate to calculator
+    window.location.href = '/calculator';
 }
 
 // Initialize quotes manager when page loads

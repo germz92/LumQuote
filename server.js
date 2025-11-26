@@ -74,6 +74,27 @@ app.use((req, res, next) => {
   }
 });
 
+// Define custom routes BEFORE static middleware
+app.get('/', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'quotes.html'));
+});
+
+app.get('/calculator', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.get('/admin', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/calendar', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'calendar.html'));
+});
+
+app.get('/quotes', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'quotes.html'));
+});
+
 app.use(express.static('public'));
 
 // MongoDB connection
@@ -1390,23 +1411,6 @@ function formatDateForExcel(date) {
   };
   return date.toLocaleDateString('en-US', options);
 }
-
-// Serve static files
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-app.get('/calendar', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'calendar.html'));
-});
-
-app.get('/quotes', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'quotes.html'));
-});
 
 // Initialize default services
 async function initializeServices() {

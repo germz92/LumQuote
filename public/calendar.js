@@ -27,8 +27,7 @@ class CalendarView {
 
         // Tooltip close button
         document.addEventListener('click', (e) => {
-            if (e.target.classList.contains('tooltip-close') || 
-                e.target.id === 'closeTooltipBtn') {
+            if (e.target.classList.contains('tooltip-close')) {
                 this.hideTooltip();
             }
         });
@@ -37,6 +36,20 @@ class CalendarView {
         document.getElementById('openQuoteBtn').addEventListener('click', () => {
             if (this.currentEventData) {
                 this.loadQuote(this.currentEventData.extendedProps.quoteName);
+            }
+        });
+
+        // Toggle booked button
+        document.getElementById('toggleBookedBtn').addEventListener('click', () => {
+            if (this.currentEventData) {
+                this.toggleBookedStatus(this.currentEventData);
+            }
+        });
+
+        // Toggle archive button
+        document.getElementById('toggleArchiveBtn').addEventListener('click', () => {
+            if (this.currentEventData) {
+                this.toggleArchiveStatus(this.currentEventData);
             }
         });
 
@@ -477,7 +490,17 @@ class CalendarView {
         document.getElementById('tooltipServices').textContent = event.extendedProps.totalServices;
         document.getElementById('tooltipDays').textContent = event.extendedProps.dayCount;
 
-        // Position tooltip
+        // Update toggle booked button text based on current status
+        const isBooked = event.extendedProps.booked || false;
+        const toggleBookedBtn = document.getElementById('toggleBookedBtn');
+        toggleBookedBtn.textContent = isBooked ? 'Mark as Not Booked' : 'Mark as Booked';
+
+        // Show tooltip first to get accurate dimensions
+        tooltip.style.display = 'block';
+        tooltip.style.left = '0px';
+        tooltip.style.top = '0px';
+        
+        // Position tooltip after it's visible
         const rect = targetElement.getBoundingClientRect();
         const tooltipRect = tooltip.getBoundingClientRect();
         
@@ -485,17 +508,22 @@ class CalendarView {
         let top = rect.bottom + 10;
         
         // Adjust position if tooltip goes off screen
-        if (left < 10) left = 10;
-        if (left + tooltipRect.width > window.innerWidth - 10) {
-            left = window.innerWidth - tooltipRect.width - 10;
+        const padding = 10;
+        if (left < padding) {
+            left = padding;
         }
-        if (top + tooltipRect.height > window.innerHeight - 10) {
+        if (left + tooltipRect.width > window.innerWidth - padding) {
+            left = window.innerWidth - tooltipRect.width - padding;
+        }
+        if (top + tooltipRect.height > window.innerHeight - padding) {
             top = rect.top - tooltipRect.height - 10;
+        }
+        if (top < padding) {
+            top = padding;
         }
 
         tooltip.style.left = `${left}px`;
         tooltip.style.top = `${top}px`;
-        tooltip.style.display = 'block';
         
         this.currentTooltip = tooltip;
     }
@@ -543,15 +571,99 @@ class CalendarView {
             
             const quoteData = await response.json();
             
-            // Store quote data in session storage for the main page to load
+            // Store quote data in session storage for the calculator page to load
             sessionStorage.setItem('loadQuoteData', JSON.stringify(quoteData));
             
-            // Navigate to main page
-            window.location.href = '/';
+            // Navigate to calculator page
+            window.location.href = '/calculator';
             
         } catch (error) {
             console.error('Error loading quote:', error);
             this.showAlert('Failed to load quote. Please try again.', 'error');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    async toggleBookedStatus(event) {
+        const quoteName = event.extendedProps.quoteName;
+        const currentBooked = event.extendedProps.booked || false;
+        const newBookedStatus = !currentBooked;
+
+        try {
+            this.showLoading(true);
+            this.hideTooltip();
+
+            const response = await fetch(`/api/update-quote-metadata/${encodeURIComponent(quoteName)}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    newName: quoteName,
+                    booked: newBookedStatus
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to update booked status');
+            }
+
+            // Reload events to reflect the change
+            await this.loadEvents();
+            this.renderCalendar();
+
+            const statusText = newBookedStatus ? 'booked' : 'not booked';
+            this.showAlert(`Quote "${quoteName}" marked as ${statusText}!`, 'success');
+
+        } catch (error) {
+            console.error('Error updating booked status:', error);
+            this.showAlert('Failed to update booked status. Please try again.', 'error');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
+    async toggleArchiveStatus(event) {
+        const quoteName = event.extendedProps.quoteName;
+        const currentArchived = event.extendedProps.archived || false;
+        const newArchivedStatus = !currentArchived;
+
+        try {
+            this.showLoading(true);
+            this.hideTooltip();
+
+            const response = await fetch(`/api/archive-quote/${encodeURIComponent(quoteName)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    archived: newArchivedStatus
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to update archive status');
+            }
+
+            // Reload events to reflect the change (archived quotes won't appear on calendar)
+            await this.loadEvents();
+            this.renderCalendar();
+
+            const statusText = newArchivedStatus ? 'archived' : 'unarchived';
+            const message = newArchivedStatus 
+                ? `Quote "${quoteName}" has been archived and removed from the calendar.`
+                : `Quote "${quoteName}" has been unarchived and will now appear on the calendar.`;
+            this.showAlert(message, 'success');
+
+        } catch (error) {
+            console.error('Error updating archive status:', error);
+            this.showAlert('Failed to update archive status. Please try again.', 'error');
         } finally {
             this.showLoading(false);
         }
@@ -588,18 +700,21 @@ class CalendarView {
         const content = document.getElementById('alertModalMessage');
         const icon = document.getElementById('alertModalIcon');
 
-        title.textContent = type === 'error' ? 'Error' : 'Information';
-        content.innerHTML = message;
-        
-        // Set icon based on type
-        if (type === 'error') {
+        if (type === 'success') {
+            title.textContent = 'Success';
+            icon.textContent = '✅';
+            icon.style.color = '#16a34a';
+        } else if (type === 'error') {
+            title.textContent = 'Error';
             icon.textContent = '❌';
             icon.style.color = '#dc2626';
         } else {
+            title.textContent = 'Information';
             icon.textContent = 'ℹ️';
             icon.style.color = '#2563eb';
         }
-
+        
+        content.innerHTML = message;
         modal.style.display = 'flex';
     }
 }
