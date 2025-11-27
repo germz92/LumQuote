@@ -3799,6 +3799,7 @@ textarea:focus {
 .quotes-table tbody tr {
     border-bottom: 1px solid #e2e8f0;
     transition: background 0.15s ease;
+    cursor: pointer;
 }
 
 .quotes-table tbody tr:hover {
@@ -3858,16 +3859,6 @@ textarea:focus {
     cursor: pointer;
     transition: all 0.2s ease;
     margin-left: 6px;
-}
-
-.table-action-btn.primary {
-    background: #ede9fe;
-    color: #4f46e5;
-}
-
-.table-action-btn.primary:hover {
-    background: #4f46e5;
-    color: white;
 }
 
 .table-action-btn.secondary {

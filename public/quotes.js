@@ -163,6 +163,9 @@ class QuotesManager {
                     case 'date':
                         result = this.compareServiceDates(a, b);
                         break;
+                    case 'created':
+                        result = new Date(a.createdAt) - new Date(b.createdAt);
+                        break;
                     case 'modified':
                         result = new Date(a.updatedAt) - new Date(b.updatedAt);
                         break;
@@ -311,7 +314,7 @@ class QuotesManager {
             const emptyMessage = this.showingArchived ? 'No archived quotes found' : 'No active quotes found';
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 60px 20px; color: #64748b;">
+                    <td colspan="9" style="text-align: center; padding: 60px 20px; color: #64748b;">
                         ${emptyMessage}
                     </td>
                 </tr>
@@ -344,6 +347,14 @@ class QuotesManager {
             }
         }
         
+        const createdDate = new Date(quote.createdAt).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+        
         const modifiedDate = new Date(quote.updatedAt).toLocaleDateString('en-US', { 
             month: 'short', 
             day: 'numeric', 
@@ -353,7 +364,7 @@ class QuotesManager {
         });
 
         return `
-            <tr class="quote-row ${isBooked ? 'booked-row' : ''}" data-quote-name="${this.escapeHtml(quote.name)}">
+            <tr class="quote-row ${isBooked ? 'booked-row' : ''}" data-quote-name="${this.escapeHtml(quote.name)}" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
                 <td class="quote-title-cell">
                     ${isBooked ? '<span class="booked-badge-small">BOOKED</span>' : ''}
                     <strong>${this.escapeHtml(quoteTitle)}</strong>
@@ -362,15 +373,10 @@ class QuotesManager {
                 <td>${this.escapeHtml(location)}</td>
                 <td>${this.escapeHtml(createdBy)}</td>
                 <td>${serviceDate}</td>
+                <td>${createdDate}</td>
                 <td>${modifiedDate}</td>
                 <td class="total-cell">${this.formatCurrency(total)}</td>
-                <td class="actions-cell">
-                    <button class="table-action-btn primary" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')" title="Load Quote">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                    </button>
+                <td class="actions-cell" onclick="event.stopPropagation()">
                     <button class="table-action-btn secondary" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')" title="Edit">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
@@ -684,8 +690,9 @@ class QuotesManager {
             'location': 2,
             'owner': 3,
             'date': 4,
-            'modified': 5,
-            'total': 6
+            'created': 5,
+            'modified': 6,
+            'total': 7
         };
         
         const columnIndex = columnMap[this.sortColumn];

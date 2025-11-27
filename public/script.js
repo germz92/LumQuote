@@ -3534,11 +3534,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // Load the quote data into the calculator
             calculator.loadQuoteFromData(quoteData);
             
-            // Show success message
-            setTimeout(() => {
-                showAlertModal(`Quote "${quoteData.name}" loaded successfully!`, 'success');
-            }, 500);
-            
         } catch (error) {
             console.error('Error loading quote from calendar:', error);
             showAlertModal('Failed to load quote from calendar.', 'error');
