@@ -3,13 +3,23 @@ class QuotesManager {
         this.allQuotes = [];
         this.showingArchived = false;
         this.users = [];
+        // Load saved view preference or default to grid
+        this.viewMode = localStorage.getItem('quotesViewMode') || 'grid';
+        this.sortColumn = localStorage.getItem('quotesSortColumn') || 'created-newest';
+        this.sortDirection = localStorage.getItem('quotesSortDirection') || 'desc';
         this.init();
     }
 
     async init() {
         await this.loadUsers();
         await this.loadQuotes();
+        this.applyViewMode(); // Apply saved view mode
         this.filterAndSort();
+        
+        // Update sort indicators if in list view
+        if (this.viewMode === 'list') {
+            this.updateSortIndicators();
+        }
     }
 
     async loadUsers() {
@@ -125,46 +135,88 @@ class QuotesManager {
         }
 
         // Sort
-        filtered.sort((a, b) => {
-            switch (sortBy) {
-                case 'service-date-newest':
-                    return this.compareServiceDates(b, a);
-                case 'service-date-oldest':
-                    return this.compareServiceDates(a, b);
-                case 'newest':
-                    return new Date(b.updatedAt) - new Date(a.updatedAt);
-                case 'oldest':
-                    return new Date(a.updatedAt) - new Date(b.updatedAt);
-                case 'created-newest':
-                    return new Date(b.createdAt) - new Date(a.createdAt);
-                case 'created-oldest':
-                    return new Date(a.createdAt) - new Date(b.createdAt);
-                case 'booked-first':
-                    // Booked (true) first, then not booked (false)
-                    const aBooked = a.booked || false;
-                    const bBooked = b.booked || false;
-                    if (aBooked === bBooked) {
-                        // If same booking status, sort by service date (newest)
+        if (this.viewMode === 'list' && this.sortColumn !== 'created-newest') {
+            // Use column-based sorting for list view
+            filtered.sort((a, b) => {
+                let result = 0;
+                switch (this.sortColumn) {
+                    case 'title':
+                        const aTitle = a.quoteData?.quoteTitle || a.name;
+                        const bTitle = b.quoteData?.quoteTitle || b.name;
+                        result = aTitle.localeCompare(bTitle);
+                        break;
+                    case 'client':
+                        const aClient = a.clientName || '';
+                        const bClient = b.clientName || '';
+                        result = aClient.localeCompare(bClient);
+                        break;
+                    case 'location':
+                        const aLocation = a.location || '';
+                        const bLocation = b.location || '';
+                        result = aLocation.localeCompare(bLocation);
+                        break;
+                    case 'owner':
+                        const aOwner = a.createdBy?.name || '';
+                        const bOwner = b.createdBy?.name || '';
+                        result = aOwner.localeCompare(bOwner);
+                        break;
+                    case 'date':
+                        result = this.compareServiceDates(a, b);
+                        break;
+                    case 'modified':
+                        result = new Date(a.updatedAt) - new Date(b.updatedAt);
+                        break;
+                    case 'total':
+                        const aTotal = a.quoteData?.total || 0;
+                        const bTotal = b.quoteData?.total || 0;
+                        result = aTotal - bTotal;
+                        break;
+                }
+                return this.sortDirection === 'asc' ? result : -result;
+            });
+        } else {
+            // Use dropdown-based sorting for grid view
+            filtered.sort((a, b) => {
+                switch (sortBy) {
+                    case 'service-date-newest':
                         return this.compareServiceDates(b, a);
-                    }
-                    return bBooked - aBooked; // true (1) before false (0)
-                case 'not-booked-first':
-                    // Not booked (false) first, then booked (true)
-                    const aBookedNot = a.booked || false;
-                    const bBookedNot = b.booked || false;
-                    if (aBookedNot === bBookedNot) {
-                        // If same booking status, sort by service date (newest)
-                        return this.compareServiceDates(b, a);
-                    }
-                    return aBookedNot - bBookedNot; // false (0) before true (1)
-                case 'name-asc':
-                    return a.name.localeCompare(b.name);
-                case 'name-desc':
-                    return b.name.localeCompare(a.name);
-                default:
-                    return new Date(b.createdAt) - new Date(a.createdAt); // Default to created newest
-            }
-        });
+                    case 'service-date-oldest':
+                        return this.compareServiceDates(a, b);
+                    case 'newest':
+                        return new Date(b.updatedAt) - new Date(a.updatedAt);
+                    case 'oldest':
+                        return new Date(a.updatedAt) - new Date(b.updatedAt);
+                    case 'created-newest':
+                        return new Date(b.createdAt) - new Date(a.createdAt);
+                    case 'created-oldest':
+                        return new Date(a.createdAt) - new Date(b.createdAt);
+                    case 'booked-first':
+                        // Booked (true) first, then not booked (false)
+                        const aBooked = a.booked || false;
+                        const bBooked = b.booked || false;
+                        if (aBooked === bBooked) {
+                            // If same booking status, sort by service date (newest)
+                            return this.compareServiceDates(b, a);
+                        }
+                        return bBooked - aBooked; // true (1) before false (0)
+                    case 'not-booked-first':
+                        // Not booked (false) first, then booked (true)
+                        const aBookedNot = a.booked || false;
+                        const bBookedNot = b.booked || false;
+                        if (aBookedNot === bBookedNot) {
+                            // If same booking status, sort by service date (newest)
+                            return this.compareServiceDates(b, a);
+                        }
+                        return aBookedNot - bBookedNot; // false (0) before true (1)
+                    case 'name-asc':
+                        return a.name.localeCompare(b.name);
+                    case 'name-desc':
+                        return b.name.localeCompare(a.name);
+                    default:
+                        return new Date(b.createdAt) - new Date(a.createdAt); // Default to created newest
+                }
+            });
+        }
 
         this.displayQuotes(filtered);
     }
@@ -221,6 +273,14 @@ class QuotesManager {
     }
 
     displayQuotes(quotes) {
+        if (this.viewMode === 'list') {
+            this.displayQuotesList(quotes);
+        } else {
+            this.displayQuotesGrid(quotes);
+        }
+    }
+
+    displayQuotesGrid(quotes) {
         const container = document.getElementById('quotesContainer');
         
         if (quotes.length === 0) {
@@ -242,6 +302,89 @@ class QuotesManager {
         }
 
         container.innerHTML = quotes.map(quote => this.createQuoteCard(quote)).join('');
+    }
+
+    displayQuotesList(quotes) {
+        const tableBody = document.getElementById('quotesTableBody');
+        
+        if (quotes.length === 0) {
+            const emptyMessage = this.showingArchived ? 'No archived quotes found' : 'No active quotes found';
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 60px 20px; color: #64748b;">
+                        ${emptyMessage}
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = quotes.map(quote => this.createQuoteRow(quote)).join('');
+    }
+
+    createQuoteRow(quote) {
+        const total = quote.quoteData?.total || 0;
+        const days = quote.quoteData?.days || [];
+        const clientName = quote.clientName || '-';
+        const location = quote.location || '-';
+        const quoteTitle = quote.quoteData?.quoteTitle || quote.name;
+        const isBooked = quote.booked || false;
+        const createdBy = quote.createdBy?.name || '-';
+        
+        // Get earliest service date
+        const daysWithDates = days.filter(day => day.date);
+        let serviceDate = '-';
+        if (daysWithDates.length > 0) {
+            const dates = daysWithDates
+                .map(day => this.parseStoredDate(day.date))
+                .filter(date => date)
+                .sort((a, b) => a - b);
+            if (dates.length > 0) {
+                serviceDate = this.formatDateShort(dates[0]);
+            }
+        }
+        
+        const modifiedDate = new Date(quote.updatedAt).toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+
+        return `
+            <tr class="quote-row ${isBooked ? 'booked-row' : ''}" data-quote-name="${this.escapeHtml(quote.name)}">
+                <td class="quote-title-cell">
+                    ${isBooked ? '<span class="booked-badge-small">BOOKED</span>' : ''}
+                    <strong>${this.escapeHtml(quoteTitle)}</strong>
+                </td>
+                <td>${this.escapeHtml(clientName)}</td>
+                <td>${this.escapeHtml(location)}</td>
+                <td>${this.escapeHtml(createdBy)}</td>
+                <td>${serviceDate}</td>
+                <td>${modifiedDate}</td>
+                <td class="total-cell">${this.formatCurrency(total)}</td>
+                <td class="actions-cell">
+                    <button class="table-action-btn primary" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')" title="Load Quote">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                    </button>
+                    <button class="table-action-btn secondary" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')" title="Edit">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                        </svg>
+                    </button>
+                    <button class="table-action-btn danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')" title="Delete">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </button>
+                </td>
+            </tr>
+        `;
     }
 
     createQuoteCard(quote) {
@@ -457,6 +600,101 @@ class QuotesManager {
         }
         
         this.filterAndSort();
+    }
+
+    toggleView() {
+        this.viewMode = this.viewMode === 'grid' ? 'list' : 'grid';
+        
+        // Save preference to localStorage
+        localStorage.setItem('quotesViewMode', this.viewMode);
+        
+        this.applyViewMode();
+        this.filterAndSort();
+        
+        // Update sort indicators if switching to list view
+        if (this.viewMode === 'list') {
+            this.updateSortIndicators();
+        }
+    }
+
+    applyViewMode() {
+        const gridContainer = document.getElementById('quotesContainer');
+        const listContainer = document.getElementById('quotesListView');
+        const toggleText = document.getElementById('viewToggleText');
+        const toggleIcon = document.getElementById('viewToggleIcon');
+        
+        if (this.viewMode === 'list') {
+            gridContainer.style.display = 'none';
+            listContainer.style.display = 'block';
+            toggleText.textContent = 'Grid View';
+            toggleIcon.innerHTML = `
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+            `;
+        } else {
+            gridContainer.style.display = 'grid';
+            listContainer.style.display = 'none';
+            toggleText.textContent = 'List View';
+            toggleIcon.innerHTML = `
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            `;
+        }
+    }
+
+    sortByColumn(column) {
+        // If clicking the same column, toggle direction
+        if (this.sortColumn === column) {
+            this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.sortColumn = column;
+            this.sortDirection = 'asc';
+        }
+        
+        // Save sort preferences to localStorage
+        localStorage.setItem('quotesSortColumn', this.sortColumn);
+        localStorage.setItem('quotesSortDirection', this.sortDirection);
+        
+        this.filterAndSort();
+        this.updateSortIndicators();
+    }
+
+    updateSortIndicators() {
+        // Clear all indicators
+        document.querySelectorAll('.sort-indicator').forEach(el => {
+            el.textContent = '';
+        });
+        
+        // Only update if we have a valid sort column for list view
+        if (!this.sortColumn || this.sortColumn === 'created-newest') {
+            return;
+        }
+        
+        // Find the active column
+        const headers = document.querySelectorAll('.quotes-table th.sortable');
+        const columnMap = {
+            'title': 0,
+            'client': 1,
+            'location': 2,
+            'owner': 3,
+            'date': 4,
+            'modified': 5,
+            'total': 6
+        };
+        
+        const columnIndex = columnMap[this.sortColumn];
+        if (columnIndex !== undefined && headers[columnIndex]) {
+            const indicator = headers[columnIndex].querySelector('.sort-indicator');
+            if (indicator) {
+                indicator.textContent = this.sortDirection === 'asc' ? ' ▲' : ' ▼';
+            }
+        }
     }
 
     async loadQuote(quoteName) {

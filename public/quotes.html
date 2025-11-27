@@ -12,6 +12,7 @@
             <img src="/assets/logo.png" alt="Lumetry Media" class="company-logo" onclick="window.location.href='/'" style="cursor: pointer;">
         </div>
         <header class="header">
+            <div class="header-spacer"></div>
             <div class="header-title">
                 <h1>Manage Quotes</h1>
                 <span class="subtitle">Load, archive, or delete saved quotes</span>
@@ -71,7 +72,19 @@
                         </button>
                     </div>
 
-                    <div class="archive-toggle-container">
+                    <div class="view-toggle-container">
+                        <button class="view-toggle-btn desktop-only" 
+                                id="viewToggleBtn" 
+                                onclick="quotesManager.toggleView()"
+                                title="Toggle view">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="viewToggleIcon">
+                                <rect x="3" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="3" width="7" height="7"></rect>
+                                <rect x="3" y="14" width="7" height="7"></rect>
+                                <rect x="14" y="14" width="7" height="7"></rect>
+                            </svg>
+                            <span id="viewToggleText">List View</span>
+                        </button>
                         <button class="archive-toggle-btn" 
                                 id="archiveToggleBtn" 
                                 onclick="quotesManager.toggleArchiveView()">
@@ -85,9 +98,44 @@
                     </div>
                 </div>
 
-                <!-- Quotes list -->
+                <!-- Quotes grid view -->
                 <div id="quotesContainer" class="quotes-grid">
                     <!-- Quotes will be loaded here -->
+                </div>
+
+                <!-- Quotes list view (desktop only) -->
+                <div id="quotesListView" class="quotes-list-view desktop-only" style="display: none;">
+                    <table class="quotes-table">
+                        <thead>
+                            <tr>
+                                <th class="sortable" onclick="quotesManager.sortByColumn('title')">
+                                    Quote Title <span class="sort-indicator"></span>
+                                </th>
+                                <th class="sortable" onclick="quotesManager.sortByColumn('client')">
+                                    Client <span class="sort-indicator"></span>
+                                </th>
+                                <th class="sortable" onclick="quotesManager.sortByColumn('location')">
+                                    Location <span class="sort-indicator"></span>
+                                </th>
+                                <th class="sortable" onclick="quotesManager.sortByColumn('owner')">
+                                    Owner <span class="sort-indicator"></span>
+                                </th>
+                                <th class="sortable" onclick="quotesManager.sortByColumn('date')">
+                                    Service Date <span class="sort-indicator"></span>
+                                </th>
+                                <th class="sortable" onclick="quotesManager.sortByColumn('modified')">
+                                    Modified <span class="sort-indicator"></span>
+                                </th>
+                                <th class="sortable" onclick="quotesManager.sortByColumn('total')">
+                                    Total <span class="sort-indicator"></span>
+                                </th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="quotesTableBody">
+                            <!-- Quotes rows will be loaded here -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>
