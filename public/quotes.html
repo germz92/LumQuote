@@ -37,7 +37,7 @@
                                onkeyup="quotesManager.filterAndSort()">
                         
                         <select id="sortQuotes" 
-                                class="sort-select" 
+                                class="sort-select grid-only" 
                                 onchange="quotesManager.filterAndSort()">
                             <option value="created-newest" selected>Created (Newest)</option>
                             <option value="created-oldest">Created (Oldest)</option>
@@ -45,8 +45,6 @@
                             <option value="service-date-oldest">Service Date (Oldest)</option>
                             <option value="newest">Updated (Newest)</option>
                             <option value="oldest">Updated (Oldest)</option>
-                            <option value="booked-first">Booked First</option>
-                            <option value="not-booked-first">Not Booked First</option>
                             <option value="name-asc">Name (A-Z)</option>
                             <option value="name-desc">Name (Z-A)</option>
                         </select>
@@ -62,6 +60,14 @@
                                 onchange="quotesManager.filterAndSort()">
                             <option value="">All Users</option>
                             <!-- Users will be loaded here -->
+                        </select>
+                        
+                        <select id="bookedFilter" 
+                                class="booked-filter" 
+                                onchange="quotesManager.filterAndSort()">
+                            <option value="">All Quotes</option>
+                            <option value="booked">Booked</option>
+                            <option value="not-booked">Not Booked</option>
                         </select>
                         
                         <button class="clear-filters-btn" 

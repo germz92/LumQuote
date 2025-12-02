@@ -396,7 +396,36 @@ async function generateQuoteHTML(quoteData) {
         const isTentative = service.tentative || false;
         const tentativeStyle = isTentative ? 'color: #059669;' : '';
         const tentativeLabel = isTentative ? ' (Tentative)' : '';
-        const tentativePrice = isTentative ? `(${formatCurrency(service.price * (service.quantity || 1))})` : formatCurrency(service.price * (service.quantity || 1));
+        
+        // Calculate service discount
+        const originalPrice = service.price * (service.quantity || 1);
+        let serviceDiscountAmount = 0;
+        if (service.discount && service.discount.applied && service.discount.value > 0) {
+          if (service.discount.type === 'percentage') {
+            serviceDiscountAmount = originalPrice * (service.discount.value / 100);
+          } else {
+            serviceDiscountAmount = service.discount.value;
+          }
+          serviceDiscountAmount = Math.min(serviceDiscountAmount, originalPrice);
+        }
+        const finalPrice = originalPrice - serviceDiscountAmount;
+        
+        // Build price display
+        let priceDisplay;
+        let priceStyle = 'text-align: right; font-weight: 600;';
+        if (isTentative) {
+          priceDisplay = `(${formatCurrency(finalPrice)})`;
+        } else if (serviceDiscountAmount > 0) {
+          priceDisplay = `<div style="text-decoration: line-through; color: #94a3b8; font-size: 10px; margin-bottom: 2px;">${formatCurrency(originalPrice)}</div><div style="color: #10b981; font-weight: 700; font-size: 11px;">${formatCurrency(finalPrice)}</div>`;
+          priceStyle = 'text-align: right; vertical-align: middle;';
+        } else {
+          priceDisplay = formatCurrency(originalPrice);
+        }
+        
+        // Build discount indicator
+        const discountIndicator = (service.discount && service.discount.applied && service.discount.value > 0) 
+          ? `<br><small style="color: #f59e0b; font-size: 10px; font-weight: 600;">${service.discount.type === 'percentage' ? `${service.discount.value}% off` : `${formatCurrency(service.discount.value)} off`}</small>`
+          : '';
         
         const dayLabel = serviceIndex === 0 ? (day.date ? formatDateForPDF(parseStoredDate(day.date)) : `Day ${dayIndex + 1}`) : '';
         
@@ -405,13 +434,14 @@ async function generateQuoteHTML(quoteData) {
             <td style="${serviceIndex === 0 ? 'font-weight: 600; color: #1e293b;' : ''}">${dayLabel}</td>
             <td style="${serviceStyle} ${tentativeStyle}">
               ${serviceDisplayName}${tentativeLabel}
+              ${discountIndicator}
             ${serviceDescription ? `<br><small style="color: #64748b; font-size: 10px; line-height: 1.3;">${serviceDescription}</small>` : ''}
             </td>
             <td style="text-align: center; color: #1e293b;">
               ${service.quantity || 1}
             </td>
-            <td style="text-align: right; font-weight: 600; ${tentativeStyle}">
-              ${tentativePrice}
+            <td style="${priceStyle} ${tentativeStyle}">
+              ${priceDisplay}
             </td>
           </tr>
         `;
@@ -667,25 +697,45 @@ app.post('/api/generate-excel', async (req, res) => {
     // Get all services for subservice checking
     const allServices = await Service.find();
     
+    // Check if any service has a per-event discount
+    const hasPerEventDiscount = days.some(day => 
+      day.services.some(service => 
+        service.discount && service.discount.applied && service.discount.value > 0
+      )
+    );
+    
     // Create workbook and worksheet
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Quote');
     
-    // Set column headers (widths will be auto-fitted later)
-    worksheet.columns = [
+    // Set column headers dynamically based on whether discounts exist
+    const columns = [
       { header: 'Date', key: 'date' },
       { header: 'Item', key: 'item' },
       { header: 'Qty', key: 'qty' },
-      { header: 'Rate', key: 'rate' },
+      { header: 'Rate', key: 'rate' }
+    ];
+    
+    if (hasPerEventDiscount) {
+      columns.push({ header: 'Discount', key: 'discount' });
+    }
+    
+    columns.push(
       { header: 'Price', key: 'price' },
       { header: 'Description', key: 'description' }
-    ];
+    );
+    
+    worksheet.columns = columns;
+    
+    // Determine last column letter based on whether discount column exists
+    const lastColLetter = hasPerEventDiscount ? 'G' : 'F';
+    const numColumns = hasPerEventDiscount ? 7 : 6;
     
     let currentRow = 1;
     
     // Add title row if provided
     if (quoteTitle) {
-      worksheet.mergeCells('A1:F1');
+      worksheet.mergeCells(`A1:${lastColLetter}1`);
       const titleRow = worksheet.getRow(1);
       titleRow.getCell(1).value = quoteTitle;
       titleRow.getCell(1).font = { bold: true, name: 'Arial', size: 11 };
@@ -700,7 +750,7 @@ app.post('/api/generate-excel', async (req, res) => {
     
     // Add client name row if provided
     if (clientName) {
-      worksheet.mergeCells(`A${currentRow}:F${currentRow}`);
+      worksheet.mergeCells(`A${currentRow}:${lastColLetter}${currentRow}`);
       const clientRow = worksheet.getRow(currentRow);
       clientRow.getCell(1).value = clientName;
       clientRow.getCell(1).font = { bold: true, name: 'Arial', size: 11 };
@@ -715,12 +765,17 @@ app.post('/api/generate-excel', async (req, res) => {
     
     // Add headers row
     const headerRow = worksheet.getRow(currentRow);
-    headerRow.values = ['Date', 'Item', 'Qty', 'Rate', 'Price', 'Description'];
+    const headerValues = ['Date', 'Item', 'Qty', 'Rate'];
+    if (hasPerEventDiscount) {
+      headerValues.push('Discount');
+    }
+    headerValues.push('Price', 'Description');
+    headerRow.values = headerValues;
     headerRow.font = { bold: true, name: 'Arial', size: 11 };
     headerRow.alignment = { horizontal: 'center' };
     
-    // Apply gray background to all columns A-F
-    for (let col = 1; col <= 6; col++) {
+    // Apply gray background to all columns
+    for (let col = 1; col <= numColumns; col++) {
       headerRow.getCell(col).fill = {
         type: 'pattern',
         pattern: 'solid',
@@ -746,17 +801,43 @@ app.post('/api/generate-excel', async (req, res) => {
             ? (day.date ? formatDateForExcel(parseStoredDate(day.date)) : `Day ${dayIndex + 1}`)
             : '';
           
-          const rate = formatCurrency(service.price);
-          const price = isTentative ? `(${formatCurrency(service.price * service.quantity)})` : formatCurrency(service.price * service.quantity);
+          // Calculate service discount
+          const originalPrice = service.price * service.quantity;
+          let serviceDiscountAmount = 0;
+          let discountDisplay = '';
           
-          const row = worksheet.addRow({
+          if (service.discount && service.discount.applied && service.discount.value > 0) {
+            if (service.discount.type === 'percentage') {
+              serviceDiscountAmount = originalPrice * (service.discount.value / 100);
+              discountDisplay = `${service.discount.value}%`;
+            } else {
+              serviceDiscountAmount = service.discount.value;
+              discountDisplay = formatCurrency(service.discount.value);
+            }
+            serviceDiscountAmount = Math.min(serviceDiscountAmount, originalPrice);
+          }
+          
+          const finalPrice = originalPrice - serviceDiscountAmount;
+          
+          const rate = formatCurrency(service.price);
+          const price = isTentative ? `(${formatCurrency(finalPrice)})` : formatCurrency(finalPrice);
+          
+          // Build row data conditionally
+          const rowData = {
             date: dateDisplay,
             item: serviceName,
             qty: service.quantity,
-            rate: rate,
-            price: price,
-            description: serviceDescription
-          });
+            rate: rate
+          };
+          
+          if (hasPerEventDiscount) {
+            rowData.discount = discountDisplay;
+          }
+          
+          rowData.price = price;
+          rowData.description = serviceDescription;
+          
+          const row = worksheet.addRow(rowData);
           
           // Set Arial font for all cells first
           row.font = { name: 'Arial', size: 11 };
@@ -769,6 +850,11 @@ app.post('/api/generate-excel', async (req, res) => {
           
           // Set quantity column to left-aligned
           row.getCell('qty').alignment = { horizontal: 'left' };
+          
+          // Set discount column styling if it exists
+          if (hasPerEventDiscount) {
+            row.getCell('discount').alignment = { horizontal: 'center' };
+          }
           
           // Enable text wrapping for description column
           if (serviceDescription) {
@@ -785,14 +871,21 @@ app.post('/api/generate-excel', async (req, res) => {
           ? formatDateForExcel(parseStoredDate(day.date))
           : `Day ${dayIndex + 1}`;
         
-        const row = worksheet.addRow({
+        const emptyRowData = {
           date: dateDisplay,
           item: 'No services selected',
           qty: 0,
-          rate: '$0',
-          price: '$0',
-          description: ''
-        });
+          rate: '$0'
+        };
+        
+        if (hasPerEventDiscount) {
+          emptyRowData.discount = '';
+        }
+        
+        emptyRowData.price = '$0';
+        emptyRowData.description = '';
+        
+        const row = worksheet.addRow(emptyRowData);
         
         // Set Arial font for all cells first
         row.font = { name: 'Arial', size: 11 };
@@ -810,14 +903,21 @@ app.post('/api/generate-excel', async (req, res) => {
     // Add markups as line items
     if (markups && markups.length > 0) {
       markups.forEach(markup => {
-        const row = worksheet.addRow({
+        const markupRowData = {
           date: '',
           item: markup.name,
           qty: 1,
-          rate: formatCurrency(markup.markupAmount),
-          price: formatCurrency(markup.markupAmount),
-          description: markup.description || ''
-        });
+          rate: formatCurrency(markup.markupAmount)
+        };
+        
+        if (hasPerEventDiscount) {
+          markupRowData.discount = '';
+        }
+        
+        markupRowData.price = formatCurrency(markup.markupAmount);
+        markupRowData.description = markup.description || '';
+        
+        const row = worksheet.addRow(markupRowData);
         
         // Set Arial font for all cells
         row.font = { name: 'Arial', size: 11 };
@@ -842,54 +942,82 @@ app.post('/api/generate-excel', async (req, res) => {
     // Add summary rows based on discount or markups
     if (discountPercentage > 0 || (markupsTotal && markupsTotal > 0)) {
       // Subtotal row
-      const subtotalRow = worksheet.addRow({
+      const subtotalRowData = {
         date: '',
         item: '',
         qty: '',
-        rate: '',
-        price: formatCurrency(subtotal),
-        description: 'Subtotal'
-      });
+        rate: ''
+      };
+      
+      if (hasPerEventDiscount) {
+        subtotalRowData.discount = '';
+      }
+      
+      subtotalRowData.price = formatCurrency(subtotal);
+      subtotalRowData.description = 'Subtotal';
+      
+      const subtotalRow = worksheet.addRow(subtotalRowData);
       subtotalRow.getCell('description').alignment = { horizontal: 'left' };
       subtotalRow.font = { name: 'Arial', size: 11 };
       
       // Markups row (if any)
       if (markupsTotal && markupsTotal > 0) {
-        const markupsRow = worksheet.addRow({
+        const markupsRowData = {
           date: '',
           item: '',
           qty: '',
-          rate: '',
-          price: formatCurrency(markupsTotal),
-          description: 'Markups'
-        });
+          rate: ''
+        };
+        
+        if (hasPerEventDiscount) {
+          markupsRowData.discount = '';
+        }
+        
+        markupsRowData.price = formatCurrency(markupsTotal);
+        markupsRowData.description = 'Markups';
+        
+        const markupsRow = worksheet.addRow(markupsRowData);
         markupsRow.getCell('description').alignment = { horizontal: 'left' };
         markupsRow.font = { name: 'Arial', size: 11 };
       }
       
       // Discount row (if any)
       if (discountPercentage > 0) {
-        const discountRow = worksheet.addRow({
+        const discountRowData = {
           date: '',
-          item: `${discountPercentage}% Discount`,
+          item: `${discountPercentage}% Global Discount`,
           qty: '',
-          rate: '',
-          price: formatCurrency(discountAmount),
-          description: 'Discount'
-        });
+          rate: ''
+        };
+        
+        if (hasPerEventDiscount) {
+          discountRowData.discount = '';
+        }
+        
+        discountRowData.price = formatCurrency(discountAmount);
+        discountRowData.description = 'Discount';
+        
+        const discountRow = worksheet.addRow(discountRowData);
         discountRow.getCell('description').alignment = { horizontal: 'left' };
         discountRow.font = { name: 'Arial', size: 11 };
       }
       
       // Grand Total row
-      const grandTotalRow = worksheet.addRow({
+      const grandTotalRowData = {
         date: '',
         item: '',
         qty: '',
-        rate: '',
-        price: formatCurrency(total),
-        description: 'Grand Total'
-      });
+        rate: ''
+      };
+      
+      if (hasPerEventDiscount) {
+        grandTotalRowData.discount = '';
+      }
+      
+      grandTotalRowData.price = formatCurrency(total);
+      grandTotalRowData.description = 'Grand Total';
+      
+      const grandTotalRow = worksheet.addRow(grandTotalRowData);
       grandTotalRow.getCell('description').alignment = { horizontal: 'left' };
       // Set base font first, then override specific cells
       grandTotalRow.font = { name: 'Arial', size: 11 };
@@ -907,14 +1035,21 @@ app.post('/api/generate-excel', async (req, res) => {
       };
     } else {
       // Grand Total row only
-      const grandTotalRow = worksheet.addRow({
+      const grandTotalRowData = {
         date: '',
         item: '',
         qty: '',
-        rate: '',
-        price: formatCurrency(total),
-        description: 'Grand Total'
-      });
+        rate: ''
+      };
+      
+      if (hasPerEventDiscount) {
+        grandTotalRowData.discount = '';
+      }
+      
+      grandTotalRowData.price = formatCurrency(total);
+      grandTotalRowData.description = 'Grand Total';
+      
+      const grandTotalRow = worksheet.addRow(grandTotalRowData);
       grandTotalRow.getCell('description').alignment = { horizontal: 'left' };
       // Set base font first, then override specific cells
       grandTotalRow.font = { name: 'Arial', size: 11 };
@@ -943,14 +1078,21 @@ app.post('/api/generate-excel', async (req, res) => {
       const tentativeDiscountAmount = tentativeSubtotal * (discountPercentage / 100);
       const finalTentativeTotal = tentativeSubtotal - tentativeDiscountAmount;
       
-      const tentativeRow = worksheet.addRow({
+      const tentativeRowData = {
         date: '',
         item: '',
         qty: '',
-        rate: '',
-        price: `(${formatCurrency(finalTentativeTotal)})`,
-        description: 'Tentative Total'
-      });
+        rate: ''
+      };
+      
+      if (hasPerEventDiscount) {
+        tentativeRowData.discount = '';
+      }
+      
+      tentativeRowData.price = `(${formatCurrency(finalTentativeTotal)})`;
+      tentativeRowData.description = 'Tentative Total';
+      
+      const tentativeRow = worksheet.addRow(tentativeRowData);
       tentativeRow.getCell('description').alignment = { horizontal: 'left' };
       tentativeRow.font = { name: 'Arial', size: 11 };
     }
@@ -959,7 +1101,7 @@ app.post('/api/generate-excel', async (req, res) => {
     if (enableBorders) {
       try {
         const lastRow = worksheet.lastRow?.number || currentRow;
-        const lastCol = 6; // We have 6 columns (A-F)
+        const lastCol = numColumns; // Dynamic based on whether discount column exists
         
         // Ensure we have valid row numbers
         if (lastRow > 0 && lastCol > 0) {
@@ -997,15 +1139,24 @@ app.post('/api/generate-excel', async (req, res) => {
     // Auto-fit column widths based on content
     console.log('🔄 Auto-fitting column widths...');
     try {
-      // Define column-specific default and maximum widths
+      // Define column-specific default and maximum widths dynamically
       const columnSettings = {
         'A': { autofit: true, max: 35 },   // Date column - always autofit
         'B': { default: 25, max: 50 },     // Item column
         'C': { default: 5, max: 8 },       // Qty column - small default
-        'D': { default: 8, max: 12 },      // Rate column - small default
-        'E': { default: 10, max: 15 },     // Price column - small default
-        'F': { default: 30, max: 60 }      // Description column
+        'D': { default: 8, max: 12 }       // Rate column - small default
       };
+      
+      if (hasPerEventDiscount) {
+        // With discount column
+        columnSettings['E'] = { default: 10, max: 15 };  // Discount column - small default
+        columnSettings['F'] = { default: 10, max: 15 };  // Price column - small default
+        columnSettings['G'] = { default: 30, max: 60 };  // Description column
+      } else {
+        // Without discount column
+        columnSettings['E'] = { default: 10, max: 15 };  // Price column - small default
+        columnSettings['F'] = { default: 30, max: 60 };  // Description column
+      }
       
       worksheet.columns.forEach((column, index) => {
         let maxLength = 0;
@@ -1206,18 +1357,95 @@ app.post('/api/generate-docx', async (req, res) => {
         
         // Services in this category
         categoryServices.forEach(service => {
-          const serviceTotal = service.price * service.quantity;
-          categoryTotal += serviceTotal;
-          dayTotal += serviceTotal;
+          const originalTotal = service.price * service.quantity;
+          
+          // Calculate service discount
+          let serviceDiscountAmount = 0;
+          let discountText = '';
+          
+          if (service.discount && service.discount.applied && service.discount.value > 0) {
+            if (service.discount.type === 'percentage') {
+              serviceDiscountAmount = originalTotal * (service.discount.value / 100);
+              discountText = `${service.discount.value}% off`;
+            } else {
+              serviceDiscountAmount = service.discount.value;
+              discountText = `$${service.discount.value.toFixed(2)} off`;
+            }
+            serviceDiscountAmount = Math.min(serviceDiscountAmount, originalTotal);
+          }
+          
+          const finalTotal = originalTotal - serviceDiscountAmount;
+          categoryTotal += finalTotal;
+          dayTotal += finalTotal;
+          
+          // Build the service line with discount
+          const textRuns = [
+            new TextRun({
+              text: `• ${service.name} (Qty: ${service.quantity}`,
+              size: 22,
+            })
+          ];
+          
+          // Add discount text if applicable
+          if (discountText) {
+            textRuns.push(
+              new TextRun({
+                text: ` - ${discountText}`,
+                size: 22,
+              })
+            );
+          }
+          
+          textRuns.push(
+            new TextRun({
+              text: ' - ',
+              size: 22,
+            })
+          );
+          
+          // Add original price with strikethrough if discounted
+          if (serviceDiscountAmount > 0) {
+            textRuns.push(
+              new TextRun({
+                text: `$${originalTotal.toFixed(2)}`,
+                size: 22,
+                strike: true,
+                color: '94A3B8',
+              })
+            );
+            textRuns.push(
+              new TextRun({
+                text: ' ',
+                size: 22,
+              })
+            );
+            textRuns.push(
+              new TextRun({
+                text: `$${finalTotal.toFixed(2)}`,
+                size: 22,
+                color: '10B981',
+                bold: true,
+              })
+            );
+          } else {
+            textRuns.push(
+              new TextRun({
+                text: `$${originalTotal.toFixed(2)}`,
+                size: 22,
+              })
+            );
+          }
+          
+          textRuns.push(
+            new TextRun({
+              text: `): $${finalTotal.toFixed(2)}`,
+              size: 22,
+            })
+          );
           
           children.push(
             new Paragraph({
-              children: [
-                new TextRun({
-                  text: `• ${service.name} (Qty${service.quantity} - $${service.price.toFixed(2)}): $${serviceTotal.toFixed(2)}`,
-                  size: 22,
-                }),
-              ],
+              children: textRuns,
               spacing: { after: 50 },
               indent: { left: 360 }, // Indent for bullet points
             })

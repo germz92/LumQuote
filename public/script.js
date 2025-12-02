@@ -20,6 +20,9 @@ class QuoteCalculator {
         this.isSaving = false;
         this.lastSavedTime = null;
         
+        // Per-event discount toggle
+        this.perEventDiscountEnabled = false;
+        
         // Drag and drop state
         this.draggedElement = null;
         this.draggedData = null;
@@ -50,6 +53,7 @@ class QuoteCalculator {
         this.renderDays();
         this.updateTotal();
         this.renderMarkups();
+        this.applyPerEventDiscountState();
     }
 
     loadDraftFromLocalStorage() {
@@ -66,6 +70,7 @@ class QuoteCalculator {
                 this.currentLocation = draftData.currentLocation || null;
                 this.currentBooked = draftData.currentBooked || false;
                 this.currentCreatedBy = draftData.currentCreatedBy || null;
+                this.perEventDiscountEnabled = draftData.perEventDiscountEnabled || false;
                 
                 console.log('📄 Restoring from localStorage:', {
                     quoteName: this.currentQuoteName,
@@ -81,14 +86,22 @@ class QuoteCalculator {
                     this.updateQuoteTitleDisplay();
                     this.updateClientDisplay();
                     this.updateLocationDisplay();
+                    this.applyPerEventDiscountState();
                     console.log('📄 Display updated after localStorage restore');
                 }, 0);
                 
-                // Ensure existing services have tentative property
+                // Ensure existing services have tentative and discount properties
                 this.days.forEach(day => {
                     day.services.forEach(service => {
                         if (service.tentative === undefined) {
                             service.tentative = false;
+                        }
+                        if (!service.discount) {
+                            service.discount = {
+                                type: 'percentage',
+                                value: 0,
+                                applied: false
+                            };
                         }
                     });
                 });
@@ -114,6 +127,7 @@ class QuoteCalculator {
                 currentLocation: this.currentLocation,
                 currentBooked: this.currentBooked,
                 currentCreatedBy: this.currentCreatedBy,
+                perEventDiscountEnabled: this.perEventDiscountEnabled,
                 lastSaved: new Date().toISOString()
             };
             console.log('💾 Saving to localStorage:', {
@@ -146,6 +160,7 @@ class QuoteCalculator {
         this.currentCreatedBy = null;
         this.currentQuoteTitle = "Conference Services Quote";
         this.currentLocation = null;
+        this.perEventDiscountEnabled = false;
         
         // Reset auto-save state
         if (this.autoSaveTimeout) {
@@ -350,8 +365,14 @@ class QuoteCalculator {
                             <span class="drag-handle">⋮⋮</span>
                             <span class="service-text">${this.getServiceById(service.id)?.isSubservice ? '└─ ' : ''}${this.escapeHtml(service.name)}${service.tentative ? ' (Tentative)' : ''}</span>
                             ${isEdited ? '<span class="edited-badge">Edited</span>' : ''}
+                            ${service.discount && service.discount.applied ? `<div class="service-discount-indicator">${service.discount.type === 'percentage' ? `${service.discount.value}% off` : `${this.formatCurrency(service.discount.value)} off`}</div>` : ''}
                             ${serviceDescription ? `<div class="tooltip">${this.escapeHtml(serviceDescription)}</div>` : ''}
                         </div>
+                        <button class="service-discount-btn ${service.discount && service.discount.applied ? 'has-discount' : ''}" 
+                                onclick="calculator.openServiceDiscountModal(${dayIndex}, ${serviceIndex})"
+                                title="${service.discount && service.discount.applied ? 'Edit discount' : 'Add discount'}">
+                            %
+                        </button>
                         <button class="remove-service" 
                                 onclick="calculator.removeService(${dayIndex}, ${serviceIndex})"
                                 ontouchend="if(event.target === this) { event.preventDefault(); calculator.removeService(${dayIndex}, ${serviceIndex}); }">×</button>
@@ -367,7 +388,24 @@ class QuoteCalculator {
                                ontouchend="this.focus()">
                     </div>
                     <div class="price-cell ${service.tentative ? 'tentative' : ''}">
-                        ${service.tentative ? `(${this.formatCurrency(service.price * service.quantity)})` : this.formatCurrency(service.price * service.quantity)}
+                        ${(() => {
+                            const originalPrice = service.price * service.quantity;
+                            const discount = this.calculateServiceDiscount(service);
+                            const finalPrice = originalPrice - discount;
+                            
+                            if (service.tentative) {
+                                return `(${this.formatCurrency(finalPrice)})`;
+                            } else if (discount > 0) {
+                                return `
+                                    <div class="price-with-discount">
+                                        <span class="original-price">${this.formatCurrency(originalPrice)}</span>
+                                        <span class="discounted-price">${this.formatCurrency(finalPrice)}</span>
+                                    </div>
+                                `;
+                            } else {
+                                return this.formatCurrency(originalPrice);
+                            }
+                        })()}
                     </div>
                 `;
                 
@@ -628,6 +666,14 @@ class QuoteCalculator {
         if (service.tentative === undefined) {
             service.tentative = false;
         }
+        // Add discount property if not present
+        if (!service.discount) {
+            service.discount = {
+                type: 'percentage', // 'percentage' or 'fixed'
+                value: 0,
+                applied: false
+            };
+        }
         
         this.days[dayIndex].services.push(service);
         this.renderDays();
@@ -755,13 +801,39 @@ class QuoteCalculator {
     }
 
     calculateDayTotal(dayIndex) {
-        return this.days[dayIndex].services.reduce((total, service) => total + (service.price * service.quantity), 0);
+        return this.days[dayIndex].services.reduce((total, service) => {
+            const serviceTotal = service.price * service.quantity;
+            const serviceDiscount = this.calculateServiceDiscount(service);
+            return total + (serviceTotal - serviceDiscount);
+        }, 0);
+    }
+    
+    calculateServiceDiscount(service) {
+        if (!service.discount || !service.discount.applied || service.discount.value === 0) {
+            return 0;
+        }
+        
+        const serviceTotal = service.price * service.quantity;
+        let discountAmount = 0;
+        
+        if (service.discount.type === 'percentage') {
+            discountAmount = serviceTotal * (service.discount.value / 100);
+        } else {
+            discountAmount = service.discount.value;
+        }
+        
+        // Ensure discount doesn't exceed service total
+        return Math.min(discountAmount, serviceTotal);
     }
 
     calculateTotal() {
         return this.days.reduce((total, day) => {
             return total + day.services.reduce((dayTotal, service) => {
-                return dayTotal + (!service.tentative ? (service.price * service.quantity) : 0);
+                if (service.tentative) return dayTotal;
+                
+                const serviceTotal = service.price * service.quantity;
+                const serviceDiscount = this.calculateServiceDiscount(service);
+                return dayTotal + (serviceTotal - serviceDiscount);
             }, 0);
         }, 0);
     }
@@ -2183,6 +2255,148 @@ class QuoteCalculator {
         // Hide input container and reset button
         document.getElementById('discountInputContainer').style.display = 'none';
         document.getElementById('discountBtn').textContent = 'Apply Discount';
+    }
+
+    // Service-specific discount methods
+    openServiceDiscountModal(dayIndex, serviceIndex) {
+        const service = this.days[dayIndex].services[serviceIndex];
+        
+        // Store current context
+        this.currentDiscountDayIndex = dayIndex;
+        this.currentDiscountServiceIndex = serviceIndex;
+        
+        // Populate modal with service info
+        document.getElementById('discountServiceName').textContent = service.name;
+        document.getElementById('discountServiceUnitPrice').textContent = this.formatCurrency(service.price);
+        document.getElementById('discountServiceQty').textContent = service.quantity;
+        document.getElementById('discountServiceTotal').textContent = this.formatCurrency(service.price * service.quantity);
+        
+        // Populate current discount if exists
+        if (service.discount && service.discount.applied) {
+            document.getElementById('serviceDiscountValue').value = service.discount.value;
+            document.getElementById('serviceDiscountType').value = service.discount.type;
+            document.getElementById('removeDiscountBtn').style.display = 'inline-block';
+        } else {
+            document.getElementById('serviceDiscountValue').value = '';
+            document.getElementById('serviceDiscountType').value = 'percentage';
+            document.getElementById('removeDiscountBtn').style.display = 'none';
+        }
+        
+        // Update preview
+        this.updateServiceDiscountPreview();
+        
+        // Add event listeners for live preview
+        document.getElementById('serviceDiscountValue').addEventListener('input', () => this.updateServiceDiscountPreview());
+        document.getElementById('serviceDiscountType').addEventListener('change', () => this.updateServiceDiscountPreview());
+        
+        // Show modal
+        document.getElementById('serviceDiscountModal').style.display = 'flex';
+    }
+    
+    updateServiceDiscountPreview() {
+        if (this.currentDiscountDayIndex === undefined || this.currentDiscountServiceIndex === undefined) {
+            return;
+        }
+        
+        const service = this.days[this.currentDiscountDayIndex].services[this.currentDiscountServiceIndex];
+        const originalAmount = service.price * service.quantity;
+        
+        const discountValue = parseFloat(document.getElementById('serviceDiscountValue').value) || 0;
+        const discountType = document.getElementById('serviceDiscountType').value;
+        
+        let discountAmount = 0;
+        if (discountType === 'percentage') {
+            discountAmount = originalAmount * (discountValue / 100);
+        } else {
+            discountAmount = discountValue;
+        }
+        
+        // Ensure discount doesn't exceed original amount
+        discountAmount = Math.min(discountAmount, originalAmount);
+        
+        const finalAmount = originalAmount - discountAmount;
+        
+        // Update preview
+        document.getElementById('previewOriginal').textContent = this.formatCurrency(originalAmount);
+        document.getElementById('previewDiscountAmount').textContent = '- ' + this.formatCurrency(discountAmount);
+        document.getElementById('previewFinal').textContent = this.formatCurrency(finalAmount);
+    }
+    
+    applyServiceDiscount() {
+        if (this.currentDiscountDayIndex === undefined || this.currentDiscountServiceIndex === undefined) {
+            return;
+        }
+        
+        const service = this.days[this.currentDiscountDayIndex].services[this.currentDiscountServiceIndex];
+        const discountValue = parseFloat(document.getElementById('serviceDiscountValue').value) || 0;
+        const discountType = document.getElementById('serviceDiscountType').value;
+        
+        if (discountValue > 0) {
+            service.discount = {
+                type: discountType,
+                value: discountValue,
+                applied: true
+            };
+        } else {
+            service.discount = {
+                type: 'percentage',
+                value: 0,
+                applied: false
+            };
+        }
+        
+        this.closeServiceDiscountModal();
+        this.renderDays();
+        this.updateTotal();
+        this.saveDraftToLocalStorage();
+    }
+    
+    removeServiceDiscount() {
+        if (this.currentDiscountDayIndex === undefined || this.currentDiscountServiceIndex === undefined) {
+            return;
+        }
+        
+        const service = this.days[this.currentDiscountDayIndex].services[this.currentDiscountServiceIndex];
+        service.discount = {
+            type: 'percentage',
+            value: 0,
+            applied: false
+        };
+        
+        this.closeServiceDiscountModal();
+        this.renderDays();
+        this.updateTotal();
+        this.saveDraftToLocalStorage();
+    }
+    
+    closeServiceDiscountModal() {
+        document.getElementById('serviceDiscountModal').style.display = 'none';
+        this.currentDiscountDayIndex = undefined;
+        this.currentDiscountServiceIndex = undefined;
+    }
+
+    togglePerEventDiscount() {
+        this.perEventDiscountEnabled = !this.perEventDiscountEnabled;
+        this.applyPerEventDiscountState();
+        this.saveDraftToLocalStorage();
+    }
+
+    applyPerEventDiscountState() {
+        const toggleBtn = document.getElementById('perEventDiscountToggle');
+        const toggleText = document.getElementById('perEventDiscountText');
+        const container = document.getElementById('days-container');
+        
+        if (!toggleBtn || !toggleText || !container) return;
+        
+        if (this.perEventDiscountEnabled) {
+            toggleBtn.classList.add('active');
+            toggleText.textContent = 'Disable Per Event Discount';
+            container.classList.add('per-event-discount-enabled');
+        } else {
+            toggleBtn.classList.remove('active');
+            toggleText.textContent = 'Enable Per Event Discount';
+            container.classList.remove('per-event-discount-enabled');
+        }
     }
 
     getFinalTotal() {

@@ -74,6 +74,7 @@ class QuotesManager {
         const sortBy = document.getElementById('sortQuotes').value;
         const dateFilter = document.getElementById('dateFilter').value;
         const userFilter = document.getElementById('userFilter').value;
+        const bookedFilter = document.getElementById('bookedFilter').value;
 
         console.log('🔍 Filter and sort called:', {
             showingArchived: this.showingArchived,
@@ -81,12 +82,13 @@ class QuotesManager {
             searchTerm,
             sortBy,
             dateFilter,
-            userFilter
+            userFilter,
+            bookedFilter
         });
 
         // Update clear filters button visibility
         const clearBtn = document.getElementById('clearFiltersBtn');
-        if (searchTerm || dateFilter || userFilter) {
+        if (searchTerm || dateFilter || userFilter || bookedFilter) {
             clearBtn.style.display = 'inline-block';
         } else {
             clearBtn.style.display = 'none';
@@ -131,6 +133,19 @@ class QuotesManager {
         if (userFilter) {
             filtered = filtered.filter(quote => {
                 return quote.createdBy && quote.createdBy._id === userFilter;
+            });
+        }
+
+        // Filter by booked status
+        if (bookedFilter) {
+            filtered = filtered.filter(quote => {
+                const isBooked = quote.booked || false;
+                if (bookedFilter === 'booked') {
+                    return isBooked === true;
+                } else if (bookedFilter === 'not-booked') {
+                    return isBooked === false;
+                }
+                return true;
             });
         }
 
@@ -193,24 +208,6 @@ class QuotesManager {
                         return new Date(b.createdAt) - new Date(a.createdAt);
                     case 'created-oldest':
                         return new Date(a.createdAt) - new Date(b.createdAt);
-                    case 'booked-first':
-                        // Booked (true) first, then not booked (false)
-                        const aBooked = a.booked || false;
-                        const bBooked = b.booked || false;
-                        if (aBooked === bBooked) {
-                            // If same booking status, sort by service date (newest)
-                            return this.compareServiceDates(b, a);
-                        }
-                        return bBooked - aBooked; // true (1) before false (0)
-                    case 'not-booked-first':
-                        // Not booked (false) first, then booked (true)
-                        const aBookedNot = a.booked || false;
-                        const bBookedNot = b.booked || false;
-                        if (aBookedNot === bBookedNot) {
-                            // If same booking status, sort by service date (newest)
-                            return this.compareServiceDates(b, a);
-                        }
-                        return aBookedNot - bBookedNot; // false (0) before true (1)
                     case 'name-asc':
                         return a.name.localeCompare(b.name);
                     case 'name-desc':
@@ -586,6 +583,7 @@ class QuotesManager {
         document.getElementById('searchQuotes').value = '';
         document.getElementById('dateFilter').value = '';
         document.getElementById('userFilter').value = '';
+        document.getElementById('bookedFilter').value = '';
         this.filterAndSort();
     }
 
@@ -628,10 +626,12 @@ class QuotesManager {
         const listContainer = document.getElementById('quotesListView');
         const toggleText = document.getElementById('viewToggleText');
         const toggleIcon = document.getElementById('viewToggleIcon');
+        const sortDropdown = document.getElementById('sortQuotes');
         
         if (this.viewMode === 'list') {
             gridContainer.style.display = 'none';
             listContainer.style.display = 'block';
+            sortDropdown.style.display = 'none'; // Hide sort dropdown in list view
             toggleText.textContent = 'Grid View';
             toggleIcon.innerHTML = `
                 <rect x="3" y="3" width="7" height="7"></rect>
@@ -642,6 +642,7 @@ class QuotesManager {
         } else {
             gridContainer.style.display = 'grid';
             listContainer.style.display = 'none';
+            sortDropdown.style.display = 'block'; // Show sort dropdown in grid view
             toggleText.textContent = 'List View';
             toggleIcon.innerHTML = `
                 <line x1="8" y1="6" x2="21" y2="6"></line>
