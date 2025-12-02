@@ -2394,7 +2394,7 @@ class QuoteCalculator {
             container.classList.add('per-event-discount-enabled');
         } else {
             toggleBtn.classList.remove('active');
-            toggleText.textContent = 'Enable Per Event Discount';
+            toggleText.textContent = 'Enable Per Service Discount';
             container.classList.remove('per-event-discount-enabled');
         }
     }
