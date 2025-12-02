@@ -14,6 +14,12 @@ class QuoteCalculator {
         this.isOverrideMode = false;
         this.users = [];
         
+        // Auto-save state
+        this.autoSaveTimeout = null;
+        this.autoSaveDelay = 2000; // 2 seconds after last change
+        this.isSaving = false;
+        this.lastSavedTime = null;
+        
         // Drag and drop state
         this.draggedElement = null;
         this.draggedData = null;
@@ -119,6 +125,9 @@ class QuoteCalculator {
                 createdBy: draftData.currentCreatedBy
             });
             localStorage.setItem(this.autoSaveKey, JSON.stringify(draftData));
+            
+            // Trigger auto-save to database if this is a loaded quote
+            this.triggerAutoSave();
         } catch (error) {
             console.warn('⚠️ Error saving draft to localStorage:', error);
         }
@@ -136,6 +145,15 @@ class QuoteCalculator {
         this.currentBooked = false;
         this.currentCreatedBy = null;
         this.currentQuoteTitle = "Conference Services Quote";
+        this.currentLocation = null;
+        
+        // Reset auto-save state
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+            this.autoSaveTimeout = null;
+        }
+        this.lastSavedTime = null;
+        this.updateSaveStatus('saved');
         
         // Reset title display
         const titleElement = document.getElementById('quoteTitle');
@@ -152,6 +170,7 @@ class QuoteCalculator {
         this.renderMarkups();
         this.updateTotal();
         this.updateClientDisplay();
+        this.updateLocationDisplay();
         console.log('🗑️ Draft cleared from localStorage');
     }
 
@@ -1535,12 +1554,16 @@ class QuoteCalculator {
                 this.currentQuoteName = title;
                 this.currentClientName = clientName || null;
                 this.currentLocation = location || null;
+                this.currentBooked = booked;
+                this.currentCreatedBy = createdBy;
                 this.currentQuoteTitle = title; // Update the main page title
+                this.lastSavedTime = new Date();
                 
                 // Update displays
                 this.updateQuoteTitleDisplay();
                 this.updateClientDisplay();
                 this.updateLocationDisplay();
+                this.updateSaveStatus('saved');
                 
                 this.closeSaveModal();
                 showAlertModal('Quote saved successfully!', 'success', null, true);
@@ -1550,6 +1573,152 @@ class QuoteCalculator {
         } catch (error) {
             console.error('Error saving quote:', error);
             showAlertModal('Error saving quote. Please try again.', 'error');
+        }
+    }
+
+    // Generate an auto-save name for untitled quotes
+    generateUntitledQuoteName() {
+        const now = new Date();
+        const timestamp = now.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+        return `Untitled Quote - ${timestamp}`;
+    }
+    
+    // Trigger auto-save (debounced)
+    triggerAutoSave() {
+        // If no quote name exists, generate one for auto-save
+        if (!this.currentQuoteName) {
+            this.currentQuoteName = this.generateUntitledQuoteName();
+            this.currentQuoteTitle = this.currentQuoteName;
+            this.updateQuoteTitleDisplay();
+            console.log('📝 Auto-generated quote name:', this.currentQuoteName);
+        }
+        
+        // Clear any pending auto-save
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+        }
+        
+        // Update status
+        this.updateSaveStatus('unsaved');
+        
+        // Schedule auto-save after delay
+        this.autoSaveTimeout = setTimeout(() => {
+            this.performAutoSave();
+        }, this.autoSaveDelay);
+    }
+    
+    // Perform the actual auto-save
+    async performAutoSave() {
+        // Don't save if already saving or no quote loaded
+        if (this.isSaving || !this.currentQuoteName) {
+            return;
+        }
+        
+        this.isSaving = true;
+        this.updateSaveStatus('saving');
+        
+        const quoteData = {
+            days: this.days,
+            total: this.getFinalTotal(),
+            discountPercentage: this.discountPercentage,
+            markups: this.markups,
+            quoteTitle: this.currentQuoteTitle
+        };
+        
+        try {
+            // Try to overwrite first (for existing quotes)
+            let response = await fetch('/api/overwrite-quote', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    name: this.currentQuoteName,
+                    quoteData,
+                    clientName: this.currentClientName || null,
+                    location: this.currentLocation || null,
+                    booked: this.currentBooked || false,
+                    createdBy: this.currentCreatedBy || null
+                })
+            });
+            
+            let result = await response.json();
+            
+            // If quote doesn't exist (404), create it with save-quote
+            if (response.status === 404 || !result.success) {
+                response = await fetch('/api/save-quote', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        name: this.currentQuoteName,
+                        quoteData,
+                        clientName: this.currentClientName || null,
+                        location: this.currentLocation || null,
+                        booked: this.currentBooked || false,
+                        createdBy: this.currentCreatedBy || null
+                    })
+                });
+                
+                result = await response.json();
+            }
+            
+            if (result.success) {
+                this.lastSavedTime = new Date();
+                this.updateSaveStatus('saved');
+                console.log('✅ Auto-saved:', this.currentQuoteName);
+            } else {
+                throw new Error(result.error || 'Failed to auto-save');
+            }
+        } catch (error) {
+            console.error('Auto-save error:', error);
+            this.updateSaveStatus('error');
+        } finally {
+            this.isSaving = false;
+        }
+    }
+    
+    // Update the save status indicator
+    updateSaveStatus(status) {
+        const indicator = document.getElementById('autoSaveIndicator');
+        if (!indicator) return;
+        
+        const statusIcon = indicator.querySelector('.save-status-icon');
+        const statusText = indicator.querySelector('.save-status-text');
+        
+        switch (status) {
+            case 'saving':
+                statusIcon.innerHTML = '⟳';
+                statusIcon.style.animation = 'spin 1s linear infinite';
+                statusText.textContent = 'Saving...';
+                statusText.style.color = '#64748b';
+                break;
+            case 'saved':
+                statusIcon.innerHTML = '✓';
+                statusIcon.style.animation = 'none';
+                statusText.textContent = 'All changes saved';
+                statusText.style.color = '#10b981';
+                break;
+            case 'unsaved':
+                statusIcon.innerHTML = '●';
+                statusIcon.style.animation = 'none';
+                statusText.textContent = 'Unsaved changes';
+                statusText.style.color = '#f59e0b';
+                break;
+            case 'error':
+                statusIcon.innerHTML = '⚠';
+                statusIcon.style.animation = 'none';
+                statusText.textContent = 'Save failed';
+                statusText.style.color = '#dc2626';
+                break;
         }
     }
 
@@ -1578,6 +1747,8 @@ class QuoteCalculator {
                 this.currentClientName = clientName || null;
                 this.currentLocation = location || null;
                 this.currentQuoteTitle = name; // Update the main page title
+                this.lastSavedTime = new Date();
+                this.updateSaveStatus('saved');
                 
                 // Update displays
                 this.updateQuoteTitleDisplay();

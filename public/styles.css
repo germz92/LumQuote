@@ -285,6 +285,25 @@ body {
     stroke-width: 2;
 }
 
+/* Auto-save indicator */
+.auto-save-indicator {
+    display: none;
+}
+
+.save-status-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.save-status-text {
+    font-weight: 500;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 .save-load-buttons {
     display: flex;
     gap: 8px;
@@ -2121,6 +2140,7 @@ body {
     
     .save-load-buttons {
         gap: 6px;
+        width: 100%;
     }
     
     .save-btn, .load-btn, .clear-btn {
