@@ -1403,38 +1403,13 @@ app.post('/api/generate-docx', async (req, res) => {
             })
           );
           
-          // Add original price with strikethrough if discounted
-          if (serviceDiscountAmount > 0) {
-            textRuns.push(
-              new TextRun({
-                text: `$${originalTotal.toFixed(2)}`,
-                size: 22,
-                strike: true,
-                color: '94A3B8',
-              })
-            );
-            textRuns.push(
-              new TextRun({
-                text: ' ',
-                size: 22,
-              })
-            );
-            textRuns.push(
-              new TextRun({
-                text: `$${finalTotal.toFixed(2)}`,
-                size: 22,
-                color: '10B981',
-                bold: true,
-              })
-            );
-          } else {
-            textRuns.push(
-              new TextRun({
-                text: `$${originalTotal.toFixed(2)}`,
-                size: 22,
-              })
-            );
-          }
+          // Add unit rate
+          textRuns.push(
+            new TextRun({
+              text: `$${service.price.toFixed(2)}`,
+              size: 22,
+            })
+          );
           
           textRuns.push(
             new TextRun({
