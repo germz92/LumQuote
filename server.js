@@ -37,14 +37,22 @@ app.use((req, res, next) => {
   next();
 });
 
+// Trust proxy for Render/Heroku (needed for secure cookies behind reverse proxy)
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
+
 // Session middleware
 app.use(session({
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-this',
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: false, // Set to true if using HTTPS
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    secure: isProduction, // true for HTTPS in production
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   }
 }));
 
@@ -92,7 +100,10 @@ function requireApiAuth(req, res, next) {
   }
   
   if (!token) {
-    console.log('❌ API Auth: No token found');
+    console.log('❌ API Auth: No token found for', req.path);
+    console.log('   Cookies:', Object.keys(req.cookies || {}));
+    console.log('   Auth header:', req.headers.authorization ? 'present' : 'missing');
+    console.log('   Session token:', req.session?.token ? 'present' : 'missing');
     return res.status(401).json({ error: 'Authentication required' });
   }
   
@@ -170,7 +181,22 @@ app.post('/api/auth/lumdash', async (req, res) => {
     };
     
     // Also set a cookie for page navigation auth
-    res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}`);
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOptions = [
+      `token=${token}`,
+      'Path=/',
+      'HttpOnly',
+      `Max-Age=${7 * 24 * 60 * 60}`,
+      'SameSite=Lax'
+    ];
+    
+    // Add Secure flag for HTTPS in production
+    if (isProduction) {
+      cookieOptions.push('Secure');
+    }
+    
+    res.setHeader('Set-Cookie', cookieOptions.join('; '));
+    console.log('🍪 Cookie set for user:', localUser.name, isProduction ? '(Secure)' : '(Local)');
     
     res.json({ 
       success: true,
