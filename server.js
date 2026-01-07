@@ -7,14 +7,35 @@ const ExcelJS = require('exceljs');
 const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, UnderlineType } = require('docx');
 const fs = require('fs');
 const session = require('express-session');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 require('dotenv').config();
+
+// JWT Configuration
+const JWT_SECRET = process.env.JWT_SECRET || '84gh29nf89gh2b3v9bgh29g843hfg932hf';
+const JWT_EXPIRES_IN = '7d'; // Token expires in 7 days
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
+
+// Cookie parser middleware (inline implementation)
+app.use((req, res, next) => {
+  req.cookies = {};
+  if (req.headers.cookie) {
+    req.headers.cookie.split(';').forEach(cookie => {
+      const parts = cookie.split('=');
+      req.cookies[parts[0].trim()] = parts.slice(1).join('=').trim();
+    });
+  }
+  next();
+});
 
 // Session middleware
 app.use(session({
@@ -27,12 +48,62 @@ app.use(session({
   }
 }));
 
-// Authentication middleware
+// JWT Authentication middleware
 function requireAuth(req, res, next) {
-  if (req.session.authenticated) {
+  // Check for token in cookie, Authorization header, or session (fallback)
+  let token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token && req.session?.token) {
+    token = req.session.token;
+  }
+  
+  if (!token) {
+    // For API requests, return 401
+    if (req.path.startsWith('/api/') && req.path !== '/api/login') {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    // For page requests, redirect to login
+    return res.redirect('/login');
+  }
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
     next();
-  } else {
-    res.redirect('/login');
+  } catch (error) {
+    console.error('JWT verification failed:', error.message);
+    // Clear invalid token
+    if (req.session) {
+      req.session.token = null;
+    }
+    if (req.path.startsWith('/api/')) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    return res.redirect('/login');
+  }
+}
+
+// API-only auth middleware (returns JSON instead of redirect)
+function requireApiAuth(req, res, next) {
+  let token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token && req.session?.token) {
+    token = req.session.token;
+  }
+  
+  if (!token) {
+    console.log('❌ API Auth: No token found');
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    console.log('❌ API Auth: Token verification failed:', error.message);
+    console.log('   Token (first 50 chars):', token.substring(0, 50) + '...');
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
 
@@ -41,22 +112,111 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Login endpoint
-app.post('/api/login', (req, res) => {
-  const { password } = req.body;
-  const correctPassword = process.env.APP_PASSWORD || 'admin123'; // Default password
+// LumDash SSO Authentication endpoint
+// Verifies JWT token from LumDash (uses same JWT_SECRET)
+app.post('/api/auth/lumdash', async (req, res) => {
+  const { token } = req.body;
   
-  if (password === correctPassword) {
-    req.session.authenticated = true;
-    res.json({ success: true });
-  } else {
-    res.status(401).json({ success: false, message: 'Invalid password' });
+  if (!token) {
+    return res.status(400).json({ success: false, message: 'Token is required' });
   }
+  
+  try {
+    // Verify the token using shared JWT secret
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    // LumDash uses: id, fullName, role, email
+    // Handle both formats for compatibility
+    const lumDashId = decoded.id || decoded.userId || decoded._id;
+    const userName = decoded.fullName || decoded.name || 'Unknown User';
+    const userEmail = decoded.email || '';
+    const userRole = decoded.role || 'user';
+    
+    console.log('✅ LumDash token verified for:', userName);
+    console.log('   Token payload:', JSON.stringify(decoded));
+    
+    // Find or create local user record
+    let localUser = await LumQuoteUser.findOne({ lumDashId: lumDashId });
+    
+    if (!localUser) {
+      // Create new local user from LumDash data
+      localUser = new LumQuoteUser({
+        lumDashId: lumDashId,
+        name: userName,
+        email: userEmail,
+        role: userRole
+      });
+      await localUser.save();
+      console.log('✅ Created new LumQuote user:', localUser.name);
+    } else {
+      // Update user info from LumDash (in case it changed)
+      localUser.name = userName;
+      if (userEmail) localUser.email = userEmail;
+      localUser.role = userRole;
+      localUser.lastLogin = new Date();
+      await localUser.save();
+      console.log('✅ Updated existing LumQuote user:', localUser.name);
+    }
+    
+    // Store in session for page-based auth
+    req.session.token = token;
+    req.session.authenticated = true;
+    req.session.user = {
+      id: localUser._id,
+      lumDashId: localUser.lumDashId,
+      name: localUser.name,
+      email: localUser.email,
+      role: localUser.role
+    };
+    
+    // Also set a cookie for page navigation auth
+    res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}`);
+    
+    res.json({ 
+      success: true,
+      user: {
+        id: localUser._id,
+        name: localUser.name,
+        email: localUser.email,
+        role: localUser.role
+      }
+    });
+  } catch (error) {
+    console.error('LumDash auth error:', error.message);
+    console.error('Full error:', error);
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'Session expired. Please sign in again.' });
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ success: false, message: 'Invalid token. Please sign in again.' });
+    }
+    
+    res.status(401).json({ success: false, message: 'Authentication failed. Please try again.' });
+  }
+});
+
+// Verify token endpoint
+app.get('/api/verify-token', requireApiAuth, (req, res) => {
+  res.json({ 
+    success: true, 
+    user: req.user 
+  });
+});
+
+// Get current user endpoint
+app.get('/api/me', requireApiAuth, (req, res) => {
+  res.json({ 
+    success: true, 
+    user: req.user 
+  });
 });
 
 // Logout endpoint
 app.post('/api/logout', (req, res) => {
-  req.session.destroy();
+  if (req.session) {
+    req.session.destroy();
+  }
   res.json({ success: true });
 });
 
@@ -1666,12 +1826,23 @@ app.listen(PORT, () => {
   initializeServices();
 });
 
-// User Schema
+// User Schema (for quote creators - original)
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true }
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema, 'users');
+
+// LumQuoteUser Schema (synced from LumDash SSO)
+const lumQuoteUserSchema = new mongoose.Schema({
+  lumDashId: { type: String, required: true, unique: true }, // User ID from LumDash
+  name: { type: String, required: true },
+  email: { type: String, default: '', lowercase: true }, // Optional - LumDash may not provide
+  role: { type: String, enum: ['admin', 'user'], default: 'user' },
+  lastLogin: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+const LumQuoteUser = mongoose.model('LumQuoteUser', lumQuoteUserSchema, 'lumQuoteUsers');
 
 // Saved Quote Schema
 const savedQuoteSchema = new mongoose.Schema({
@@ -1681,7 +1852,12 @@ const savedQuoteSchema = new mongoose.Schema({
   location: { type: String, default: null },
   archived: { type: Boolean, default: false },
   booked: { type: Boolean, default: false },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  sharedWith: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'LumQuoteUser' },
+    accessLevel: { type: String, enum: ['read', 'full'], default: 'read' },
+    sharedAt: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 const SavedQuote = mongoose.model('SavedQuote', savedQuoteSchema, 'savedQuotes');
@@ -1765,9 +1941,27 @@ app.delete('/api/users/:id', async (req, res) => {
 });
 
 // Save quote endpoint
-app.post('/api/save-quote', async (req, res) => {
+// Helper function to get or create User record for logged-in user
+async function getOrCreateUserRecord(userName) {
+  if (!userName) return null;
+  
+  let userRecord = await User.findOne({ name: userName });
+  
+  if (!userRecord) {
+    // Create a new User record for this LumDash user
+    userRecord = new User({ name: userName });
+    await userRecord.save();
+    console.log('✅ Created User record for:', userName);
+  }
+  
+  return userRecord;
+}
+
+// Save quote endpoint (auto-assigns createdBy from logged-in user)
+app.post('/api/save-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, location, booked, createdBy } = req.body;
+    const { name, quoteData, clientName, location, booked } = req.body;
+    const user = req.user;
     
     if (!name || !quoteData) {
       return res.status(400).json({ error: 'Name and quote data are required' });
@@ -1786,6 +1980,10 @@ app.post('/api/save-quote', async (req, res) => {
         }
       });
     }
+    
+    // Auto-assign createdBy from logged-in user
+    const userName = user.name || user.fullName;
+    const userRecord = await getOrCreateUserRecord(userName);
 
     // Save new quote
     const savedQuote = new SavedQuote({
@@ -1794,11 +1992,11 @@ app.post('/api/save-quote', async (req, res) => {
       clientName: clientName || null,
       location: location || null,
       booked: booked || false,
-      createdBy: createdBy || null
+      createdBy: userRecord?._id || null
     });
 
     const result = await savedQuote.save();
-    res.json({ success: true, id: result._id });
+    res.json({ success: true, id: result._id, createdBy: userRecord?.name });
   } catch (error) {
     console.error('Error saving quote:', error);
     res.status(500).json({ error: 'Failed to save quote' });
@@ -1806,29 +2004,41 @@ app.post('/api/save-quote', async (req, res) => {
 });
 
 // Overwrite existing quote endpoint
-app.post('/api/overwrite-quote', async (req, res) => {
+// Overwrite existing quote (with access control)
+app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, location, booked, createdBy } = req.body;
+    const { name, quoteData, clientName, location, booked } = req.body;
+    const user = req.user;
     
     if (!name || !quoteData) {
       return res.status(400).json({ error: 'Name and quote data are required' });
     }
+    
+    // Find existing quote and check access
+    const existingQuote = await SavedQuote.findOne({ name }).populate('createdBy', 'name');
+    
+    if (!existingQuote) {
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+    
+    // Check access - need full access to edit
+    const accessLevel = await canAccessQuote(user, existingQuote, true);
+    if (!accessLevel || accessLevel === 'read') {
+      return res.status(403).json({ error: 'You do not have permission to edit this quote' });
+    }
 
+    // Update the quote but keep the original createdBy
     const result = await SavedQuote.findOneAndUpdate(
       { name },
       { 
         quoteData,
         clientName: clientName || null,
         location: location || null,
-        booked: booked || false,
-        createdBy: createdBy || null
+        booked: booked || false
+        // Don't update createdBy - keep original owner
       },
       { new: true }
     );
-
-    if (!result) {
-      return res.status(404).json({ error: 'Quote not found' });
-    }
 
     res.json({ success: true });
   } catch (error) {
@@ -1838,64 +2048,221 @@ app.post('/api/overwrite-quote', async (req, res) => {
 });
 
 // Get all saved quotes endpoint
-app.get('/api/saved-quotes', async (req, res) => {
+// Helper function to check if user can access a quote
+// Returns: false (no access), 'read' (read-only), 'full' (full access), or true (owner/admin)
+async function canAccessQuote(user, quote, returnAccessLevel = false) {
+  // Admins can access all quotes
+  if (user.role === 'admin') return returnAccessLevel ? 'full' : true;
+  
+  // Check if user is the owner
+  if (quote.createdBy) {
+    const createdByName = quote.createdBy.name || quote.createdBy;
+    if (user.name === createdByName || user.fullName === createdByName) {
+      return returnAccessLevel ? 'full' : true;
+    }
+  }
+  
+  // Check if quote is shared with this user
+  if (quote.sharedWith && quote.sharedWith.length > 0) {
+    // Find user's LumQuoteUser record
+    const lumQuoteUser = await LumQuoteUser.findOne({ 
+      $or: [{ name: user.name }, { name: user.fullName }] 
+    });
+    
+    if (lumQuoteUser) {
+      const shareEntry = quote.sharedWith.find(s => 
+        s.user && (s.user.toString() === lumQuoteUser._id.toString() || 
+                   s.user._id?.toString() === lumQuoteUser._id.toString())
+      );
+      
+      if (shareEntry) {
+        return returnAccessLevel ? shareEntry.accessLevel : true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+// Get all saved quotes (filtered by role, includes shared quotes)
+app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
   try {
-    const quotes = await SavedQuote.find({}, {
+    const user = req.user;
+    const isAdmin = user.role === 'admin';
+    
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+    
+    // Filter parameters from query string
+    const { archived, search, createdBy: createdByFilter, booked, dateFilter } = req.query;
+    
+    let query = {};
+    
+    // If not admin, show quotes created by this user OR shared with this user
+    if (!isAdmin) {
+      // Find user records
+      const userRecord = await User.findOne({ name: user.name || user.fullName });
+      const lumQuoteUser = await LumQuoteUser.findOne({ 
+        $or: [{ name: user.name }, { name: user.fullName }] 
+      });
+      
+      const orConditions = [];
+      
+      // Quotes created by user
+      if (userRecord) {
+        orConditions.push({ createdBy: userRecord._id });
+      }
+      
+      // Quotes shared with user
+      if (lumQuoteUser) {
+        orConditions.push({ 'sharedWith.user': lumQuoteUser._id });
+      }
+      
+      if (orConditions.length === 0) {
+        return res.json({ quotes: [], total: 0, page, limit, totalPages: 0 });
+      }
+      
+      query.$or = orConditions;
+    }
+    
+    // Apply archived filter
+    if (archived !== undefined) {
+      query.archived = archived === 'true';
+    }
+    
+    // Apply booked filter
+    if (booked !== undefined && booked !== '') {
+      query.booked = booked === 'true';
+    }
+    
+    // Apply createdBy filter
+    if (createdByFilter) {
+      query.createdBy = createdByFilter;
+    }
+    
+    // Apply search filter (searches name, clientName, location, quoteTitle)
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      const searchConditions = [
+        { name: searchRegex },
+        { clientName: searchRegex },
+        { location: searchRegex },
+        { 'quoteData.quoteTitle': searchRegex }
+      ];
+      
+      if (query.$or) {
+        // Combine with existing $or conditions using $and
+        query.$and = [
+          { $or: query.$or },
+          { $or: searchConditions }
+        ];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
+      }
+    }
+    
+    // Get total count for pagination
+    const total = await SavedQuote.countDocuments(query);
+    const totalPages = Math.ceil(total / limit);
+    
+    const quotes = await SavedQuote.find(query, {
       name: 1,
       clientName: 1,
       location: 1,
-      archived: 1,  // Include archived field
-      booked: 1,    // Include booked field
-      createdBy: 1, // Include createdBy field
+      archived: 1,
+      booked: 1,
+      createdBy: 1,
+      sharedWith: 1,
       createdAt: 1,
       updatedAt: 1,
-      // Include basic quote info for preview
       'quoteData.total': 1,
       'quoteData.days': 1,
       'quoteData.quoteTitle': 1
     })
     .populate('createdBy', 'name')
-    .sort({ updatedAt: -1 });
+    .populate('sharedWith.user', 'name')
+    .sort({ updatedAt: -1 })
+    .skip(skip)
+    .limit(limit);
+    
+    // Add access level info for each quote
+    const quotesWithAccess = await Promise.all(quotes.map(async (quote) => {
+      const quoteObj = quote.toObject();
+      const accessLevel = await canAccessQuote(user, quote, true);
+      quoteObj.accessLevel = accessLevel;
+      quoteObj.isOwner = quote.createdBy && (quote.createdBy.name === user.name || quote.createdBy.name === user.fullName);
+      return quoteObj;
+    }));
 
-    res.json(quotes);
+    res.json({
+      quotes: quotesWithAccess,
+      total,
+      page,
+      limit,
+      totalPages
+    });
   } catch (error) {
     console.error('Error fetching saved quotes:', error);
     res.status(500).json({ error: 'Failed to fetch saved quotes' });
   }
 });
 
-// Load specific quote endpoint
-app.get('/api/load-quote/:name', async (req, res) => {
+// Load specific quote endpoint (with access control)
+app.get('/api/load-quote/:name', requireApiAuth, async (req, res) => {
   try {
     const { name } = req.params;
+    const user = req.user;
     
-    const quote = await SavedQuote.findOne({ name }).populate('createdBy', 'name');
+    const quote = await SavedQuote.findOne({ name })
+      .populate('createdBy', 'name')
+      .populate('sharedWith.user', 'name');
     
     if (!quote) {
       return res.status(404).json({ error: 'Quote not found' });
     }
+    
+    // Check access and get access level
+    const accessLevel = await canAccessQuote(user, quote, true);
+    if (!accessLevel) {
+      return res.status(403).json({ error: 'You do not have permission to access this quote' });
+    }
+    
+    // Add access info to response
+    const quoteObj = quote.toObject();
+    quoteObj.accessLevel = accessLevel;
+    quoteObj.isOwner = quote.createdBy && (quote.createdBy.name === user.name || quote.createdBy.name === user.fullName);
 
-    res.json(quote);
+    res.json(quoteObj);
   } catch (error) {
     console.error('Error loading quote:', error);
     res.status(500).json({ error: 'Failed to load quote' });
   }
 });
 
-// Update quote metadata endpoint
-app.put('/api/update-quote-metadata/:name', async (req, res) => {
+// Update quote metadata endpoint (with access control)
+app.put('/api/update-quote-metadata/:name', requireApiAuth, async (req, res) => {
   try {
     const { name } = req.params;
     const { newName, clientName, location, createdBy, booked } = req.body;
+    const user = req.user;
     
     if (!newName) {
       return res.status(400).json({ error: 'New name is required' });
     }
 
     // Check if the quote exists
-    const existingQuote = await SavedQuote.findOne({ name });
+    const existingQuote = await SavedQuote.findOne({ name }).populate('createdBy', 'name');
     if (!existingQuote) {
       return res.status(404).json({ error: 'Quote not found' });
+    }
+    
+    // Check access - need full access to edit
+    const accessLevel = await canAccessQuote(user, existingQuote, true);
+    if (!accessLevel || accessLevel === 'read') {
+      return res.status(403).json({ error: 'You do not have permission to edit this quote' });
     }
 
     // If name is changing, check if new name already exists
@@ -1936,16 +2303,26 @@ app.put('/api/update-quote-metadata/:name', async (req, res) => {
   }
 });
 
-// Delete saved quote endpoint
-app.delete('/api/saved-quotes/:name', async (req, res) => {
+// Delete saved quote endpoint (with access control)
+app.delete('/api/saved-quotes/:name', requireApiAuth, async (req, res) => {
   try {
     const { name } = req.params;
+    const user = req.user;
     
-    const result = await SavedQuote.findOneAndDelete({ name });
+    // Find the quote first to check access
+    const quote = await SavedQuote.findOne({ name }).populate('createdBy', 'name');
     
-    if (!result) {
+    if (!quote) {
       return res.status(404).json({ error: 'Quote not found' });
     }
+    
+    // Only owner or admin can delete (not shared users)
+    const isOwner = quote.createdBy && (quote.createdBy.name === user.name || quote.createdBy.name === user.fullName);
+    if (user.role !== 'admin' && !isOwner) {
+      return res.status(403).json({ error: 'Only the owner can delete this quote' });
+    }
+    
+    await SavedQuote.findOneAndDelete({ name });
 
     res.json({ success: true });
   } catch (error) {
@@ -1955,10 +2332,12 @@ app.delete('/api/saved-quotes/:name', async (req, res) => {
 });
 
 // Archive/Unarchive quote endpoint
-app.post('/api/archive-quote/:name', async (req, res) => {
+// Archive/Unarchive quote endpoint (with access control)
+app.post('/api/archive-quote/:name', requireApiAuth, async (req, res) => {
   try {
     const { name } = req.params;
     const { archived } = req.body;
+    const user = req.user;
     
     console.log('📦 Archive request received:', {
       name,
@@ -1969,20 +2348,26 @@ app.post('/api/archive-quote/:name', async (req, res) => {
     if (typeof archived !== 'boolean') {
       return res.status(400).json({ error: 'Archived status must be a boolean' });
     }
+    
+    // Find the quote first to check access
+    const quote = await SavedQuote.findOne({ name }).populate('createdBy', 'name');
+    
+    if (!quote) {
+      console.error('❌ Quote not found with name:', name);
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+    
+    // Check access - need full access to archive
+    const accessLevel = await canAccessQuote(user, quote, true);
+    if (!accessLevel || accessLevel === 'read') {
+      return res.status(403).json({ error: 'You do not have permission to archive this quote' });
+    }
 
     const result = await SavedQuote.findOneAndUpdate(
       { name },
       { archived },
       { new: true }
     );
-
-    if (!result) {
-      console.error('❌ Quote not found with name:', name);
-      // List all quote names to help debug
-      const allQuotes = await SavedQuote.find({}, { name: 1 });
-      console.log('📋 Available quote names:', allQuotes.map(q => q.name));
-      return res.status(404).json({ error: 'Quote not found' });
-    }
 
     console.log('✅ Quote archived successfully:', result.name, 'archived:', result.archived);
     res.json({ success: true, archived: result.archived });
@@ -2034,20 +2419,35 @@ app.post('/api/services/reorder', async (req, res) => {
   }
 });
 
-// Get calendar events from saved quotes
-app.get('/api/calendar-events', async (req, res) => {
+// Get calendar events from saved quotes (with access control)
+app.get('/api/calendar-events', requireApiAuth, async (req, res) => {
   try {
-    // Only get non-archived quotes for calendar
-    const quotes = await SavedQuote.find({ archived: { $ne: true } }, {
+    const user = req.user;
+    const isAdmin = user.role === 'admin';
+    
+    let query = { archived: { $ne: true } };
+    
+    // If not admin, only show quotes created by this user
+    if (!isAdmin) {
+      const userRecord = await User.findOne({ name: user.name || user.fullName });
+      if (userRecord) {
+        query.createdBy = userRecord._id;
+      } else {
+        return res.json([]); // No quotes for this user
+      }
+    }
+    
+    const quotes = await SavedQuote.find(query, {
       name: 1,
       clientName: 1,
       booked: 1,
+      createdBy: 1,
       createdAt: 1,
       updatedAt: 1,
       'quoteData.total': 1,
       'quoteData.days': 1,
       'quoteData.quoteTitle': 1
-    });
+    }).populate('createdBy', 'name');
 
     const events = [];
 
@@ -2110,4 +2510,149 @@ function formatDateForCalendar(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-} 
+}
+
+// ============================================
+// LUMQUOTE USER ENDPOINTS
+// ============================================
+
+// Get all LumQuote users (admin only)
+app.get('/api/lumquote-users', requireApiAuth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const users = await LumQuoteUser.find({}).sort({ name: 1 });
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching LumQuote users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Get all users for sharing (accessible by all logged-in users)
+app.get('/api/shareable-users', requireApiAuth, async (req, res) => {
+  try {
+    const users = await LumQuoteUser.find({}, { name: 1, email: 1 }).sort({ name: 1 });
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching shareable users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Get users a quote is shared with
+app.get('/api/quotes/:name/shared-with', requireApiAuth, async (req, res) => {
+  try {
+    const { name } = req.params;
+    const user = req.user;
+    
+    const quote = await SavedQuote.findOne({ name })
+      .populate('createdBy', 'name')
+      .populate('sharedWith.user', 'name email');
+    
+    if (!quote) {
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+    
+    // Only owner or admin can see sharing details
+    const isOwner = quote.createdBy && (quote.createdBy.name === user.name || quote.createdBy.name === user.fullName);
+    if (user.role !== 'admin' && !isOwner) {
+      return res.status(403).json({ error: 'Only the owner can manage sharing' });
+    }
+    
+    res.json(quote.sharedWith || []);
+  } catch (error) {
+    console.error('Error fetching shared users:', error);
+    res.status(500).json({ error: 'Failed to fetch shared users' });
+  }
+});
+
+// Share a quote with a user
+app.post('/api/quotes/:name/share', requireApiAuth, async (req, res) => {
+  try {
+    const { name } = req.params;
+    const { userId, accessLevel } = req.body;
+    const user = req.user;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    if (accessLevel && !['read', 'full'].includes(accessLevel)) {
+      return res.status(400).json({ error: 'Invalid access level' });
+    }
+    
+    const quote = await SavedQuote.findOne({ name }).populate('createdBy', 'name');
+    
+    if (!quote) {
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+    
+    // Only owner or admin can share
+    const isOwner = quote.createdBy && (quote.createdBy.name === user.name || quote.createdBy.name === user.fullName);
+    if (user.role !== 'admin' && !isOwner) {
+      return res.status(403).json({ error: 'Only the owner can share this quote' });
+    }
+    
+    // Check if user exists
+    const targetUser = await LumQuoteUser.findById(userId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Check if already shared with this user
+    const existingShare = quote.sharedWith?.find(s => s.user?.toString() === userId);
+    if (existingShare) {
+      // Update access level if already shared
+      existingShare.accessLevel = accessLevel || 'read';
+      await quote.save();
+      return res.json({ success: true, message: 'Access level updated' });
+    }
+    
+    // Add to shared list
+    quote.sharedWith = quote.sharedWith || [];
+    quote.sharedWith.push({
+      user: userId,
+      accessLevel: accessLevel || 'read',
+      sharedAt: new Date()
+    });
+    
+    await quote.save();
+    
+    res.json({ success: true, message: `Quote shared with ${targetUser.name}` });
+  } catch (error) {
+    console.error('Error sharing quote:', error);
+    res.status(500).json({ error: 'Failed to share quote' });
+  }
+});
+
+// Remove share access from a user
+app.delete('/api/quotes/:name/share/:userId', requireApiAuth, async (req, res) => {
+  try {
+    const { name, userId } = req.params;
+    const user = req.user;
+    
+    const quote = await SavedQuote.findOne({ name }).populate('createdBy', 'name');
+    
+    if (!quote) {
+      return res.status(404).json({ error: 'Quote not found' });
+    }
+    
+    // Only owner or admin can remove sharing
+    const isOwner = quote.createdBy && (quote.createdBy.name === user.name || quote.createdBy.name === user.fullName);
+    if (user.role !== 'admin' && !isOwner) {
+      return res.status(403).json({ error: 'Only the owner can manage sharing' });
+    }
+    
+    // Remove from shared list
+    quote.sharedWith = (quote.sharedWith || []).filter(s => s.user?.toString() !== userId);
+    await quote.save();
+    
+    res.json({ success: true, message: 'Share access removed' });
+  } catch (error) {
+    console.error('Error removing share:', error);
+    res.status(500).json({ error: 'Failed to remove share access' });
+  }
+}); 

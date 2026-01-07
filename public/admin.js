@@ -4,18 +4,14 @@ class AdminPanel {
         this.editingService = null;
         this.draggedElement = null;
         this.draggedService = null;
-        this.users = [];
-        this.editingUser = null;
         this.init();
     }
 
     async init() {
         await this.loadServices();
-        await this.loadUsers();
         this.setupEventListeners();
         this.populateDependencyDropdown();
         this.renderServices();
-        this.renderUsers();
     }
 
     async loadServices() {
@@ -31,9 +27,6 @@ class AdminPanel {
     setupEventListeners() {
         document.getElementById('service-form').addEventListener('submit', (e) => this.handleFormSubmit(e));
         document.getElementById('cancel-edit').addEventListener('click', () => this.cancelEdit());
-        
-        document.getElementById('user-form').addEventListener('submit', (e) => this.handleUserFormSubmit(e));
-        document.getElementById('cancel-user-edit').addEventListener('click', () => this.cancelUserEdit());
         
         // Handle dependency selection
         document.getElementById('service-dependency').addEventListener('change', (e) => {
@@ -470,159 +463,6 @@ class AdminPanel {
         });
     }
 
-    // ============== USER MANAGEMENT ==============
-
-    async loadUsers() {
-        try {
-            const response = await fetch('/api/users');
-            this.users = await response.json();
-        } catch (error) {
-            console.error('Error loading users:', error);
-            this.users = [];
-        }
-    }
-
-    renderUsers() {
-        const container = document.getElementById('users-container');
-        
-        if (this.users.length === 0) {
-            container.innerHTML = '<p class="no-data-message">No users found. Add your first user above.</p>';
-            return;
-        }
-
-        container.innerHTML = this.users.map(user => `
-            <div class="service-item" data-user-id="${user._id}">
-                <div class="service-info">
-                    <span class="service-name">${this.escapeHtml(user.name)}</span>
-                </div>
-                <div class="service-actions">
-                    <button class="edit-btn" onclick="adminPanel.editUser('${user._id}')">Edit</button>
-                    <button class="delete-btn" onclick="adminPanel.deleteUser('${user._id}')">Delete</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    async handleUserFormSubmit(e) {
-        e.preventDefault();
-        
-        const name = document.getElementById('user-name').value.trim();
-        
-        if (!name) {
-            showAlertModal('Please enter a user name.', 'error');
-            return;
-        }
-
-        try {
-            if (this.editingUser) {
-                // Update existing user
-                const response = await fetch(`/api/users/${this.editingUser}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ name })
-                });
-
-                const result = await response.json();
-                
-                if (response.status === 409) {
-                    showAlertModal('A user with this name already exists.', 'error');
-                    return;
-                }
-
-                if (!response.ok) {
-                    throw new Error(result.error || 'Failed to update user');
-                }
-
-                showAlertModal('User updated successfully!', 'success', null, true);
-                this.cancelUserEdit();
-            } else {
-                // Add new user
-                const response = await fetch('/api/users', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ name })
-                });
-
-                const result = await response.json();
-                
-                if (response.status === 409) {
-                    showAlertModal('A user with this name already exists.', 'error');
-                    return;
-                }
-
-                if (!response.ok) {
-                    throw new Error(result.error || 'Failed to add user');
-                }
-
-                showAlertModal('User added successfully!', 'success', null, true);
-                document.getElementById('user-form').reset();
-            }
-
-            await this.loadUsers();
-            this.renderUsers();
-        } catch (error) {
-            console.error('Error saving user:', error);
-            showAlertModal('Error saving user. Please try again.', 'error');
-        }
-    }
-
-    editUser(userId) {
-        const user = this.users.find(u => u._id === userId);
-        if (!user) return;
-
-        this.editingUser = userId;
-        document.getElementById('user-name').value = user.name;
-        document.getElementById('user-form-button-text').textContent = 'Update User';
-        document.getElementById('cancel-user-edit').style.display = 'inline-block';
-        
-        // Scroll to form
-        document.getElementById('user-form').scrollIntoView({ behavior: 'smooth' });
-    }
-
-    cancelUserEdit() {
-        this.editingUser = null;
-        document.getElementById('user-form').reset();
-        document.getElementById('user-form-button-text').textContent = 'Add User';
-        document.getElementById('cancel-user-edit').style.display = 'none';
-    }
-
-    async deleteUser(userId) {
-        const user = this.users.find(u => u._id === userId);
-        if (!user) return;
-
-        const confirmed = await showConfirmModal(
-            `Are you sure you want to delete the user "${user.name}"? This action cannot be undone. Quotes created by this user will show "Unknown User".`,
-            'Delete User',
-            'Delete',
-            'Cancel'
-        );
-
-        if (!confirmed) return;
-
-        try {
-            const response = await fetch(`/api/users/${userId}`, {
-                method: 'DELETE'
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || 'Failed to delete user');
-            }
-
-            showAlertModal('User deleted successfully!', 'success', null, true);
-            await this.loadUsers();
-            this.renderUsers();
-        } catch (error) {
-            console.error('Error deleting user:', error);
-            showAlertModal('Error deleting user. Please try again.', 'error');
-        }
-    }
-
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
@@ -657,10 +497,20 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+// Display logged in user name
+function displayUserName() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const userNameEl = document.getElementById('userDisplayName');
+    if (userNameEl && user.name) {
+        userNameEl.textContent = user.name;
+    }
+}
+
 // Initialize admin panel when page loads
 let adminPanel;
 document.addEventListener('DOMContentLoaded', () => {
     adminPanel = new AdminPanel();
+    displayUserName();
 });
 
 // Custom Modal System (shared with main script)
@@ -830,12 +680,13 @@ async function logout() {
             },
         });
         
-        if (response.ok) {
-            window.location.href = '/login';
-        } else {
-            console.error('Logout failed');
-        }
+        // Clear local storage tokens
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        
+        window.location.href = '/login';
     } catch (error) {
         console.error('Logout error:', error);
+        window.location.href = '/login';
     }
 } 

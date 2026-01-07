@@ -21,6 +21,7 @@
                 <a href="/calculator" class="admin-link" onclick="clearQuoteData(event)">New Quote</a>
                 <a href="/calendar" class="admin-link">Calendar</a>
                 <a href="/admin" class="admin-link">Admin</a>
+                <span class="user-name" id="userDisplayName"></span>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
         </header>
@@ -146,6 +147,11 @@
                         </tbody>
                     </table>
                 </div>
+                
+                <!-- Pagination -->
+                <div id="paginationContainer" class="pagination-container">
+                    <!-- Pagination controls will be rendered here -->
+                </div>
             </div>
         </main>
     </div>
@@ -219,13 +225,6 @@
                         <input type="text" id="editQuoteLocation" placeholder="Enter event location">
                     </div>
                     <div class="form-group">
-                        <label for="editQuoteCreatedBy">Created By</label>
-                        <select id="editQuoteCreatedBy" class="created-by-select">
-                            <option value="">-- Select User --</option>
-                            <!-- Users will be loaded here -->
-                        </select>
-                    </div>
-                    <div class="form-group">
                         <label class="checkbox-label">
                             <input type="checkbox" id="editQuoteBooked">
                             <span>Mark as Booked</span>
@@ -240,6 +239,78 @@
         </div>
     </div>
 
+    <!-- Share Quote Modal -->
+    <div id="shareQuoteModal" class="modal" style="display: none;">
+        <div class="modal-content share-modal-content">
+            <div class="modal-header">
+                <h2>Share Quote</h2>
+                <span class="close" onclick="quotesManager.closeShareModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="share-quote-name" id="shareQuoteName"></p>
+                
+                <!-- Add New Share -->
+                <div class="share-add-section">
+                    <h3>Share with User</h3>
+                    <div class="share-user-select-container">
+                        <div class="share-user-dropdown">
+                            <input type="text" id="shareUserSearch" class="share-user-search" placeholder="Search users..." autocomplete="off">
+                            <div id="shareUserDropdown" class="share-user-dropdown-list" style="display: none;">
+                                <!-- Users will be populated here -->
+                            </div>
+                        </div>
+                        <input type="hidden" id="selectedShareUserId">
+                        <span id="selectedUserName" class="selected-user-name"></span>
+                    </div>
+                    
+                    <div class="share-access-level">
+                        <label>Access Level:</label>
+                        <div class="access-level-options">
+                            <label class="radio-label">
+                                <input type="radio" name="accessLevel" value="read" checked>
+                                <span class="radio-text">
+                                    <strong>Read Only</strong>
+                                    <small>Can view but not edit</small>
+                                </span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="accessLevel" value="full">
+                                <span class="radio-text">
+                                    <strong>Full Access</strong>
+                                    <small>Can view and edit</small>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="primary-button share-add-btn" onclick="quotesManager.addShare()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="8.5" cy="7" r="4"></circle>
+                            <line x1="20" y1="8" x2="20" y2="14"></line>
+                            <line x1="23" y1="11" x2="17" y2="11"></line>
+                        </svg>
+                        Add User
+                    </button>
+                </div>
+                
+                <!-- Current Shares -->
+                <div class="share-current-section">
+                    <h3>Currently Shared With</h3>
+                    <div id="sharedUsersList" class="shared-users-list">
+                        <!-- Shared users will be populated here -->
+                        <p class="no-shares-message">Not shared with anyone yet</p>
+                    </div>
+                </div>
+                
+                <div class="modal-buttons">
+                    <button type="button" class="secondary-button" onclick="quotesManager.closeShareModal()">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="lumdash-integration.js"></script>
     <script src="quotes.js"></script>
 </body>
 </html>

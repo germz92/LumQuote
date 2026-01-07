@@ -7,6 +7,13 @@ class QuotesManager {
         this.viewMode = localStorage.getItem('quotesViewMode') || 'grid';
         this.sortColumn = localStorage.getItem('quotesSortColumn') || 'created-newest';
         this.sortDirection = localStorage.getItem('quotesSortDirection') || 'desc';
+        
+        // Pagination state
+        this.currentPage = 1;
+        this.pageSize = 50;
+        this.totalQuotes = 0;
+        this.totalPages = 0;
+        
         this.init();
     }
 
@@ -14,7 +21,7 @@ class QuotesManager {
         await this.loadUsers();
         await this.loadQuotes();
         this.applyViewMode(); // Apply saved view mode
-        this.filterAndSort();
+        this.renderQuotes();
         
         // Update sort indicators if in list view
         if (this.viewMode === 'list') {
@@ -23,42 +30,62 @@ class QuotesManager {
     }
 
     async loadUsers() {
-        try {
-            const response = await fetch('/api/users');
-            if (!response.ok) {
-                throw new Error('Failed to load users');
-            }
-            this.users = await response.json();
-            
-            // Populate user filter dropdown
-            const userFilter = document.getElementById('userFilter');
-            userFilter.innerHTML = '<option value="">All Users</option>';
-            this.users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user._id;
-                option.textContent = user.name;
-                userFilter.appendChild(option);
-            });
-        } catch (error) {
-            console.error('Error loading users:', error);
-            this.users = [];
-        }
+        // Users are now populated from quotes data in updateUserFilterFromQuotes()
+        // This method is kept for compatibility but the filter is populated dynamically
+        this.users = [];
     }
 
     async loadQuotes() {
         try {
             this.showLoading(true);
-            const response = await fetch('/api/saved-quotes');
+            
+            // Build query parameters
+            const params = new URLSearchParams({
+                page: this.currentPage,
+                limit: this.pageSize,
+                archived: this.showingArchived
+            });
+            
+            // Add filters if set
+            const searchTerm = document.getElementById('searchQuotes')?.value || '';
+            const userFilter = document.getElementById('userFilter')?.value || '';
+            const bookedFilter = document.getElementById('bookedFilter')?.value || '';
+            
+            if (searchTerm) params.append('search', searchTerm);
+            if (userFilter) params.append('createdBy', userFilter);
+            if (bookedFilter) params.append('booked', bookedFilter);
+            
+            const response = await fetch(`/api/saved-quotes?${params}`);
             if (!response.ok) {
                 throw new Error('Failed to load quotes');
             }
-            this.allQuotes = await response.json();
+            
+            const data = await response.json();
+            
+            // Handle both old format (array) and new format (object with pagination)
+            if (Array.isArray(data)) {
+                this.allQuotes = data;
+                this.totalQuotes = data.length;
+                this.totalPages = 1;
+            } else {
+                this.allQuotes = data.quotes || [];
+                this.totalQuotes = data.total || 0;
+                this.totalPages = data.totalPages || 1;
+                this.currentPage = data.page || 1;
+            }
+            
+            // Update user filter dropdown based on actual quotes
+            this.updateUserFilterFromQuotes();
+            
+            // Update pagination controls
+            this.renderPagination();
             
             console.log('📚 Loaded quotes:', {
-                total: this.allQuotes.length,
-                archived: this.allQuotes.filter(q => q.archived === true).length,
-                active: this.allQuotes.filter(q => !q.archived).length,
-                quotes: this.allQuotes.map(q => ({ name: q.name, archived: q.archived }))
+                page: this.currentPage,
+                pageSize: this.pageSize,
+                loaded: this.allQuotes.length,
+                total: this.totalQuotes,
+                totalPages: this.totalPages
             });
         } catch (error) {
             console.error('Error loading quotes:', error);
@@ -68,17 +95,114 @@ class QuotesManager {
             this.showLoading(false);
         }
     }
+    
+    renderPagination() {
+        const container = document.getElementById('paginationContainer');
+        if (!container) return;
+        
+        if (this.totalPages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+        
+        const startItem = (this.currentPage - 1) * this.pageSize + 1;
+        const endItem = Math.min(this.currentPage * this.pageSize, this.totalQuotes);
+        
+        let paginationHtml = `
+            <div class="pagination-info">
+                Showing ${startItem}-${endItem} of ${this.totalQuotes} quotes
+            </div>
+            <div class="pagination-controls">
+                <button class="pagination-btn" ${this.currentPage === 1 ? 'disabled' : ''} onclick="quotesManager.goToPage(1)" title="First page">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="11 17 6 12 11 7"></polyline>
+                        <polyline points="18 17 13 12 18 7"></polyline>
+                    </svg>
+                </button>
+                <button class="pagination-btn" ${this.currentPage === 1 ? 'disabled' : ''} onclick="quotesManager.goToPage(${this.currentPage - 1})" title="Previous page">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                    </svg>
+                </button>
+                <span class="pagination-current">Page ${this.currentPage} of ${this.totalPages}</span>
+                <button class="pagination-btn" ${this.currentPage === this.totalPages ? 'disabled' : ''} onclick="quotesManager.goToPage(${this.currentPage + 1})" title="Next page">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                </button>
+                <button class="pagination-btn" ${this.currentPage === this.totalPages ? 'disabled' : ''} onclick="quotesManager.goToPage(${this.totalPages})" title="Last page">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="13 17 18 12 13 7"></polyline>
+                        <polyline points="6 17 11 12 6 7"></polyline>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        container.innerHTML = paginationHtml;
+    }
+    
+    async goToPage(page) {
+        if (page < 1 || page > this.totalPages) return;
+        this.currentPage = page;
+        await this.loadQuotes();
+        this.renderQuotes();
+        
+        // Scroll to top of quotes container
+        document.querySelector('.quotes-section')?.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    renderQuotes() {
+        if (this.viewMode === 'grid') {
+            this.displayQuotesGrid(this.allQuotes);
+        } else {
+            this.displayQuotesList(this.allQuotes);
+        }
+    }
+    
+    updateUserFilterFromQuotes() {
+        const userFilter = document.getElementById('userFilter');
+        if (!userFilter) return;
+        
+        const currentValue = userFilter.value; // Preserve current selection
+        
+        // Get unique creators from quotes
+        const creatorsMap = new Map();
+        this.allQuotes.forEach(quote => {
+            if (quote.createdBy && quote.createdBy._id && quote.createdBy.name) {
+                creatorsMap.set(quote.createdBy._id, quote.createdBy.name);
+            }
+        });
+        
+        // Sort creators alphabetically
+        const sortedCreators = Array.from(creatorsMap.entries()).sort((a, b) => 
+            a[1].localeCompare(b[1])
+        );
+        
+        // Populate dropdown
+        userFilter.innerHTML = '<option value="">All Users</option>';
+        sortedCreators.forEach(([id, name]) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = name;
+            userFilter.appendChild(option);
+        });
+        
+        // Restore previous selection if still valid
+        if (currentValue && creatorsMap.has(currentValue)) {
+            userFilter.value = currentValue;
+        }
+    }
 
-    filterAndSort() {
-        const searchTerm = document.getElementById('searchQuotes').value.toLowerCase();
-        const sortBy = document.getElementById('sortQuotes').value;
-        const dateFilter = document.getElementById('dateFilter').value;
-        const userFilter = document.getElementById('userFilter').value;
-        const bookedFilter = document.getElementById('bookedFilter').value;
+    async filterAndSort() {
+        const searchTerm = document.getElementById('searchQuotes')?.value || '';
+        const sortBy = document.getElementById('sortQuotes')?.value || '';
+        const dateFilter = document.getElementById('dateFilter')?.value || '';
+        const userFilter = document.getElementById('userFilter')?.value || '';
+        const bookedFilter = document.getElementById('bookedFilter')?.value || '';
 
         console.log('🔍 Filter and sort called:', {
             showingArchived: this.showingArchived,
-            totalQuotes: this.allQuotes.length,
             searchTerm,
             sortBy,
             dateFilter,
@@ -88,34 +212,24 @@ class QuotesManager {
 
         // Update clear filters button visibility
         const clearBtn = document.getElementById('clearFiltersBtn');
-        if (searchTerm || dateFilter || userFilter || bookedFilter) {
-            clearBtn.style.display = 'inline-block';
-        } else {
-            clearBtn.style.display = 'none';
+        if (clearBtn) {
+            if (searchTerm || dateFilter || userFilter || bookedFilter) {
+                clearBtn.style.display = 'inline-block';
+            } else {
+                clearBtn.style.display = 'none';
+            }
         }
 
-        // Filter by archive status first
-        let filtered = this.allQuotes.filter(quote => {
-            const isArchived = quote.archived || false;
-            return this.showingArchived ? isArchived : !isArchived;
-        });
+        // Reset to page 1 when filters change
+        this.currentPage = 1;
         
-        console.log('📊 After archive filter:', {
-            filtered: filtered.length,
-            archived: this.allQuotes.filter(q => q.archived).length,
-            active: this.allQuotes.filter(q => !q.archived).length
-        });
-
-        // Filter by search term
-        if (searchTerm) {
-            filtered = filtered.filter(quote => 
-                quote.name.toLowerCase().includes(searchTerm) ||
-                (quote.clientName && quote.clientName.toLowerCase().includes(searchTerm)) ||
-                (quote.location && quote.location.toLowerCase().includes(searchTerm))
-            );
-        }
-
-        // Filter by date
+        // Reload quotes with new filters (server-side filtering)
+        await this.loadQuotes();
+        
+        // Now apply local sorting and date filter (date filter is complex, keep client-side)
+        let filtered = [...this.allQuotes];
+        
+        // Filter by date (client-side since it requires parsing quoteData.days)
         if (dateFilter) {
             filtered = filtered.filter(quote => {
                 const days = quote.quoteData?.days || [];
@@ -126,26 +240,6 @@ class QuotesManager {
                     const filterDate = this.normalizeDate(dateFilter);
                     return dayDate === filterDate;
                 });
-            });
-        }
-
-        // Filter by user
-        if (userFilter) {
-            filtered = filtered.filter(quote => {
-                return quote.createdBy && quote.createdBy._id === userFilter;
-            });
-        }
-
-        // Filter by booked status
-        if (bookedFilter) {
-            filtered = filtered.filter(quote => {
-                const isBooked = quote.booked || false;
-                if (bookedFilter === 'booked') {
-                    return isBooked === true;
-                } else if (bookedFilter === 'not-booked') {
-                    return isBooked === false;
-                }
-                return true;
             });
         }
 
@@ -330,6 +424,8 @@ class QuotesManager {
         const quoteTitle = quote.quoteData?.quoteTitle || quote.name;
         const isBooked = quote.booked || false;
         const createdBy = quote.createdBy?.name || '-';
+        const isSharedWithMe = !quote.isOwner && quote.accessLevel;
+        const hasShares = quote.sharedWith && quote.sharedWith.length > 0;
         
         // Get earliest service date
         const daysWithDates = days.filter(day => day.date);
@@ -361,9 +457,11 @@ class QuotesManager {
         });
 
         return `
-            <tr class="quote-row ${isBooked ? 'booked-row' : ''}" data-quote-name="${this.escapeHtml(quote.name)}" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
+            <tr class="quote-row ${isBooked ? 'booked-row' : ''} ${isSharedWithMe ? 'shared-row' : ''}" data-quote-name="${this.escapeHtml(quote.name)}" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
                 <td class="quote-title-cell">
                     ${isBooked ? '<span class="booked-badge-small">BOOKED</span>' : ''}
+                    ${isSharedWithMe ? `<span class="shared-badge-small ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${quote.accessLevel === 'read' ? 'VIEW' : 'EDIT'}</span>` : ''}
+                    ${hasShares && quote.isOwner ? `<span class="sharing-badge-small" title="Shared with ${quote.sharedWith.length} user(s)">👥</span>` : ''}
                     <strong>${this.escapeHtml(quoteTitle)}</strong>
                 </td>
                 <td>${this.escapeHtml(clientName)}</td>
@@ -374,17 +472,38 @@ class QuotesManager {
                 <td>${modifiedDate}</td>
                 <td class="total-cell">${this.formatCurrency(total)}</td>
                 <td class="actions-cell" onclick="event.stopPropagation()">
-                    <button class="table-action-btn secondary" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')" title="Edit">
+                    <button class="table-action-btn lumdash" onclick="quotesManager.transferToLumDash('${this.escapeJs(quote.name)}')" title="Transfer to LumDash">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                            <path d="M7 17L17 7"></path>
+                            <path d="M7 7h10v10"></path>
                         </svg>
                     </button>
-                    <button class="table-action-btn danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')" title="Delete">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                    </button>
+                    ${quote.isOwner || quote.accessLevel === 'full' ? `
+                        <button class="table-action-btn share" onclick="quotesManager.openShareModal('${this.escapeJs(quote.name)}')" title="Share">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="18" cy="5" r="3"></circle>
+                                <circle cx="6" cy="12" r="3"></circle>
+                                <circle cx="18" cy="19" r="3"></circle>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                            </svg>
+                        </button>
+                    ` : ''}
+                    ${quote.accessLevel !== 'read' ? `
+                        <button class="table-action-btn secondary" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')" title="Edit">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                            </svg>
+                        </button>
+                    ` : ''}
+                    ${quote.isOwner || this.isCurrentUserAdmin() ? `
+                        <button class="table-action-btn danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')" title="Delete">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    ` : ''}
                 </td>
             </tr>
         `;
@@ -399,6 +518,8 @@ class QuotesManager {
         const isArchived = quote.archived || false;
         const isBooked = quote.booked || false;
         const createdBy = quote.createdBy?.name || 'Unknown User';
+        const isSharedWithMe = !quote.isOwner && quote.accessLevel;
+        const hasShares = quote.sharedWith && quote.sharedWith.length > 0;
         
         // Calculate total services
         const totalServices = days.reduce((sum, day) => sum + (day.services?.length || 0), 0);
@@ -411,12 +532,14 @@ class QuotesManager {
         const updatedDate = new Date(quote.updatedAt).toLocaleDateString();
 
         return `
-            <div class="quote-card ${isArchived ? 'archived' : ''}" data-quote-name="${this.escapeHtml(quote.name)}">
+            <div class="quote-card ${isArchived ? 'archived' : ''} ${isSharedWithMe ? 'shared-quote' : ''}" data-quote-name="${this.escapeHtml(quote.name)}">
                 ${isBooked ? '<div class="booked-banner">BOOKED</div>' : ''}
                 <div class="quote-card-header">
                     <div class="quote-card-title-section">
                         <h3 class="quote-card-title">${this.escapeHtml(quoteTitle)}</h3>
                         ${isArchived ? '<span class="archived-badge">Archived</span>' : ''}
+                        ${isSharedWithMe ? `<span class="shared-badge ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${quote.accessLevel === 'read' ? 'Shared (View)' : 'Shared (Edit)'}</span>` : ''}
+                        ${hasShares && quote.isOwner ? `<span class="sharing-badge" title="Shared with ${quote.sharedWith.length} user(s)">👥 ${quote.sharedWith.length}</span>` : ''}
                     </div>
                     <div class="quote-card-header-right">
                         <div class="quote-card-total">${this.formatCurrency(total)}</div>
@@ -429,12 +552,16 @@ class QuotesManager {
                                 </svg>
                             </button>
                             <div class="quote-overflow-dropdown" id="overflow-${this.escapeHtml(quote.name).replace(/\s/g, '-')}" style="display: none;">
-                                <button class="overflow-menu-item" onclick="quotesManager.toggleBookedStatus('${this.escapeJs(quote.name)}', ${!isBooked})">
-                                    ${isBooked ? 'Mark as Not Booked' : 'Mark as Booked'}
-                                </button>
-                                <button class="overflow-menu-item danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')">
-                                    Delete
-                                </button>
+                                ${quote.accessLevel !== 'read' ? `
+                                    <button class="overflow-menu-item" onclick="quotesManager.toggleBookedStatus('${this.escapeJs(quote.name)}', ${!isBooked})">
+                                        ${isBooked ? 'Mark as Not Booked' : 'Mark as Booked'}
+                                    </button>
+                                ` : ''}
+                                ${quote.isOwner || this.isCurrentUserAdmin() ? `
+                                    <button class="overflow-menu-item danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')">
+                                        Delete
+                                    </button>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -477,17 +604,40 @@ class QuotesManager {
                     <button class="quote-action-btn primary" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
                         Load Quote
                     </button>
-                    <button class="quote-action-btn secondary" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')">
-                        Edit
+                    ${quote.accessLevel !== 'read' ? `
+                        <button class="quote-action-btn secondary" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')">
+                            Edit
+                        </button>
+                    ` : ''}
+                    ${quote.isOwner || quote.accessLevel === 'full' ? `
+                        <button class="quote-action-btn share" onclick="quotesManager.openShareModal('${this.escapeJs(quote.name)}')" title="Share Quote">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                                <circle cx="18" cy="5" r="3"></circle>
+                                <circle cx="6" cy="12" r="3"></circle>
+                                <circle cx="18" cy="19" r="3"></circle>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                            </svg>
+                            Share
+                        </button>
+                    ` : ''}
+                    <button class="quote-action-btn lumdash" onclick="quotesManager.transferToLumDash('${this.escapeJs(quote.name)}')" title="Transfer to LumDash">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                            <path d="M7 17L17 7"></path>
+                            <path d="M7 7h10v10"></path>
+                        </svg>
+                        LumDash
                     </button>
                     ${isArchived ? `
                         <button class="quote-action-btn secondary" onclick="quotesManager.unarchiveQuote('${this.escapeJs(quote.name)}')">
                             Unarchive
                         </button>
                     ` : `
-                        <button class="quote-action-btn secondary" onclick="quotesManager.archiveQuote('${this.escapeJs(quote.name)}')">
-                            Archive
-                        </button>
+                        ${quote.accessLevel !== 'read' ? `
+                            <button class="quote-action-btn secondary" onclick="quotesManager.archiveQuote('${this.escapeJs(quote.name)}')">
+                                Archive
+                            </button>
+                        ` : ''}
                     `}
                 </div>
             </div>
@@ -573,22 +723,30 @@ class QuotesManager {
         div.textContent = text;
         return div.innerHTML;
     }
+    
+    isCurrentUserAdmin() {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        return user.role === 'admin';
+    }
 
     escapeJs(text) {
         if (!text) return '';
         return text.replace(/'/g, "\\'").replace(/"/g, '\\"');
     }
 
-    clearFilters() {
+    async clearFilters() {
         document.getElementById('searchQuotes').value = '';
         document.getElementById('dateFilter').value = '';
         document.getElementById('userFilter').value = '';
         document.getElementById('bookedFilter').value = '';
-        this.filterAndSort();
+        this.currentPage = 1;
+        await this.loadQuotes();
+        this.renderQuotes();
     }
 
-    toggleArchiveView() {
+    async toggleArchiveView() {
         this.showingArchived = !this.showingArchived;
+        this.currentPage = 1; // Reset to first page
         
         console.log('🔄 Toggle archive view:', this.showingArchived);
         
@@ -603,7 +761,8 @@ class QuotesManager {
             container.classList.remove('showing-archived');
         }
         
-        this.filterAndSort();
+        await this.loadQuotes();
+        this.renderQuotes();
     }
 
     toggleView() {
@@ -613,7 +772,7 @@ class QuotesManager {
         localStorage.setItem('quotesViewMode', this.viewMode);
         
         this.applyViewMode();
-        this.filterAndSort();
+        this.renderQuotes();
         
         // Update sort indicators if switching to list view
         if (this.viewMode === 'list') {
@@ -944,19 +1103,6 @@ class QuotesManager {
         document.getElementById('editQuoteLocation').value = quote.location || '';
         document.getElementById('editQuoteBooked').checked = quote.booked || false;
 
-        // Populate users dropdown
-        const userSelect = document.getElementById('editQuoteCreatedBy');
-        userSelect.innerHTML = '<option value="">-- Select User --</option>';
-        this.users.forEach(user => {
-            const option = document.createElement('option');
-            option.value = user._id;
-            option.textContent = user.name;
-            if (quote.createdBy && quote.createdBy._id === user._id) {
-                option.selected = true;
-            }
-            userSelect.appendChild(option);
-        });
-
         // Show modal
         document.getElementById('editQuoteModal').style.display = 'flex';
     }
@@ -966,13 +1112,242 @@ class QuotesManager {
         this.editingQuoteName = null;
     }
 
+    // ============== SHARE FUNCTIONALITY ==============
+    
+    async openShareModal(quoteName) {
+        this.sharingQuoteName = quoteName;
+        const quote = this.allQuotes.find(q => q.name === quoteName);
+        
+        if (!quote) {
+            showAlertModal('Quote not found', 'error');
+            return;
+        }
+        
+        // Set quote name in modal
+        document.getElementById('shareQuoteName').textContent = `"${quote.quoteData?.quoteTitle || quote.name}"`;
+        
+        // Reset form
+        document.getElementById('shareUserSearch').value = '';
+        document.getElementById('selectedShareUserId').value = '';
+        document.getElementById('selectedUserName').textContent = '';
+        document.querySelector('input[name="accessLevel"][value="read"]').checked = true;
+        
+        // Load users for dropdown
+        await this.loadShareableUsers();
+        
+        // Load current shares
+        await this.loadSharedUsers(quoteName);
+        
+        // Show modal
+        document.getElementById('shareQuoteModal').style.display = 'flex';
+        
+        // Setup search functionality
+        this.setupShareUserSearch();
+    }
+    
+    closeShareModal() {
+        document.getElementById('shareQuoteModal').style.display = 'none';
+        document.getElementById('shareUserDropdown').style.display = 'none';
+        this.sharingQuoteName = null;
+    }
+    
+    async loadShareableUsers() {
+        try {
+            const response = await fetch('/api/shareable-users');
+            if (!response.ok) throw new Error('Failed to load users');
+            
+            this.shareableUsers = await response.json();
+        } catch (error) {
+            console.error('Error loading shareable users:', error);
+            this.shareableUsers = [];
+        }
+    }
+    
+    setupShareUserSearch() {
+        const searchInput = document.getElementById('shareUserSearch');
+        const dropdown = document.getElementById('shareUserDropdown');
+        
+        // Remove existing listeners
+        const newSearchInput = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+        
+        // Show dropdown on focus
+        newSearchInput.addEventListener('focus', () => {
+            this.renderShareUserDropdown('');
+            dropdown.style.display = 'block';
+        });
+        
+        // Filter on input
+        newSearchInput.addEventListener('input', (e) => {
+            this.renderShareUserDropdown(e.target.value);
+            dropdown.style.display = 'block';
+        });
+        
+        // Close dropdown on click outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.share-user-dropdown')) {
+                dropdown.style.display = 'none';
+            }
+        });
+    }
+    
+    renderShareUserDropdown(searchTerm) {
+        const dropdown = document.getElementById('shareUserDropdown');
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        // Filter users based on search and exclude current user
+        const filteredUsers = this.shareableUsers.filter(user => {
+            const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase());
+            const isNotCurrentUser = user.name !== currentUser.name;
+            return matchesSearch && isNotCurrentUser;
+        });
+        
+        if (filteredUsers.length === 0) {
+            dropdown.innerHTML = '<div class="share-user-item no-results">No users found</div>';
+            return;
+        }
+        
+        dropdown.innerHTML = filteredUsers.map(user => `
+            <div class="share-user-item" onclick="quotesManager.selectShareUser('${user._id}', '${this.escapeHtml(user.name)}')">
+                <span class="share-user-name">${this.escapeHtml(user.name)}</span>
+                ${user.email ? `<span class="share-user-email">${this.escapeHtml(user.email)}</span>` : ''}
+            </div>
+        `).join('');
+    }
+    
+    selectShareUser(userId, userName) {
+        document.getElementById('selectedShareUserId').value = userId;
+        document.getElementById('selectedUserName').textContent = userName;
+        document.getElementById('shareUserSearch').value = userName;
+        document.getElementById('shareUserDropdown').style.display = 'none';
+    }
+    
+    async addShare() {
+        const userId = document.getElementById('selectedShareUserId').value;
+        const accessLevel = document.querySelector('input[name="accessLevel"]:checked').value;
+        
+        if (!userId) {
+            showAlertModal('Please select a user to share with', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/quotes/${encodeURIComponent(this.sharingQuoteName)}/share`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, accessLevel })
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to share quote');
+            }
+            
+            // Clear selection
+            document.getElementById('selectedShareUserId').value = '';
+            document.getElementById('selectedUserName').textContent = '';
+            document.getElementById('shareUserSearch').value = '';
+            
+            // Reload shared users list
+            await this.loadSharedUsers(this.sharingQuoteName);
+            
+            // Reload quotes to update badges
+            await this.loadQuotes();
+            this.filterAndSort();
+            
+            showAlertModal(result.message || 'Quote shared successfully!', 'success', null, true);
+            
+        } catch (error) {
+            console.error('Error sharing quote:', error);
+            showAlertModal(error.message || 'Failed to share quote', 'error');
+        }
+    }
+    
+    async loadSharedUsers(quoteName) {
+        const container = document.getElementById('sharedUsersList');
+        
+        try {
+            const response = await fetch(`/api/quotes/${encodeURIComponent(quoteName)}/shared-with`);
+            
+            if (!response.ok) {
+                throw new Error('Failed to load shared users');
+            }
+            
+            const sharedUsers = await response.json();
+            
+            if (sharedUsers.length === 0) {
+                container.innerHTML = '<p class="no-shares-message">Not shared with anyone yet</p>';
+                return;
+            }
+            
+            container.innerHTML = sharedUsers.map(share => `
+                <div class="shared-user-item">
+                    <div class="shared-user-info">
+                        <span class="shared-user-name">${this.escapeHtml(share.user?.name || 'Unknown User')}</span>
+                        <span class="shared-user-access ${share.accessLevel}">${share.accessLevel === 'read' ? 'Read Only' : 'Full Access'}</span>
+                    </div>
+                    <button class="remove-share-btn" onclick="quotesManager.removeShare('${share.user?._id}')" title="Remove access">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+            
+        } catch (error) {
+            console.error('Error loading shared users:', error);
+            container.innerHTML = '<p class="no-shares-message">Failed to load shared users</p>';
+        }
+    }
+    
+    async removeShare(userId) {
+        if (!userId) return;
+        
+        const confirmed = await showConfirmModal(
+            'Are you sure you want to remove this user\'s access?',
+            'Remove Access',
+            'Remove',
+            'Cancel'
+        );
+        
+        if (!confirmed) return;
+        
+        try {
+            const response = await fetch(`/api/quotes/${encodeURIComponent(this.sharingQuoteName)}/share/${userId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to remove access');
+            }
+            
+            // Reload shared users list
+            await this.loadSharedUsers(this.sharingQuoteName);
+            
+            // Reload quotes to update badges
+            await this.loadQuotes();
+            this.filterAndSort();
+            
+            showAlertModal('Access removed successfully', 'success', null, true);
+            
+        } catch (error) {
+            console.error('Error removing share:', error);
+            showAlertModal(error.message || 'Failed to remove access', 'error');
+        }
+    }
+
+    // ============== END SHARE FUNCTIONALITY ==============
+
     async saveQuoteEdit(event) {
         event.preventDefault();
 
         const newName = document.getElementById('editQuoteName').value.trim();
         const clientName = document.getElementById('editQuoteClient').value.trim();
         const location = document.getElementById('editQuoteLocation').value.trim();
-        const createdBy = document.getElementById('editQuoteCreatedBy').value || null;
         const booked = document.getElementById('editQuoteBooked').checked;
 
         if (!newName) {
@@ -992,7 +1367,6 @@ class QuotesManager {
                     newName,
                     clientName: clientName || null,
                     location: location || null,
-                    createdBy,
                     booked
                 })
             });
@@ -1025,6 +1399,39 @@ class QuotesManager {
     showLoading(show) {
         const overlay = document.getElementById('loading-overlay');
         overlay.style.display = show ? 'flex' : 'none';
+    }
+
+    async transferToLumDash(quoteName) {
+        const quote = this.allQuotes.find(q => q.name === quoteName);
+        if (!quote) {
+            showAlertModal('Quote not found.', 'error');
+            return;
+        }
+
+        // Load full quote data if needed
+        try {
+            this.showLoading(true);
+            
+            const response = await fetch(`/api/load-quote/${encodeURIComponent(quoteName)}`);
+            if (!response.ok) {
+                throw new Error('Failed to load quote data');
+            }
+            
+            const fullQuote = await response.json();
+            
+            this.showLoading(false);
+            
+            // Use the LumDash integration
+            if (window.LumDashIntegration) {
+                await window.LumDashIntegration.transferToLumDash(fullQuote);
+            } else {
+                showAlertModal('LumDash integration not loaded.', 'error');
+            }
+        } catch (error) {
+            console.error('Error transferring to LumDash:', error);
+            showAlertModal('Failed to transfer quote to LumDash.', 'error');
+            this.showLoading(false);
+        }
     }
 }
 
@@ -1124,13 +1531,21 @@ async function logout() {
             },
         });
         
+        // Clear local storage tokens
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        
         if (response.ok) {
             window.location.href = '/login';
         } else {
             console.error('Logout failed');
+            // Still redirect even if server logout fails
+            window.location.href = '/login';
         }
     } catch (error) {
         console.error('Logout error:', error);
+        // Still redirect on error
+        window.location.href = '/login';
     }
 }
 
@@ -1145,9 +1560,19 @@ function clearQuoteData(event) {
     window.location.href = '/calculator';
 }
 
+// Display logged in user name
+function displayUserName() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const userNameEl = document.getElementById('userDisplayName');
+    if (userNameEl && user.name) {
+        userNameEl.textContent = user.name;
+    }
+}
+
 // Initialize quotes manager when page loads
 let quotesManager;
 document.addEventListener('DOMContentLoaded', () => {
     quotesManager = new QuotesManager();
+    displayUserName();
 });
 

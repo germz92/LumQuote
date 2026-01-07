@@ -25,6 +25,7 @@
                 <a href="/" class="admin-link">Quotes</a>
                 <a href="/calendar" class="admin-link">Calendar</a>
                 <a href="/admin" class="admin-link">Admin</a>
+                <span class="user-name" id="userDisplayName"></span>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
         </header>
@@ -176,13 +177,6 @@
                     <div class="form-group">
                         <label for="eventLocation">Event Location (Optional)</label>
                         <input type="text" id="eventLocation" placeholder="Enter event location">
-                    </div>
-                    <div class="form-group">
-                        <label for="createdBySelect">Created By (Optional)</label>
-                        <select id="createdBySelect" class="created-by-select">
-                            <option value="">-- Select User --</option>
-                            <!-- Users will be loaded here -->
-                        </select>
                     </div>
                     <div class="form-group">
                         <label class="checkbox-label">

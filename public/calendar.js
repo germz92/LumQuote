@@ -734,20 +734,30 @@ async function logout() {
             }
         });
 
-        if (response.ok) {
-            window.location.href = '/login';
-        } else {
-            alert('Logout failed. Please try again.');
-        }
+        // Clear local storage tokens
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        
+        window.location.href = '/login';
     } catch (error) {
         console.error('Logout error:', error);
-        alert('Logout failed. Please try again.');
+        window.location.href = '/login';
+    }
+}
+
+// Display logged in user name
+function displayUserName() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const userNameEl = document.getElementById('userDisplayName');
+    if (userNameEl && user.name) {
+        userNameEl.textContent = user.name;
     }
 }
 
 // Initialize calendar when page loads
 document.addEventListener('DOMContentLoaded', () => {
     window.calendar = new CalendarView();
+    displayUserName();
 });
 
 // Add custom CSS for events list in alert modal

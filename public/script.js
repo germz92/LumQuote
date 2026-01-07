@@ -77,8 +77,7 @@ class QuoteCalculator {
                     clientName: this.currentClientName,
                     quoteTitle: this.currentQuoteTitle,
                     location: this.currentLocation,
-                    booked: this.currentBooked,
-                    createdBy: this.currentCreatedBy
+                    booked: this.currentBooked
                 });
                 
                 // Update the displays if we loaded data (with slight delay to ensure DOM is ready)
@@ -135,8 +134,7 @@ class QuoteCalculator {
                 clientName: draftData.currentClientName,
                 quoteTitle: draftData.currentQuoteTitle,
                 location: draftData.currentLocation,
-                booked: draftData.currentBooked,
-                createdBy: draftData.currentCreatedBy
+                booked: draftData.currentBooked
             });
             localStorage.setItem(this.autoSaveKey, JSON.stringify(draftData));
             
@@ -1305,10 +1303,6 @@ class QuoteCalculator {
         // Load previous clients for the dropdown
         await this.loadClients();
         
-        // Load users for the Created By dropdown
-        await this.loadUsers();
-        document.getElementById('createdBySelect').value = this.currentCreatedBy || '';
-        
         // Move dropdown to body if it's not already there
         this.ensureDropdownInBody();
         
@@ -1326,27 +1320,6 @@ class QuoteCalculator {
                 document.getElementById('saveQuoteTitle').select();
             }
         }, 100);
-    }
-
-    async loadUsers() {
-        try {
-            const response = await fetch('/api/users');
-            const users = await response.json();
-            this.users = users;
-            
-            const select = document.getElementById('createdBySelect');
-            // Keep the blank option
-            select.innerHTML = '<option value="">-- Select User --</option>';
-            
-            users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user._id;
-                option.textContent = user.name;
-                select.appendChild(option);
-            });
-        } catch (error) {
-            console.error('Error loading users:', error);
-        }
     }
 
     async loadClients() {
@@ -1578,7 +1551,6 @@ class QuoteCalculator {
         const clientName = document.getElementById('clientName').value.trim();
         const location = document.getElementById('eventLocation').value.trim();
         const booked = document.getElementById('bookedCheckbox').checked;
-        const createdBy = document.getElementById('createdBySelect').value || null;
         
         if (!title) {
             showAlertModal('Please enter a quote title.', 'error');
@@ -1603,8 +1575,7 @@ class QuoteCalculator {
                     quoteData,
                     clientName: clientName || null,
                     location: location || null,
-                    booked: booked,
-                    createdBy: createdBy
+                    booked: booked
                 })
             });
 
@@ -1619,7 +1590,7 @@ class QuoteCalculator {
                     'Cancel'
                 );
                 if (overwrite) {
-                    await this.overwriteQuote(title, quoteData, clientName, location, booked, createdBy);
+                    await this.overwriteQuote(title, quoteData, clientName, location, booked);
                 }
             } else if (result.success) {
                 // Update current quote info
@@ -1627,7 +1598,6 @@ class QuoteCalculator {
                 this.currentClientName = clientName || null;
                 this.currentLocation = location || null;
                 this.currentBooked = booked;
-                this.currentCreatedBy = createdBy;
                 this.currentQuoteTitle = title; // Update the main page title
                 this.lastSavedTime = new Date();
                 
@@ -1716,8 +1686,7 @@ class QuoteCalculator {
                     quoteData,
                     clientName: this.currentClientName || null,
                     location: this.currentLocation || null,
-                    booked: this.currentBooked || false,
-                    createdBy: this.currentCreatedBy || null
+                    booked: this.currentBooked || false
                 })
             });
             
@@ -1735,8 +1704,7 @@ class QuoteCalculator {
                         quoteData,
                         clientName: this.currentClientName || null,
                         location: this.currentLocation || null,
-                        booked: this.currentBooked || false,
-                        createdBy: this.currentCreatedBy || null
+                        booked: this.currentBooked || false
                     })
                 });
                 
@@ -1794,7 +1762,7 @@ class QuoteCalculator {
         }
     }
 
-    async overwriteQuote(name, quoteData, clientName, location, booked, createdBy) {
+    async overwriteQuote(name, quoteData, clientName, location, booked) {
         try {
             const response = await fetch('/api/overwrite-quote', {
                 method: 'POST',
@@ -1806,8 +1774,7 @@ class QuoteCalculator {
                     quoteData,
                     clientName: clientName || null,
                     location: location || null,
-                    booked: booked,
-                    createdBy: createdBy
+                    booked: booked
                 })
             });
 
@@ -3904,10 +3871,20 @@ class QuoteCalculator {
     }
 }
 
+// Display logged in user name
+function displayUserName() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const userNameEl = document.getElementById('userDisplayName');
+    if (userNameEl && user.name) {
+        userNameEl.textContent = user.name;
+    }
+}
+
 // Initialize calculator when page loads
 let calculator;
 document.addEventListener('DOMContentLoaded', () => {
     calculator = new QuoteCalculator();
+    displayUserName();
     
     // Check if we should load a quote from calendar navigation
     const loadQuoteData = sessionStorage.getItem('loadQuoteData');
@@ -3940,7 +3917,6 @@ async function saveAsCopy() {
     const clientName = document.getElementById('clientName').value.trim();
     const location = document.getElementById('eventLocation').value.trim();
     const booked = document.getElementById('bookedCheckbox').checked;
-    const createdBy = document.getElementById('createdBySelect').value || null;
     
     if (!title) {
         showAlertModal('Please enter a quote title.', 'error');
@@ -3967,8 +3943,7 @@ async function saveAsCopy() {
                 quoteData,
                 clientName: clientName || null,
                 location: location || null,
-                booked: booked,
-                createdBy: createdBy
+                booked: booked
             })
         });
 
@@ -3990,8 +3965,7 @@ async function saveAsCopy() {
                         quoteData,
                         clientName: clientName || null,
                         location: location || null,
-                        booked: booked,
-                        createdBy: createdBy
+                        booked: booked
                     })
                 });
                 
@@ -4342,13 +4316,14 @@ async function logout() {
             },
         });
         
-        if (response.ok) {
-            window.location.href = '/login';
-        } else {
-            console.error('Logout failed');
-        }
+        // Clear local storage tokens
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        
+        window.location.href = '/login';
     } catch (error) {
         console.error('Logout error:', error);
+        window.location.href = '/login';
     }
 }
 

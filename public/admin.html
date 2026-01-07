@@ -21,6 +21,7 @@
             <div class="header-actions">
                 <a href="/quotes" class="admin-link">Quotes</a>
                 <a href="/calendar" class="admin-link">Calendar</a>
+                <span class="user-name" id="userDisplayName"></span>
                 <button class="logout-btn" onclick="logout()">Logout</button>
             </div>
         </header>
@@ -99,29 +100,33 @@
             </div>
 
             <div class="admin-section">
-                <h2>Manage Users</h2>
-                <p class="subtitle">Add, edit, or remove users who can create quotes</p>
-
-                <div class="add-service-form">
-                    <h3>Add New User</h3>
-                    <form id="user-form">
-                        <div class="form-group">
-                            <label for="user-name">User Name</label>
-                            <input type="text" id="user-name" required>
-                        </div>
-                        <button type="submit" class="primary-button">
-                            <span id="user-form-button-text">Add User</span>
-                        </button>
-                        <button type="button" id="cancel-user-edit" class="secondary-button" style="display: none;">
-                            Cancel Edit
-                        </button>
-                    </form>
-                </div>
-
-                <div class="services-list">
-                    <h3>Current Users</h3>
-                    <div id="users-container">
-                        <!-- Users will be loaded here -->
+                <h2>User Management</h2>
+                <p class="subtitle">Users are managed through LumDash</p>
+                
+                <div class="lumdash-info-card">
+                    <div class="lumdash-info-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <div class="lumdash-info-content">
+                        <h3>Users Synced from LumDash</h3>
+                        <p>User accounts are managed in LumDash. When users sign in with their LumDash account, they are automatically synced to LumQuote.</p>
+                        <ul>
+                            <li><strong>Admin users</strong> can view and manage all quotes</li>
+                            <li><strong>Regular users</strong> can only view and manage their own quotes</li>
+                        </ul>
+                        <a href="https://beta.lumdash.app" target="_blank" class="lumdash-link">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                            Manage Users in LumDash
+                        </a>
                     </div>
                 </div>
             </div>

@@ -6,8 +6,19 @@
     <title>Login - Quote Generator</title>
     <link rel="stylesheet" href="styles.css">
     <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
         .login-container {
-            max-width: 400px;
+            max-width: 420px;
             margin: 0 auto;
             padding: 40px 20px;
             min-height: 100vh;
@@ -18,111 +29,152 @@
         }
         
         .login-card {
-            background: white;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            padding: 40px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 48px 40px;
             width: 100%;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
         }
         
         .login-header {
             text-align: center;
-            margin-bottom: 32px;
+            margin-bottom: 36px;
         }
         
         .login-logo {
-            max-height: 60px;
+            max-height: 70px;
             width: auto;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
         }
         
         .login-title {
-            font-size: 1.5rem;
-            font-weight: 600;
+            font-size: 1.75rem;
+            font-weight: 700;
             color: #1e293b;
             margin-bottom: 8px;
+            letter-spacing: -0.5px;
         }
         
         .login-subtitle {
             color: #64748b;
-            font-size: 0.875rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
         }
         
-        .login-form {
-            margin-bottom: 24px;
-        }
-        
-        .login-form-group {
-            margin-bottom: 20px;
-        }
-        
-        .login-form-group label {
-            display: block;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 8px;
-            font-size: 0.875rem;
-        }
-        
-        .login-form-group input {
+        .lumdash-button {
             width: 100%;
-            padding: 12px 16px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            box-sizing: border-box;
-        }
-        
-        .login-form-group input:focus {
-            outline: none;
-            border-color: #4f46e5;
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-        
-        .login-button {
-            width: 100%;
-            background: #4f46e5;
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
             color: white;
             border: none;
-            padding: 14px 24px;
-            border-radius: 8px;
-            font-size: 1rem;
+            padding: 18px 24px;
+            border-radius: 12px;
+            font-size: 1.1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            text-decoration: none;
         }
         
-        .login-button:hover:not(:disabled) {
-            background: #4338ca;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        .lumdash-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 70, 229, 0.45);
         }
         
-        .login-button:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
+        .lumdash-button:active {
+            transform: translateY(0);
+        }
+        
+        .lumdash-button svg {
+            width: 24px;
+            height: 24px;
         }
         
         .error-message {
-            background: #fef2f2;
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
             color: #dc2626;
-            padding: 12px 16px;
-            border-radius: 8px;
+            padding: 14px 18px;
+            border-radius: 12px;
             border: 1px solid #fecaca;
             margin-bottom: 20px;
             font-size: 0.875rem;
             display: none;
+            text-align: center;
+        }
+        
+        .success-message {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            color: #16a34a;
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px solid #bbf7d0;
+            margin-bottom: 20px;
+            font-size: 0.875rem;
+            display: none;
+            text-align: center;
+        }
+        
+        .loading-message {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            color: #2563eb;
+            padding: 14px 18px;
+            border-radius: 12px;
+            border: 1px solid #bfdbfe;
+            margin-bottom: 20px;
+            font-size: 0.875rem;
+            display: none;
+            text-align: center;
         }
         
         .login-footer {
             text-align: center;
             color: #64748b;
-            font-size: 0.75rem;
-            margin-top: 24px;
+            font-size: 0.8rem;
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+            line-height: 1.6;
+        }
+        
+        .login-footer a {
+            color: #4f46e5;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .login-footer a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .login-card {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff40;
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
         }
     </style>
 </head>
@@ -132,86 +184,164 @@
             <div class="login-header">
                 <img src="/assets/logo.png" alt="Lumetry Media" class="login-logo">
                 <h1 class="login-title">Quote Generator</h1>
-                <p class="login-subtitle">Enter password to access the application</p>
+                <p class="login-subtitle">Sign in with your LumDash account to access the quote calculator</p>
             </div>
             
             <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+            <div id="loadingMessage" class="loading-message">
+                <span class="spinner"></span> Verifying your account...
+            </div>
             
-            <form class="login-form" id="loginForm">
-                <div class="login-form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" name="password" required autocomplete="current-password">
-                </div>
-                
-                <button type="submit" class="login-button" id="loginButton">
-                    Sign In
-                </button>
-            </form>
+            <a href="javascript:void(0)" class="lumdash-button" id="lumdashButton" onclick="signInWithLumDash(); return false;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                    <polyline points="10 17 15 12 10 7"/>
+                    <line x1="15" y1="12" x2="3" y2="12"/>
+                </svg>
+                Sign in with LumDash
+            </a>
             
             <div class="login-footer">
-                <p>Secure access to conference services quote calculator</p>
+                <p>Don't have a LumDash account?</p>
+                <p><a href="https://lumdash.app" target="_blank">Create one at lumdash.app</a></p>
             </div>
         </div>
     </div>
 
     <script>
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+        // For local development, use localhost. For production, use the live URLs.
+        const IS_LOCAL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        const LUMDASH_API = IS_LOCAL ? 'http://localhost:3000' : 'https://lumdash2-0.onrender.com';
+        const LUMDASH_URL = IS_LOCAL ? 'http://localhost:3000' : 'https://beta.lumdash.app';
+        const LUMQUOTE_CALLBACK = window.location.origin + '/login';
+        
+        console.log('🔧 LumDash config:', { IS_LOCAL, LUMDASH_API, LUMDASH_URL, hostname: window.location.hostname });
+        
+        let isRedirecting = false;
+        
+        // Check for token in URL (callback from LumDash)
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const error = urlParams.get('error');
             
-            const password = document.getElementById('password').value;
-            const loginButton = document.getElementById('loginButton');
-            const errorMessage = document.getElementById('errorMessage');
+            if (error) {
+                showError(decodeURIComponent(error));
+                // Clean URL
+                window.history.replaceState({}, document.title, '/login');
+                return;
+            }
             
-            // Clear previous error
-            errorMessage.style.display = 'none';
+            if (token) {
+                // Clean URL immediately
+                window.history.replaceState({}, document.title, '/login');
+                verifyAndLogin(token);
+                return; // Don't check existing session if we're verifying a new token
+            }
             
-            // Disable button and show loading state
-            loginButton.disabled = true;
-            loginButton.textContent = 'Signing In...';
+            // Only check if already logged in if no token in URL
+            checkExistingSession();
+        });
+        
+        async function checkExistingSession() {
+            // Prevent multiple redirects
+            if (isRedirecting) return;
             
             try {
-                const response = await fetch('/api/login', {
+                // Check if we have a valid session by calling /api/me
+                // This will use cookies set by the server
+                const response = await fetch('/api/me', {
+                    credentials: 'include' // Include cookies in the request
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    // Already logged in, store user info and redirect
+                    if (data.user) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                    }
+                    isRedirecting = true;
+                    window.location.replace('/');
+                } else {
+                    // Not logged in, clear any stale data
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('user');
+                }
+            } catch (e) {
+                // Network error, stay on login page
+                console.log('Session check failed:', e.message);
+            }
+        }
+        
+        function signInWithLumDash() {
+            // Redirect to LumDash API for auth redirect
+            const callbackUrl = encodeURIComponent(LUMQUOTE_CALLBACK);
+            const redirectUrl = `${LUMDASH_API}/auth/redirect?callback=${callbackUrl}&app=lumquote`;
+            
+            console.log('🔐 signInWithLumDash called');
+            console.log('🔐 LUMDASH_API:', LUMDASH_API);
+            console.log('🔐 Redirect URL:', redirectUrl);
+            
+            // Use replace to avoid service worker issues
+            window.location.replace(redirectUrl);
+        }
+        
+        async function verifyAndLogin(token) {
+            showLoading();
+            
+            try {
+                // Send token to our server to verify and create session
+                const response = await fetch('/api/auth/lumdash', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ password }),
+                    body: JSON.stringify({ token }),
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Redirect to quotes page (home)
-                    window.location.href = '/';
-                } else {
-                    // Show error message
-                    errorMessage.textContent = data.message || 'Invalid password';
-                    errorMessage.style.display = 'block';
+                    // Store token
+                    localStorage.setItem('authToken', token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
                     
-                    // Clear password field
-                    document.getElementById('password').value = '';
-                    document.getElementById('password').focus();
+                    showSuccess('Welcome, ' + data.user.name + '! Redirecting...');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showError(data.message || 'Authentication failed. Please try again.');
                 }
             } catch (error) {
-                console.error('Login error:', error);
-                errorMessage.textContent = 'An error occurred. Please try again.';
-                errorMessage.style.display = 'block';
-            } finally {
-                // Re-enable button
-                loginButton.disabled = false;
-                loginButton.textContent = 'Sign In';
+                console.error('Auth error:', error);
+                showError('Authentication failed. Please try again.');
             }
-        });
+        }
         
-        // Focus password field on page load
-        document.getElementById('password').focus();
+        function showError(message) {
+            document.getElementById('loadingMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
         
-        // Handle Enter key
-        document.getElementById('password').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-            }
-        });
+        function showSuccess(message) {
+            document.getElementById('loadingMessage').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+            const successEl = document.getElementById('successMessage');
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+        }
+        
+        function showLoading() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+            document.getElementById('loadingMessage').style.display = 'block';
+        }
     </script>
 </body>
-</html> 
+</html>
