@@ -240,9 +240,28 @@ app.get('/api/me', requireApiAuth, (req, res) => {
 
 // Logout endpoint
 app.post('/api/logout', (req, res) => {
+  // Destroy session
   if (req.session) {
     req.session.destroy();
   }
+  
+  // Clear the auth cookie
+  const isProduction = process.env.NODE_ENV === 'production';
+  const cookieOptions = [
+    'token=',
+    'Path=/',
+    'HttpOnly',
+    'Max-Age=0', // Expire immediately
+    'SameSite=Lax'
+  ];
+  
+  if (isProduction) {
+    cookieOptions.push('Secure');
+  }
+  
+  res.setHeader('Set-Cookie', cookieOptions.join('; '));
+  console.log('👋 User logged out, cookie cleared');
+  
   res.json({ success: true });
 });
 
