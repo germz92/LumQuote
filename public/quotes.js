@@ -14,7 +14,23 @@ class QuotesManager {
         this.totalQuotes = 0;
         this.totalPages = 0;
         
+        // Debounce timer for search
+        this.searchDebounceTimer = null;
+        
         this.init();
+    }
+    
+    // Debounced search - waits 300ms after user stops typing
+    debouncedSearch() {
+        // Clear any existing timer
+        if (this.searchDebounceTimer) {
+            clearTimeout(this.searchDebounceTimer);
+        }
+        
+        // Set a new timer
+        this.searchDebounceTimer = setTimeout(() => {
+            this.filterAndSort();
+        }, 300);
     }
 
     async init() {
@@ -54,6 +70,45 @@ class QuotesManager {
             if (searchTerm) params.append('search', searchTerm);
             if (userFilter) params.append('createdBy', userFilter);
             if (bookedFilter) params.append('booked', bookedFilter);
+            
+            // Add sort parameters for server-side sorting
+            const sortDropdown = document.getElementById('sortQuotes')?.value || '';
+            
+            // Handle list view column sorting
+            if (this.viewMode === 'list' && this.sortColumn && this.sortColumn !== 'created-newest') {
+                // Map frontend column names to server field names
+                const sortFieldMap = {
+                    'title': 'name',
+                    'client': 'clientName',
+                    'location': 'location',
+                    'owner': 'createdBy',
+                    'date': 'startDate',
+                    'created': 'createdAt',
+                    'modified': 'updatedAt',
+                    'total': 'total'
+                };
+                const serverSortField = sortFieldMap[this.sortColumn] || this.sortColumn;
+                params.append('sortBy', serverSortField);
+                params.append('sortDirection', this.sortDirection || 'asc');
+            } 
+            // Handle grid view dropdown sorting
+            else if (sortDropdown) {
+                const dropdownSortMap = {
+                    'service-date-newest': { field: 'startDate', direction: 'desc' },
+                    'service-date-oldest': { field: 'startDate', direction: 'asc' },
+                    'newest': { field: 'updatedAt', direction: 'desc' },
+                    'oldest': { field: 'updatedAt', direction: 'asc' },
+                    'created-newest': { field: 'createdAt', direction: 'desc' },
+                    'created-oldest': { field: 'createdAt', direction: 'asc' },
+                    'name-asc': { field: 'name', direction: 'asc' },
+                    'name-desc': { field: 'name', direction: 'desc' }
+                };
+                const sortConfig = dropdownSortMap[sortDropdown];
+                if (sortConfig) {
+                    params.append('sortBy', sortConfig.field);
+                    params.append('sortDirection', sortConfig.direction);
+                }
+            }
             
             const response = await fetch(`/api/saved-quotes?${params}`);
             if (!response.ok) {
@@ -207,7 +262,9 @@ class QuotesManager {
             sortBy,
             dateFilter,
             userFilter,
-            bookedFilter
+            bookedFilter,
+            sortColumn: this.sortColumn,
+            sortDirection: this.sortDirection
         });
 
         // Update clear filters button visibility
@@ -223,19 +280,16 @@ class QuotesManager {
         // Reset to page 1 when filters change
         this.currentPage = 1;
         
-        // Reload quotes with new filters (server-side filtering)
+        // Reload quotes with filters and sorting from server
         await this.loadQuotes();
         
-        // Now apply local sorting and date filter (date filter is complex, keep client-side)
+        // Apply date filter client-side (complex date parsing in quoteData.days)
         let filtered = [...this.allQuotes];
-        
-        // Filter by date (client-side since it requires parsing quoteData.days)
         if (dateFilter) {
             filtered = filtered.filter(quote => {
                 const days = quote.quoteData?.days || [];
                 return days.some(day => {
                     if (!day.date) return false;
-                    // Normalize both dates for comparison
                     const dayDate = this.normalizeDate(day.date);
                     const filterDate = this.normalizeDate(dateFilter);
                     return dayDate === filterDate;
@@ -243,75 +297,7 @@ class QuotesManager {
             });
         }
 
-        // Sort
-        if (this.viewMode === 'list' && this.sortColumn !== 'created-newest') {
-            // Use column-based sorting for list view
-            filtered.sort((a, b) => {
-                let result = 0;
-                switch (this.sortColumn) {
-                    case 'title':
-                        const aTitle = a.quoteData?.quoteTitle || a.name;
-                        const bTitle = b.quoteData?.quoteTitle || b.name;
-                        result = aTitle.localeCompare(bTitle);
-                        break;
-                    case 'client':
-                        const aClient = a.clientName || '';
-                        const bClient = b.clientName || '';
-                        result = aClient.localeCompare(bClient);
-                        break;
-                    case 'location':
-                        const aLocation = a.location || '';
-                        const bLocation = b.location || '';
-                        result = aLocation.localeCompare(bLocation);
-                        break;
-                    case 'owner':
-                        const aOwner = a.createdBy?.name || '';
-                        const bOwner = b.createdBy?.name || '';
-                        result = aOwner.localeCompare(bOwner);
-                        break;
-                    case 'date':
-                        result = this.compareServiceDates(a, b);
-                        break;
-                    case 'created':
-                        result = new Date(a.createdAt) - new Date(b.createdAt);
-                        break;
-                    case 'modified':
-                        result = new Date(a.updatedAt) - new Date(b.updatedAt);
-                        break;
-                    case 'total':
-                        const aTotal = a.quoteData?.total || 0;
-                        const bTotal = b.quoteData?.total || 0;
-                        result = aTotal - bTotal;
-                        break;
-                }
-                return this.sortDirection === 'asc' ? result : -result;
-            });
-        } else {
-            // Use dropdown-based sorting for grid view
-            filtered.sort((a, b) => {
-                switch (sortBy) {
-                    case 'service-date-newest':
-                        return this.compareServiceDates(b, a);
-                    case 'service-date-oldest':
-                        return this.compareServiceDates(a, b);
-                    case 'newest':
-                        return new Date(b.updatedAt) - new Date(a.updatedAt);
-                    case 'oldest':
-                        return new Date(a.updatedAt) - new Date(b.updatedAt);
-                    case 'created-newest':
-                        return new Date(b.createdAt) - new Date(a.createdAt);
-                    case 'created-oldest':
-                        return new Date(a.createdAt) - new Date(b.createdAt);
-                    case 'name-asc':
-                        return a.name.localeCompare(b.name);
-                    case 'name-desc':
-                        return b.name.localeCompare(a.name);
-                    default:
-                        return new Date(b.createdAt) - new Date(a.createdAt); // Default to created newest
-                }
-            });
-        }
-
+        // Display quotes - sorting is already done server-side
         this.displayQuotes(filtered);
     }
 
@@ -1397,8 +1383,9 @@ class QuotesManager {
     }
 
     showLoading(show) {
-        const overlay = document.getElementById('loading-overlay');
-        overlay.style.display = show ? 'flex' : 'none';
+        // Loading animation disabled for better UX
+        // const overlay = document.getElementById('loading-overlay');
+        // overlay.style.display = show ? 'flex' : 'none';
     }
 
     async transferToLumDash(quoteName) {

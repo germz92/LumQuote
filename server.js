@@ -2140,8 +2140,8 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
     const skip = (page - 1) * limit;
     
-    // Filter parameters from query string
-    const { archived, search, createdBy: createdByFilter, booked, dateFilter } = req.query;
+    // Filter and sort parameters from query string
+    const { archived, search, createdBy: createdByFilter, booked, dateFilter, sortBy, sortDirection } = req.query;
     
     let query = {};
     
@@ -2173,8 +2173,21 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
     }
     
     // Apply archived filter
+    // For archived=false, also include quotes where archived is undefined/null (older quotes)
     if (archived !== undefined) {
-      query.archived = archived === 'true';
+      if (archived === 'true') {
+        query.archived = true;
+      } else {
+        // Show non-archived quotes: archived is false, null, or doesn't exist
+        query.$and = query.$and || [];
+        query.$and.push({
+          $or: [
+            { archived: false },
+            { archived: null },
+            { archived: { $exists: false } }
+          ]
+        });
+      }
     }
     
     // Apply booked filter
@@ -2213,6 +2226,28 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
     const total = await SavedQuote.countDocuments(query);
     const totalPages = Math.ceil(total / limit);
     
+    // Build sort object based on parameters
+    let sortObj = { updatedAt: -1 }; // Default sort
+    if (sortBy) {
+      const direction = sortDirection === 'asc' ? 1 : -1;
+      
+      // Map frontend column names to database fields
+      const sortFieldMap = {
+        'name': 'name',
+        'clientName': 'clientName',
+        'location': 'location',
+        'total': 'quoteData.total',
+        'updatedAt': 'updatedAt',
+        'createdAt': 'createdAt',
+        'createdBy': 'createdBy.name',
+        'startDate': 'quoteData.days.0.date', // First day's date
+        'booked': 'booked'
+      };
+      
+      const dbField = sortFieldMap[sortBy] || sortBy;
+      sortObj = { [dbField]: direction };
+    }
+    
     const quotes = await SavedQuote.find(query, {
       name: 1,
       clientName: 1,
@@ -2229,7 +2264,7 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
     })
     .populate('createdBy', 'name')
     .populate('sharedWith.user', 'name')
-    .sort({ updatedAt: -1 })
+    .sort(sortObj)
     .skip(skip)
     .limit(limit);
     

@@ -35,7 +35,7 @@
                                id="searchQuotes" 
                                class="search-input" 
                                placeholder="Search quotes by name, client, or location..." 
-                               onkeyup="quotesManager.filterAndSort()">
+                               oninput="quotesManager.debouncedSearch()">
                         
                         <select id="sortQuotes" 
                                 class="sort-select grid-only" 
