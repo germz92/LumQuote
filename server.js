@@ -2597,6 +2597,172 @@ function formatDateForCalendar(date) {
 }
 
 // ============================================
+// REPORTS ENDPOINTS
+// ============================================
+
+// Reports page route (admin only)
+app.get('/reports', requireAuth, (req, res) => {
+  // Check if user is admin
+  if (req.user.role !== 'admin') {
+    return res.redirect('/');
+  }
+  res.sendFile(path.join(__dirname, 'public', 'reports.html'));
+});
+
+// Get report data with filters (admin only)
+app.get('/api/reports', requireApiAuth, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const { startDate, endDate, booked } = req.query;
+    
+    // Build query
+    let query = { archived: { $ne: true } };
+    
+    // Date filter - filter by first day's date in the quote
+    if (startDate || endDate) {
+      // We'll filter after fetching since dates are nested in quoteData.days
+    }
+    
+    // Booked filter
+    if (booked !== undefined && booked !== '' && booked !== 'all') {
+      query.booked = booked === 'true';
+    }
+    
+    // Fetch all quotes matching base query
+    const quotes = await SavedQuote.find(query, {
+      name: 1,
+      clientName: 1,
+      location: 1,
+      leadSource: 1,
+      booked: 1,
+      createdAt: 1,
+      'quoteData.total': 1,
+      'quoteData.days': 1
+    });
+    
+    // Filter by date range (based on first event date in the quote)
+    let filteredQuotes = quotes;
+    if (startDate || endDate) {
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate) : null;
+      if (end) end.setHours(23, 59, 59, 999); // Include the entire end day
+      
+      filteredQuotes = quotes.filter(quote => {
+        const days = quote.quoteData?.days || [];
+        const daysWithDates = days.filter(d => d.date);
+        if (daysWithDates.length === 0) return false;
+        
+        // Get the first event date
+        const eventDates = daysWithDates.map(d => parseStoredDate(d.date)).filter(d => d).sort((a, b) => a - b);
+        if (eventDates.length === 0) return false;
+        
+        const firstDate = eventDates[0];
+        
+        if (start && end) {
+          return firstDate >= start && firstDate <= end;
+        } else if (start) {
+          return firstDate >= start;
+        } else if (end) {
+          return firstDate <= end;
+        }
+        return true;
+      });
+    }
+    
+    // Calculate aggregations
+    const totalQuotes = filteredQuotes.length;
+    const totalInvoiceAmount = filteredQuotes.reduce((sum, q) => sum + (q.quoteData?.total || 0), 0);
+    const bookedCount = filteredQuotes.filter(q => q.booked).length;
+    const notBookedCount = filteredQuotes.filter(q => !q.booked).length;
+    
+    // Top Clients by invoice amount
+    const clientTotals = {};
+    const clientCounts = {};
+    filteredQuotes.forEach(quote => {
+      const client = quote.clientName || 'Unknown';
+      if (!clientTotals[client]) {
+        clientTotals[client] = 0;
+        clientCounts[client] = 0;
+      }
+      clientTotals[client] += quote.quoteData?.total || 0;
+      clientCounts[client]++;
+    });
+    
+    const topClientsByAmount = Object.entries(clientTotals)
+      .map(([name, total]) => ({ name, total, count: clientCounts[name] }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+    
+    // Most Events (clients with most projects)
+    const topClientsByCount = Object.entries(clientCounts)
+      .map(([name, count]) => ({ name, count, total: clientTotals[name] }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+    
+    // Top Cities
+    const cityCounts = {};
+    const cityTotals = {};
+    filteredQuotes.forEach(quote => {
+      const city = quote.location || 'Unknown';
+      if (!cityCounts[city]) {
+        cityCounts[city] = 0;
+        cityTotals[city] = 0;
+      }
+      cityCounts[city]++;
+      cityTotals[city] += quote.quoteData?.total || 0;
+    });
+    
+    const topCities = Object.entries(cityCounts)
+      .map(([name, count]) => ({ name, count, total: cityTotals[name] }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+    
+    // Top Sources
+    const sourceCounts = {};
+    const sourceTotals = {};
+    filteredQuotes.forEach(quote => {
+      const source = quote.leadSource || 'Unknown';
+      if (!sourceCounts[source]) {
+        sourceCounts[source] = 0;
+        sourceTotals[source] = 0;
+      }
+      sourceCounts[source]++;
+      sourceTotals[source] += quote.quoteData?.total || 0;
+    });
+    
+    const topSources = Object.entries(sourceCounts)
+      .map(([name, count]) => ({ name, count, total: sourceTotals[name] }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+    
+    res.json({
+      summary: {
+        totalQuotes,
+        totalInvoiceAmount,
+        bookedCount,
+        notBookedCount,
+        conversionRate: totalQuotes > 0 ? ((bookedCount / totalQuotes) * 100).toFixed(1) : 0
+      },
+      topClientsByAmount,
+      topClientsByCount,
+      topCities,
+      topSources,
+      dateRange: {
+        startDate: startDate || null,
+        endDate: endDate || null
+      }
+    });
+  } catch (error) {
+    console.error('Error generating reports:', error);
+    res.status(500).json({ error: 'Failed to generate reports' });
+  }
+});
+
+// ============================================
 // LUMQUOTE USER ENDPOINTS
 // ============================================
 

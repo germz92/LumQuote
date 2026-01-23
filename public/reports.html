@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - LumQuote</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <style>
+        .reports-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .reports-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .reports-header h1 {
+            color: #1e293b;
+            font-size: 1.75rem;
+            margin: 0;
+        }
+
+        .filters-bar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 0.875rem;
+            color: #64748b;
+            white-space: nowrap;
+        }
+
+        .filter-group select,
+        .filter-group input[type="date"] {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            background: white;
+        }
+
+        .filter-group select:focus,
+        .filter-group input[type="date"]:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+        }
+
+        .date-range-inputs {
+            display: none;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .date-range-inputs.visible {
+            display: flex;
+        }
+
+        .date-range-inputs span {
+            color: #64748b;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .summary-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .summary-card .label {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .summary-card .value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .summary-card .value.currency {
+            color: #059669;
+        }
+
+        .summary-card .subtext {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+        }
+
+        .report-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .report-card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .report-card-header h3 {
+            margin: 0;
+            font-size: 1rem;
+            color: #1e293b;
+        }
+
+        .report-card-header .icon {
+            font-size: 1.25rem;
+        }
+
+        .report-card-body {
+            padding: 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .report-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .report-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            border-bottom: 1px solid #f8fafc;
+            transition: background-color 0.15s;
+        }
+
+        .report-list-item:last-child {
+            border-bottom: none;
+        }
+
+        .report-list-item:hover {
+            background-color: #f8fafc;
+        }
+
+        .report-list-item .rank {
+            width: 28px;
+            height: 28px;
+            background: #f1f5f9;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            margin-right: 12px;
+        }
+
+        .report-list-item .rank.top-3 {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: white;
+        }
+
+        .report-list-item .info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .report-list-item .name {
+            font-weight: 500;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .report-list-item .details {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .report-list-item .stats {
+            text-align: right;
+        }
+
+        .report-list-item .primary-stat {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .report-list-item .secondary-stat {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .no-data {
+            padding: 40px 20px;
+            text-align: center;
+            color: #94a3b8;
+        }
+
+        .no-data-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+
+        .loading-spinner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .loading-spinner::after {
+            content: "";
+            width: 32px;
+            height: 32px;
+            border: 3px solid #f1f5f9;
+            border-top-color: #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Progress bars for visualizing data */
+        .progress-bar-container {
+            width: 100px;
+            height: 6px;
+            background: #f1f5f9;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .reports-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filters-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-group {
+                justify-content: space-between;
+            }
+
+            .summary-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-section">
+            <img src="/assets/logo.png" alt="Lumetry Media" class="company-logo" onclick="window.location.href='/'" style="cursor: pointer;">
+        </div>
+        <header class="header">
+            <div class="header-spacer"></div>
+            <div class="header-title">
+                <h1>Reports & Analytics</h1>
+                <span class="subtitle">View insights and trends across your quotes</span>
+            </div>
+            <div class="header-actions">
+                <a href="/quotes" class="admin-link">Quotes</a>
+                <a href="/calendar" class="admin-link">Calendar</a>
+                <a href="/admin" class="admin-link">Admin</a>
+                <span class="user-name" id="userDisplayName"></span>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </header>
+
+        <main class="reports-container">
+            <!-- Filters -->
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <label for="timePreset">Time Period:</label>
+                    <select id="timePreset" onchange="reportsManager.handleTimePresetChange()">
+                        <option value="current-month">Current Month</option>
+                        <option value="last-month">Last Month</option>
+                        <option value="current-quarter">Current Quarter</option>
+                        <option value="current-year">Current Year</option>
+                        <option value="last-year">Last Year</option>
+                        <option value="all-time">All Time</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+
+                <div class="filter-group date-range-inputs" id="customDateRange">
+                    <input type="date" id="startDate" onchange="reportsManager.loadReports()">
+                    <span>to</span>
+                    <input type="date" id="endDate" onchange="reportsManager.loadReports()">
+                </div>
+
+                <div class="filter-group">
+                    <label for="bookedFilter">Status:</label>
+                    <select id="bookedFilter" onchange="reportsManager.loadReports()">
+                        <option value="all">All Quotes</option>
+                        <option value="true">Booked Only</option>
+                        <option value="false">Not Booked</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="summary-cards" id="summaryCards">
+                <div class="summary-card">
+                    <div class="label">Total Quotes</div>
+                    <div class="value" id="totalQuotes">-</div>
+                </div>
+                <div class="summary-card">
+                    <div class="label">Invoice Total</div>
+                    <div class="value currency" id="totalInvoice">-</div>
+                </div>
+                <div class="summary-card">
+                    <div class="label">Booked</div>
+                    <div class="value" id="bookedCount">-</div>
+                    <div class="subtext" id="conversionRate"></div>
+                </div>
+                <div class="summary-card">
+                    <div class="label">Not Booked</div>
+                    <div class="value" id="notBookedCount">-</div>
+                </div>
+            </div>
+
+            <!-- Report Cards Grid -->
+            <div class="reports-grid">
+                <!-- Top Clients by Amount -->
+                <div class="report-card">
+                    <div class="report-card-header">
+                        <h3>💰 Top Clients by Revenue</h3>
+                    </div>
+                    <div class="report-card-body" id="topClientsByAmount">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+
+                <!-- Top Clients by Count -->
+                <div class="report-card">
+                    <div class="report-card-header">
+                        <h3>🏆 Most Events by Client</h3>
+                    </div>
+                    <div class="report-card-body" id="topClientsByCount">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+
+                <!-- Top Cities -->
+                <div class="report-card">
+                    <div class="report-card-header">
+                        <h3>🏙️ Top Cities</h3>
+                    </div>
+                    <div class="report-card-body" id="topCities">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+
+                <!-- Top Sources -->
+                <div class="report-card">
+                    <div class="report-card-header">
+                        <h3>📣 Top Lead Sources</h3>
+                    </div>
+                    <div class="report-card-body" id="topSources">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="lumdash-integration.js"></script>
+    <script src="reports.js"></script>
+    <script>
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/login';
+            }
+        }
+    </script>
+</body>
+</html>

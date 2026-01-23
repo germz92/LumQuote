@@ -222,9 +222,22 @@ function checkPendingLumDashTransfer() {
     }
 }
 
+// Check if current user is admin and show admin-only elements
+function showAdminOnlyElements() {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.role === 'admin') {
+        // Show Reports link for admin users
+        const reportsLink = document.getElementById('reportsLink');
+        if (reportsLink) {
+            reportsLink.style.display = '';
+        }
+    }
+}
+
 // Initialize - check for pending transfers when page loads
 document.addEventListener('DOMContentLoaded', () => {
     checkPendingLumDashTransfer();
+    showAdminOnlyElements();
 });
 
 // Export for use in other files
