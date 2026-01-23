@@ -1895,6 +1895,7 @@ const savedQuoteSchema = new mongoose.Schema({
   quoteData: { type: Object, required: true },
   clientName: { type: String, default: null },
   location: { type: String, default: null },
+  leadSource: { type: String, default: null },
   archived: { type: Boolean, default: false },
   booked: { type: Boolean, default: false },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
@@ -2005,7 +2006,7 @@ async function getOrCreateUserRecord(userName) {
 // Save quote endpoint (auto-assigns createdBy from logged-in user)
 app.post('/api/save-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, location, booked } = req.body;
+    const { name, quoteData, clientName, location, leadSource, booked } = req.body;
     const user = req.user;
     
     if (!name || !quoteData) {
@@ -2036,6 +2037,7 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
       quoteData,
       clientName: clientName || null,
       location: location || null,
+      leadSource: leadSource || null,
       booked: booked || false,
       createdBy: userRecord?._id || null
     });
@@ -2052,7 +2054,7 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
 // Overwrite existing quote (with access control)
 app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, location, booked } = req.body;
+    const { name, quoteData, clientName, location, leadSource, booked } = req.body;
     const user = req.user;
     
     if (!name || !quoteData) {
@@ -2079,6 +2081,7 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
         quoteData,
         clientName: clientName || null,
         location: location || null,
+        leadSource: leadSource || null,
         booked: booked || false
         // Don't update createdBy - keep original owner
       },
@@ -2252,6 +2255,7 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
       name: 1,
       clientName: 1,
       location: 1,
+      leadSource: 1,
       archived: 1,
       booked: 1,
       createdBy: 1,

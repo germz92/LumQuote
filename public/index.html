@@ -161,9 +161,9 @@
                         <input type="text" id="saveQuoteTitle" required placeholder="Enter quote title">
                     </div>
                     <div class="form-group">
-                        <label for="clientName">Client Name (Optional)</label>
+                        <label for="clientName">Client Name *</label>
                         <div class="client-input-container">
-                            <input type="text" id="clientName" placeholder="Enter client name" autocomplete="off" onfocus="hideClientDropdown()" oninput="filterClients()">
+                            <input type="text" id="clientName" placeholder="Enter client name" autocomplete="off" required onfocus="hideClientDropdown()" oninput="filterClients()">
                             <button type="button" class="dropdown-arrow" onclick="toggleClientDropdown()" aria-label="Show previous clients">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <polyline points="6,9 12,15 18,9"></polyline>
@@ -175,8 +175,12 @@
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="eventLocation">Event Location (Optional)</label>
-                        <input type="text" id="eventLocation" placeholder="Enter event location">
+                        <label for="eventLocation">Event Location *</label>
+                        <input type="text" id="eventLocation" placeholder="Enter event location" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="leadSource">Lead Source *</label>
+                        <input type="text" id="leadSource" placeholder="Enter lead source (e.g., Referral, Website, LinkedIn)" required>
                     </div>
                     <div class="form-group">
                         <label class="checkbox-label">

@@ -6,6 +6,8 @@ class QuoteCalculator {
         this.markups = [];
         this.currentQuoteName = null;
         this.currentClientName = null;
+        this.currentLocation = null;
+        this.currentLeadSource = null;
         this.currentBooked = false;
         this.currentCreatedBy = null;
         this.currentQuoteTitle = "Conference Services Quote";
@@ -68,6 +70,7 @@ class QuoteCalculator {
                 this.currentClientName = draftData.currentClientName || null;
                 this.currentQuoteTitle = draftData.currentQuoteTitle || "Conference Services Quote";
                 this.currentLocation = draftData.currentLocation || null;
+                this.currentLeadSource = draftData.currentLeadSource || null;
                 this.currentBooked = draftData.currentBooked || false;
                 this.currentCreatedBy = draftData.currentCreatedBy || null;
                 this.perEventDiscountEnabled = draftData.perEventDiscountEnabled || false;
@@ -77,6 +80,7 @@ class QuoteCalculator {
                     clientName: this.currentClientName,
                     quoteTitle: this.currentQuoteTitle,
                     location: this.currentLocation,
+                    leadSource: this.currentLeadSource,
                     booked: this.currentBooked
                 });
                 
@@ -124,6 +128,7 @@ class QuoteCalculator {
                 currentClientName: this.currentClientName,
                 currentQuoteTitle: this.currentQuoteTitle,
                 currentLocation: this.currentLocation,
+                currentLeadSource: this.currentLeadSource,
                 currentBooked: this.currentBooked,
                 currentCreatedBy: this.currentCreatedBy,
                 perEventDiscountEnabled: this.perEventDiscountEnabled,
@@ -134,6 +139,7 @@ class QuoteCalculator {
                 clientName: draftData.currentClientName,
                 quoteTitle: draftData.currentQuoteTitle,
                 location: draftData.currentLocation,
+                leadSource: draftData.currentLeadSource,
                 booked: draftData.currentBooked
             });
             localStorage.setItem(this.autoSaveKey, JSON.stringify(draftData));
@@ -158,6 +164,7 @@ class QuoteCalculator {
         this.currentCreatedBy = null;
         this.currentQuoteTitle = "Conference Services Quote";
         this.currentLocation = null;
+        this.currentLeadSource = null;
         this.perEventDiscountEnabled = false;
         
         // Reset auto-save state
@@ -1298,6 +1305,7 @@ class QuoteCalculator {
         document.getElementById('saveQuoteTitle').value = this.currentQuoteTitle || this.currentQuoteName || '';
         document.getElementById('clientName').value = this.currentClientName || '';
         document.getElementById('eventLocation').value = this.currentLocation || '';
+        document.getElementById('leadSource').value = this.currentLeadSource || '';
         document.getElementById('bookedCheckbox').checked = this.currentBooked || false;
         
         // Load previous clients for the dropdown
@@ -1550,10 +1558,26 @@ class QuoteCalculator {
         const title = document.getElementById('saveQuoteTitle').value.trim();
         const clientName = document.getElementById('clientName').value.trim();
         const location = document.getElementById('eventLocation').value.trim();
+        const leadSource = document.getElementById('leadSource').value.trim();
         const booked = document.getElementById('bookedCheckbox').checked;
         
         if (!title) {
             showAlertModal('Please enter a quote title.', 'error');
+            return;
+        }
+        
+        if (!clientName) {
+            showAlertModal('Please enter a client name.', 'error');
+            return;
+        }
+        
+        if (!location) {
+            showAlertModal('Please enter an event location.', 'error');
+            return;
+        }
+        
+        if (!leadSource) {
+            showAlertModal('Please enter a lead source.', 'error');
             return;
         }
 
@@ -1563,6 +1587,10 @@ class QuoteCalculator {
             discountPercentage: this.discountPercentage,
             markups: this.markups
         };
+        
+        // Check if we're renaming an existing quote (e.g., from auto-saved "Untitled Quote")
+        const oldQuoteName = this.currentQuoteName;
+        const isRenaming = oldQuoteName && oldQuoteName !== title;
 
         try {
             const response = await fetch('/api/save-quote', {
@@ -1575,6 +1603,7 @@ class QuoteCalculator {
                     quoteData,
                     clientName: clientName || null,
                     location: location || null,
+                    leadSource: leadSource || null,
                     booked: booked
                 })
             });
@@ -1590,13 +1619,23 @@ class QuoteCalculator {
                     'Cancel'
                 );
                 if (overwrite) {
-                    await this.overwriteQuote(title, quoteData, clientName, location, booked);
+                    await this.overwriteQuote(title, quoteData, clientName, location, leadSource, booked);
+                    // If we're renaming, delete the old quote after successful overwrite
+                    if (isRenaming) {
+                        await this.deleteOldQuote(oldQuoteName);
+                    }
                 }
             } else if (result.success) {
+                // If we're renaming from an old name (like "Untitled Quote"), delete the old one
+                if (isRenaming) {
+                    await this.deleteOldQuote(oldQuoteName);
+                }
+                
                 // Update current quote info
                 this.currentQuoteName = title;
                 this.currentClientName = clientName || null;
                 this.currentLocation = location || null;
+                this.currentLeadSource = leadSource || null;
                 this.currentBooked = booked;
                 this.currentQuoteTitle = title; // Update the main page title
                 this.lastSavedTime = new Date();
@@ -1615,6 +1654,26 @@ class QuoteCalculator {
         } catch (error) {
             console.error('Error saving quote:', error);
             showAlertModal('Error saving quote. Please try again.', 'error');
+        }
+    }
+    
+    // Helper method to delete old quote when renaming
+    async deleteOldQuote(quoteName) {
+        if (!quoteName) return;
+        
+        try {
+            const response = await fetch(`/api/saved-quotes/${encodeURIComponent(quoteName)}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                console.log('🗑️ Deleted old quote:', quoteName);
+            } else {
+                console.warn('⚠️ Could not delete old quote:', quoteName);
+            }
+        } catch (error) {
+            console.warn('⚠️ Error deleting old quote:', error);
+            // Don't throw - this is a cleanup operation, not critical
         }
     }
 
@@ -1686,6 +1745,7 @@ class QuoteCalculator {
                     quoteData,
                     clientName: this.currentClientName || null,
                     location: this.currentLocation || null,
+                    leadSource: this.currentLeadSource || null,
                     booked: this.currentBooked || false
                 })
             });
@@ -1704,6 +1764,7 @@ class QuoteCalculator {
                         quoteData,
                         clientName: this.currentClientName || null,
                         location: this.currentLocation || null,
+                        leadSource: this.currentLeadSource || null,
                         booked: this.currentBooked || false
                     })
                 });
@@ -1762,7 +1823,7 @@ class QuoteCalculator {
         }
     }
 
-    async overwriteQuote(name, quoteData, clientName, location, booked) {
+    async overwriteQuote(name, quoteData, clientName, location, leadSource, booked) {
         try {
             const response = await fetch('/api/overwrite-quote', {
                 method: 'POST',
@@ -1774,6 +1835,7 @@ class QuoteCalculator {
                     quoteData,
                     clientName: clientName || null,
                     location: location || null,
+                    leadSource: leadSource || null,
                     booked: booked
                 })
             });
@@ -1785,6 +1847,7 @@ class QuoteCalculator {
                 this.currentQuoteName = name;
                 this.currentClientName = clientName || null;
                 this.currentLocation = location || null;
+                this.currentLeadSource = leadSource || null;
                 this.currentQuoteTitle = name; // Update the main page title
                 this.lastSavedTime = new Date();
                 this.updateSaveStatus('saved');
@@ -1880,6 +1943,7 @@ class QuoteCalculator {
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
             this.currentLocation = quote.location || null;
+            this.currentLeadSource = quote.leadSource || null;
             this.currentBooked = quote.booked || false;
             this.currentCreatedBy = quote.createdBy?._id || null;
             this.currentQuoteTitle = quote.name; // Use quote name as title (matching regular loadQuote)
@@ -2079,6 +2143,7 @@ class QuoteCalculator {
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
             this.currentLocation = quote.location || null;
+            this.currentLeadSource = quote.leadSource || null;
             this.currentBooked = quote.booked || false;
             this.currentCreatedBy = quote.createdBy?._id || null;
             this.currentQuoteTitle = quote.name; // Use quote name as title
@@ -3916,10 +3981,26 @@ async function saveAsCopy() {
     const title = document.getElementById('saveQuoteTitle').value.trim();
     const clientName = document.getElementById('clientName').value.trim();
     const location = document.getElementById('eventLocation').value.trim();
+    const leadSource = document.getElementById('leadSource').value.trim();
     const booked = document.getElementById('bookedCheckbox').checked;
     
     if (!title) {
         showAlertModal('Please enter a quote title.', 'error');
+        return;
+    }
+    
+    if (!clientName) {
+        showAlertModal('Please enter a client name.', 'error');
+        return;
+    }
+    
+    if (!location) {
+        showAlertModal('Please enter an event location.', 'error');
+        return;
+    }
+    
+    if (!leadSource) {
+        showAlertModal('Please enter a lead source.', 'error');
         return;
     }
 
@@ -3943,6 +4024,7 @@ async function saveAsCopy() {
                 quoteData,
                 clientName: clientName || null,
                 location: location || null,
+                leadSource: leadSource || null,
                 booked: booked
             })
         });
@@ -3965,6 +4047,7 @@ async function saveAsCopy() {
                         quoteData,
                         clientName: clientName || null,
                         location: location || null,
+                        leadSource: leadSource || null,
                         booked: booked
                     })
                 });
@@ -3974,6 +4057,7 @@ async function saveAsCopy() {
                 if (retryResult.success) {
                     calculator.currentQuoteName = uniqueTitle;
                     calculator.currentClientName = clientName || null;
+                    calculator.currentLeadSource = leadSource || null;
                     calculator.currentQuoteTitle = uniqueTitle;
                     
                     // Update displays
@@ -3992,6 +4076,7 @@ async function saveAsCopy() {
         } else if (result.success) {
             calculator.currentQuoteName = copyTitle;
             calculator.currentClientName = clientName || null;
+            calculator.currentLeadSource = leadSource || null;
             calculator.currentQuoteTitle = copyTitle;
             
             // Update displays
