@@ -4485,14 +4485,24 @@ function filterClients() {
     if (!calculator.allClients) return;
     
     const input = document.getElementById('clientName');
+    const dropdown = document.getElementById('clientDropdown');
     const filter = input.value.toLowerCase();
     
     if (filter === '') {
-        calculator.displayClients(calculator.allClients);
+        // Hide dropdown when input is empty
+        dropdown.style.display = 'none';
     } else {
         const filtered = calculator.allClients.filter(client => 
             client.toLowerCase().includes(filter)
         );
         calculator.displayClients(filtered);
+        
+        // Show dropdown with filtered results if there are matches
+        if (filtered.length > 0) {
+            calculator.positionDropdown(dropdown, input);
+            dropdown.style.display = 'block';
+        } else {
+            dropdown.style.display = 'none';
+        }
     }
 } 
