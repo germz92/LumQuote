@@ -141,7 +141,10 @@ app.post('/api/auth/lumdash', async (req, res) => {
     const lumDashId = decoded.id || decoded.userId || decoded._id;
     const userName = decoded.fullName || decoded.name || 'Unknown User';
     const userEmail = decoded.email || '';
-    const userRole = decoded.role || 'user';
+    // Map LumDash roles to valid LumQuote roles (only 'admin' and 'user' are supported)
+    // Other roles like 'planner' should be treated as 'user'
+    const rawRole = decoded.role || 'user';
+    const userRole = (rawRole === 'admin') ? 'admin' : 'user';
     
     console.log('✅ LumDash token verified for:', userName);
     console.log('   Token payload:', JSON.stringify(decoded));
