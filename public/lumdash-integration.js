@@ -3,11 +3,11 @@
  * Handles SSO authentication and event transfer to LumDash
  */
 
-// For local development, use localhost. For production, use the live URLs.
+// Always use production LumDash for SSO and integrations (works for both local dev and production)
 const IS_LOCAL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-const LUMDASH_API = IS_LOCAL ? 'http://localhost:3000' : 'https://lumdash2-0.onrender.com';
-const LUMDASH_APP = IS_LOCAL ? 'http://localhost:3000' : 'https://beta.lumdash.app';
+const LUMDASH_API = 'https://lumdash2-0.onrender.com';
+const LUMDASH_APP = 'https://beta.lumdash.app';
 
 console.log('🔧 LumDash Integration config:', { IS_LOCAL, LUMDASH_API, LUMDASH_APP, hostname: window.location.hostname });
 

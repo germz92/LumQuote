@@ -210,10 +210,10 @@
     </div>
 
     <script>
-        // For local development, use localhost. For production, use the live URLs.
+        // Always use production LumDash for SSO (works for both local dev and production)
         const IS_LOCAL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-        const LUMDASH_API = IS_LOCAL ? 'http://localhost:3000' : 'https://lumdash2-0.onrender.com';
-        const LUMDASH_URL = IS_LOCAL ? 'http://localhost:3000' : 'https://beta.lumdash.app';
+        const LUMDASH_API = 'https://lumdash2-0.onrender.com';
+        const LUMDASH_URL = 'https://beta.lumdash.app';
         const LUMQUOTE_CALLBACK = window.location.origin + '/login';
         
         console.log('🔧 LumDash config:', { IS_LOCAL, LUMDASH_API, LUMDASH_URL, hostname: window.location.hostname });

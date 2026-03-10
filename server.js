@@ -2635,6 +2635,13 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
       query.booked = booked === 'true';
     }
     
+    // Load all services to build a category lookup map
+    const allServices = await Service.find({}, { category: 1 });
+    const serviceCategoryMap = {};
+    allServices.forEach(s => {
+      serviceCategoryMap[s._id.toString()] = s.category || 'Other';
+    });
+
     // Fetch all quotes matching base query
     const quotes = await SavedQuote.find(query, {
       name: 1,
@@ -2742,6 +2749,48 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
     
+    // Top Categories (by revenue from service items)
+    const categoryCounts = {};
+    const categoryTotals = {};
+    filteredQuotes.forEach(quote => {
+      const days = quote.quoteData?.days || [];
+      days.forEach(day => {
+        (day.services || []).forEach(service => {
+          // Resolve category: try inline category, then lookup by service id, fallback to 'Other'
+          const category = service.category || serviceCategoryMap[service.id] || 'Other';
+          
+          // Capitalize first letter for display consistency
+          const displayCategory = category.charAt(0).toUpperCase() + category.slice(1);
+          
+          if (!categoryCounts[displayCategory]) {
+            categoryCounts[displayCategory] = 0;
+            categoryTotals[displayCategory] = 0;
+          }
+          
+          // Calculate effective revenue for this service line
+          const originalTotal = (service.price || 0) * (service.quantity || 1);
+          let discountAmount = 0;
+          if (service.discount && service.discount.applied && service.discount.value > 0) {
+            if (service.discount.type === 'percentage') {
+              discountAmount = originalTotal * (service.discount.value / 100);
+            } else {
+              discountAmount = service.discount.value;
+            }
+            discountAmount = Math.min(discountAmount, originalTotal);
+          }
+          const finalTotal = originalTotal - discountAmount;
+          
+          categoryCounts[displayCategory]++;
+          categoryTotals[displayCategory] += finalTotal;
+        });
+      });
+    });
+    
+    const topCategories = Object.entries(categoryTotals)
+      .map(([name, total]) => ({ name, total, count: categoryCounts[name] }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+    
     res.json({
       summary: {
         totalQuotes,
@@ -2754,6 +2803,7 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
       topClientsByCount,
       topCities,
       topSources,
+      topCategories,
       dateRange: {
         startDate: startDate || null,
         endDate: endDate || null
