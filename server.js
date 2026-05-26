@@ -118,6 +118,14 @@ function requireApiAuth(req, res, next) {
   }
 }
 
+// Health check for Render (no auth — must return 200)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    ok: true,
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'connecting'
+  });
+});
+
 // Serve login page without authentication
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
@@ -268,18 +276,23 @@ app.post('/api/logout', (req, res) => {
   res.json({ success: true });
 });
 
+// Public static assets (JS/CSS/images) — required for authenticated pages to load scripts
+function isPublicStaticAsset(pathname) {
+  return /\.(js|css|ico|png|jpe?g|gif|svg|webp|woff2?|ttf|map)$/i.test(pathname);
+}
+
 // Protect static files and main routes
 app.use((req, res, next) => {
-  // Allow access to login page, login API, and assets needed for login page
-  if (req.path === '/login' || 
-      req.path === '/api/login' || 
+  if (req.path === '/health' ||
+      req.path === '/login' ||
+      req.path === '/api/login' ||
+      req.path.startsWith('/api/auth/') ||
       req.path.startsWith('/login.') ||
       req.path.startsWith('/assets/') ||
-      req.path === '/styles.css') {
-    next();
-  } else {
-    requireAuth(req, res, next);
+      isPublicStaticAsset(req.path)) {
+    return next();
   }
+  requireAuth(req, res, next);
 });
 
 // Define custom routes BEFORE static middleware
