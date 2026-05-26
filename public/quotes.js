@@ -3,8 +3,8 @@ class QuotesManager {
         this.allQuotes = [];
         this.showingArchived = false;
         this.users = [];
-        // Load saved view preference or default to grid
-        this.viewMode = localStorage.getItem('quotesViewMode') || 'grid';
+        // Load saved view preference or default to list
+        this.viewMode = localStorage.getItem('quotesViewMode') || 'list';
         this.sortColumn = localStorage.getItem('quotesSortColumn') || 'created-newest';
         this.sortDirection = localStorage.getItem('quotesSortDirection') || 'desc';
         
@@ -38,10 +38,17 @@ class QuotesManager {
         await this.loadQuotes();
         this.applyViewMode(); // Apply saved view mode
         this.renderQuotes();
+        this.updateStickyOffsets();
         
         // Update sort indicators if in list view
         if (this.viewMode === 'list') {
             this.updateSortIndicators();
+        }
+    }
+
+    updateStickyOffsets() {
+        if (window.AppShell?.updateLayoutOffsets) {
+            window.AppShell.updateLayoutOffsets();
         }
     }
 
@@ -360,24 +367,91 @@ class QuotesManager {
         }
     }
 
+    getEmptyStateType() {
+        const searchTerm = document.getElementById('searchQuotes')?.value || '';
+        const dateFilter = document.getElementById('dateFilter')?.value || '';
+        const userFilter = document.getElementById('userFilter')?.value || '';
+        const bookedFilter = document.getElementById('bookedFilter')?.value || '';
+
+        if (searchTerm || dateFilter || userFilter || bookedFilter) {
+            return 'filtered';
+        }
+        if (this.showingArchived) {
+            return 'archived';
+        }
+        return 'default';
+    }
+
+    getEmptyStateContent(type) {
+        const states = {
+            default: {
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>`,
+                title: 'No quotes yet',
+                message: 'Create your first quote to get started. You can save, share, and book quotes from here.',
+                primaryAction: `<button type="button" class="btn btn-primary btn-md primary-button" onclick="clearQuoteData(event)">New Quote</button>`
+            },
+            filtered: {
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+                title: 'No matching quotes',
+                message: 'Try adjusting your search or filters to find what you are looking for.',
+                primaryAction: `<button type="button" class="btn btn-secondary btn-md secondary-button" onclick="quotesManager.clearFilters()">Clear filters</button>`
+            },
+            archived: {
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>`,
+                title: 'No archived quotes',
+                message: 'Quotes you archive will appear here for easy reference later.',
+                primaryAction: `<button type="button" class="btn btn-secondary btn-md secondary-button" onclick="quotesManager.toggleArchiveView()">View active quotes</button>`
+            }
+        };
+        return states[type] || states.default;
+    }
+
+    renderEmptyStateHTML(type) {
+        const content = this.getEmptyStateContent(type);
+        return `
+            <div class="empty-state" role="status">
+                <div class="empty-state__icon">${content.icon}</div>
+                <h3 class="empty-state__title">${content.title}</h3>
+                <p class="empty-state__message">${content.message}</p>
+                <div class="empty-state__actions">${content.primaryAction}</div>
+            </div>
+        `;
+    }
+
+    renderSkeleton() {
+        const skeleton = document.getElementById('quotesSkeleton');
+        if (!skeleton) return;
+
+        if (this.viewMode === 'list') {
+            skeleton.className = 'quotes-skeleton quotes-skeleton--list';
+            skeleton.innerHTML = Array.from({ length: 8 }, () => `
+                <div class="skeleton-row">
+                    <div class="skeleton-block skeleton-block--title"></div>
+                    <div class="skeleton-block skeleton-block--line"></div>
+                    <div class="skeleton-block skeleton-block--line"></div>
+                    <div class="skeleton-block skeleton-block--short"></div>
+                    <div class="skeleton-block skeleton-block--short"></div>
+                    <div class="skeleton-block skeleton-block--short"></div>
+                </div>
+            `).join('');
+        } else {
+            skeleton.className = 'quotes-skeleton quotes-skeleton--grid';
+            skeleton.innerHTML = Array.from({ length: 6 }, () => `
+                <div class="skeleton-card">
+                    <div class="skeleton-block skeleton-block--title"></div>
+                    <div class="skeleton-block skeleton-block--line"></div>
+                    <div class="skeleton-block skeleton-block--line"></div>
+                    <div class="skeleton-block skeleton-block--short"></div>
+                </div>
+            `).join('');
+        }
+    }
+
     displayQuotesGrid(quotes) {
         const container = document.getElementById('quotesContainer');
         
         if (quotes.length === 0) {
-            const emptyMessage = this.showingArchived ? 'No archived quotes found' : 'No active quotes found';
-            const searchTerm = document.getElementById('searchQuotes').value;
-            const dateFilter = document.getElementById('dateFilter').value;
-            
-            if (searchTerm || dateFilter) {
-                container.innerHTML = `
-                    <div class="no-quotes">
-                        <p>No quotes match your filters</p>
-                        <button class="primary-button" onclick="quotesManager.clearFilters()">Clear Filters</button>
-                    </div>
-                `;
-            } else {
-                container.innerHTML = `<div class="no-quotes">${emptyMessage}</div>`;
-            }
+            container.innerHTML = this.renderEmptyStateHTML(this.getEmptyStateType());
             return;
         }
 
@@ -388,11 +462,10 @@ class QuotesManager {
         const tableBody = document.getElementById('quotesTableBody');
         
         if (quotes.length === 0) {
-            const emptyMessage = this.showingArchived ? 'No archived quotes found' : 'No active quotes found';
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="9" style="text-align: center; padding: 60px 20px; color: #64748b;">
-                        ${emptyMessage}
+                    <td colspan="9" class="empty-state-cell">
+                        ${this.renderEmptyStateHTML(this.getEmptyStateType())}
                     </td>
                 </tr>
             `;
@@ -473,7 +546,8 @@ class QuotesManager {
         return `
             <tr class="quote-row ${isBooked ? 'booked-row' : ''} ${isSharedWithMe ? 'shared-row' : ''}" data-quote-name="${this.escapeHtml(quote.name)}" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
                 <td class="quote-title-cell">
-                    ${isBooked ? '<span class="booked-badge-small">BOOKED</span>' : ''}
+                    ${isBooked ? '<span class="status-badge status-badge--booked">Booked</span>' : ''}
+                    ${isArchived ? '<span class="status-badge status-badge--archived">Archived</span>' : ''}
                     ${isSharedWithMe ? `<span class="shared-badge-small ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${quote.accessLevel === 'read' ? 'VIEW' : 'EDIT'}</span>` : ''}
                     ${hasShares && quote.isOwner ? `<span class="sharing-badge-small" title="Shared with ${quote.sharedWith.length} user(s)">👥</span>` : ''}
                     <strong>${this.escapeHtml(quoteTitle)}</strong>
@@ -760,15 +834,18 @@ class QuotesManager {
         
         console.log('🔄 Toggle archive view:', this.showingArchived);
         
-        const toggleBtn = document.getElementById('archiveToggleText');
-        const container = document.getElementById('quotesContainer');
+        const toggleText = document.getElementById('archiveToggleText');
+        const archiveBtn = document.getElementById('archiveToggleBtn');
+        const dataArea = document.getElementById('quotesDataArea');
         
         if (this.showingArchived) {
-            toggleBtn.textContent = 'View Active';
-            container.classList.add('showing-archived');
+            if (toggleText) toggleText.textContent = 'View Active';
+            archiveBtn?.classList.add('is-active');
+            dataArea?.classList.add('showing-archived');
         } else {
-            toggleBtn.textContent = 'View Archived';
-            container.classList.remove('showing-archived');
+            if (toggleText) toggleText.textContent = 'View Archived';
+            archiveBtn?.classList.remove('is-active');
+            dataArea?.classList.remove('showing-archived');
         }
         
         await this.loadQuotes();
@@ -783,6 +860,7 @@ class QuotesManager {
         
         this.applyViewMode();
         this.renderQuotes();
+        this.updateStickyOffsets();
         
         // Update sort indicators if switching to list view
         if (this.viewMode === 'list') {
@@ -800,7 +878,7 @@ class QuotesManager {
         if (this.viewMode === 'list') {
             gridContainer.style.display = 'none';
             listContainer.style.display = 'block';
-            sortDropdown.style.display = 'none'; // Hide sort dropdown in list view
+            if (sortDropdown) sortDropdown.style.display = 'none';
             toggleText.textContent = 'Grid View';
             toggleIcon.innerHTML = `
                 <rect x="3" y="3" width="7" height="7"></rect>
@@ -811,7 +889,7 @@ class QuotesManager {
         } else {
             gridContainer.style.display = 'grid';
             listContainer.style.display = 'none';
-            sortDropdown.style.display = 'block'; // Show sort dropdown in grid view
+            if (sortDropdown) sortDropdown.style.display = 'block';
             toggleText.textContent = 'List View';
             toggleIcon.innerHTML = `
                 <line x1="8" y1="6" x2="21" y2="6"></line>
@@ -889,7 +967,7 @@ class QuotesManager {
             sessionStorage.setItem('loadQuoteData', JSON.stringify(quoteData));
             
             // Navigate to calculator page
-            window.location.href = '/calculator';
+            window.location.href = '/builder';
             
         } catch (error) {
             console.error('Error loading quote:', error);
@@ -1473,9 +1551,21 @@ class QuotesManager {
     }
 
     showLoading(show) {
-        // Loading animation disabled for better UX
-        // const overlay = document.getElementById('loading-overlay');
-        // overlay.style.display = show ? 'flex' : 'none';
+        const dataArea = document.getElementById('quotesDataArea');
+        const skeleton = document.getElementById('quotesSkeleton');
+
+        if (!dataArea || !skeleton) return;
+
+        if (show) {
+            this.renderSkeleton();
+            dataArea.classList.add('is-loading');
+            skeleton.hidden = false;
+            skeleton.setAttribute('aria-hidden', 'false');
+        } else {
+            dataArea.classList.remove('is-loading');
+            skeleton.hidden = true;
+            skeleton.setAttribute('aria-hidden', 'true');
+        }
     }
 
     async transferToLumDash(quoteName) {
@@ -1512,144 +1602,9 @@ class QuotesManager {
     }
 }
 
-// Modal functions (reused from main app)
-let currentConfirmCallback = null;
-
-function showAlertModal(message, type = 'info', title = null, autoClose = false) {
-    const modal = document.getElementById('alertModal');
-    const titleEl = document.getElementById('alertModalTitle');
-    const messageEl = document.getElementById('alertModalMessage');
-    const iconEl = document.getElementById('alertModalIcon');
-    const contentEl = modal.querySelector('.alert-modal-content');
-    
-    titleEl.textContent = title || (type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Information');
-    messageEl.textContent = message;
-    iconEl.className = `alert-icon ${type}`;
-    contentEl.classList.remove('auto-close');
-    modal.style.display = 'flex';
-    
-    if (autoClose && type === 'success') {
-        contentEl.classList.add('auto-close');
-        setTimeout(() => {
-            hideAlertModal();
-        }, 3500);
-    }
-    
-    setTimeout(() => {
-        const okButton = modal.querySelector('.primary-button');
-        okButton.focus();
-    }, 100);
-}
-
-function hideAlertModal() {
-    const modal = document.getElementById('alertModal');
-    if (modal) {
-        modal.classList.add('closing');
-        setTimeout(() => {
-            modal.style.display = 'none';
-            modal.classList.remove('closing');
-        }, 200);
-    }
-}
-
-function showConfirmModal(message, title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel') {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('confirmModal');
-        const titleEl = document.getElementById('confirmModalTitle');
-        const messageEl = document.getElementById('confirmModalMessage');
-        const confirmBtn = document.getElementById('confirmModalOk');
-        
-        titleEl.textContent = title;
-        messageEl.textContent = message;
-        confirmBtn.textContent = confirmText;
-        
-        currentConfirmCallback = resolve;
-        modal.style.display = 'flex';
-        
-        setTimeout(() => {
-            confirmBtn.focus();
-        }, 100);
-    });
-}
-
-function hideConfirmModal(result) {
-    const modal = document.getElementById('confirmModal');
-    if (modal) {
-        modal.classList.add('closing');
-        setTimeout(() => {
-            modal.style.display = 'none';
-            modal.classList.remove('closing');
-            if (currentConfirmCallback) {
-                currentConfirmCallback(result);
-                currentConfirmCallback = null;
-            }
-        }, 200);
-    }
-}
-
-// Keyboard support for modals
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        if (document.getElementById('alertModal').style.display === 'flex') {
-            hideAlertModal();
-        } else if (document.getElementById('confirmModal').style.display === 'flex') {
-            hideConfirmModal(false);
-        }
-    }
-});
-
-// Logout function
-async function logout() {
-    try {
-        const response = await fetch('/api/logout', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-        
-        // Clear local storage tokens
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-        
-        if (response.ok) {
-            window.location.href = '/login';
-        } else {
-            console.error('Logout failed');
-            // Still redirect even if server logout fails
-            window.location.href = '/login';
-        }
-    } catch (error) {
-        console.error('Logout error:', error);
-        // Still redirect on error
-        window.location.href = '/login';
-    }
-}
-
-// Clear quote data function (for New Quote button)
-function clearQuoteData(event) {
-    event.preventDefault();
-    // Clear localStorage draft
-    localStorage.removeItem('quote_calculator_draft');
-    // Clear sessionStorage
-    sessionStorage.removeItem('loadQuoteData');
-    // Navigate to calculator
-    window.location.href = '/calculator';
-}
-
-// Display logged in user name
-function displayUserName() {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const userNameEl = document.getElementById('userDisplayName');
-    if (userNameEl && user.name) {
-        userNameEl.textContent = user.name;
-    }
-}
-
 // Initialize quotes manager when page loads
 let quotesManager;
 document.addEventListener('DOMContentLoaded', () => {
     quotesManager = new QuotesManager();
-    displayUserName();
 });
 

@@ -874,21 +874,8 @@ class QuoteCalculator {
             document.getElementById('subtotalRow').style.display = 'flex';
             document.getElementById('subtotal-amount').textContent = this.formatCurrency(subtotal);
             
-            // Handle markups row
-            let markupsRow = document.getElementById('markupsRow');
+            const markupsRow = document.getElementById('markupsRow');
             if (markupsTotal > 0) {
-                if (!markupsRow) {
-                    // Create markups row if it doesn't exist
-                    const subtotalRowElement = document.getElementById('subtotalRow');
-                    markupsRow = document.createElement('div');
-                    markupsRow.className = 'summary-row';
-                    markupsRow.id = 'markupsRow';
-                    markupsRow.innerHTML = `
-                        <span>Markups</span>
-                        <span id="markups-amount">$0</span>
-                    `;
-                    subtotalRowElement.parentNode.insertBefore(markupsRow, subtotalRowElement.nextSibling);
-                }
                 markupsRow.style.display = 'flex';
                 document.getElementById('markups-amount').textContent = this.formatCurrency(markupsTotal);
             } else if (markupsRow) {
@@ -914,28 +901,35 @@ class QuoteCalculator {
             document.getElementById('total-amount').textContent = this.formatCurrency(subtotal);
         }
         
-        // Update tentative total display (with discount applied)
         const tentativeRow = document.getElementById('tentativeRow');
-        if (tentativeTotal > 0) {
+        const subtotalRow = document.getElementById('subtotalRow');
+        if (tentativeTotal > 0 && tentativeRow) {
             const tentativeDiscountAmount = tentativeTotal * (this.discountPercentage / 100);
             const finalTentativeTotal = tentativeTotal - tentativeDiscountAmount;
-            
-            if (!tentativeRow) {
-                // Create tentative total row if it doesn't exist
-                const totalsContainer = document.querySelector('.quote-summary');
-                const tentativeRowElement = document.createElement('div');
-                tentativeRowElement.className = 'summary-row tentative-row';
-                tentativeRowElement.id = 'tentativeRow';
-                tentativeRowElement.innerHTML = `
-                    <span class="summary-label tentative-label">Tentative Total:</span>
-                    <span class="summary-amount tentative-amount">(${this.formatCurrency(finalTentativeTotal)})</span>
-                `;
-                totalsContainer.appendChild(tentativeRowElement);
-            } else {
-                tentativeRow.querySelector('.tentative-amount').textContent = `(${this.formatCurrency(finalTentativeTotal)})`;
+            tentativeRow.style.display = 'flex';
+            const tentativeAmountEl = tentativeRow.querySelector('.tentative-amount');
+            if (tentativeAmountEl) {
+                tentativeAmountEl.textContent = `(${this.formatCurrency(finalTentativeTotal)})`;
+            }
+            if (this.discountPercentage === 0 && markupsTotal === 0 && subtotalRow) {
+                subtotalRow.style.display = 'flex';
+                document.getElementById('subtotal-amount').textContent = this.formatCurrency(subtotal);
             }
         } else if (tentativeRow) {
-            tentativeRow.remove();
+            tentativeRow.style.display = 'none';
+        }
+
+        const pricingPanel = document.querySelector('.builder-header-pricing');
+        const pricingLines = document.querySelector('.builder-pricing-lines');
+        const hasDetailLine = ['subtotalRow', 'markupsRow', 'discountRow', 'tentativeRow'].some((id) => {
+            const el = document.getElementById(id);
+            return el && el.style.display === 'flex';
+        });
+        if (pricingLines) {
+            pricingLines.classList.toggle('is-empty', !hasDetailLine);
+        }
+        if (pricingPanel) {
+            pricingPanel.classList.toggle('builder-header-pricing--simple', !hasDetailLine);
         }
         
         // Enable/disable PDF, Excel and DOCX buttons
@@ -2011,6 +2005,8 @@ class QuoteCalculator {
     updateSaveStatus(status) {
         const indicator = document.getElementById('autoSaveIndicator');
         if (!indicator) return;
+
+        indicator.style.display = 'inline-flex';
         
         const statusIcon = indicator.querySelector('.save-status-icon');
         const statusText = indicator.querySelector('.save-status-text');
@@ -2097,18 +2093,19 @@ class QuoteCalculator {
     }
 
     updateClientDisplay() {
-        const clientDisplay = document.getElementById('client-display');
-        console.log('🔧 updateClientDisplay called:', {
-            clientDisplay: !!clientDisplay,
-            currentClientName: this.currentClientName
-        });
+        const clientDisplay = document.getElementById('builder-client-display')
+            || document.getElementById('client-display');
+
+        if (!clientDisplay) return;
+
         if (this.currentClientName) {
-            clientDisplay.textContent = `Client: ${this.currentClientName}`;
-            clientDisplay.style.display = 'inline';
-            console.log('✅ Client display updated to:', this.currentClientName);
+            clientDisplay.textContent = this.currentClientName;
+            clientDisplay.classList.add('is-visible');
+            clientDisplay.style.display = '';
         } else {
+            clientDisplay.textContent = '';
+            clientDisplay.classList.remove('is-visible');
             clientDisplay.style.display = 'none';
-            console.log('✅ Client display hidden');
         }
     }
 
@@ -2132,12 +2129,13 @@ class QuoteCalculator {
         });
         if (locationDisplay) {
             if (this.currentLocation) {
-                locationDisplay.textContent = `📍 ${this.currentLocation}`;
-                locationDisplay.style.display = 'block';
-                console.log('✅ Location display updated to:', this.currentLocation);
+                locationDisplay.textContent = this.currentLocation;
+                locationDisplay.classList.add('is-visible');
+                locationDisplay.style.display = '';
             } else {
+                locationDisplay.textContent = '';
+                locationDisplay.classList.remove('is-visible');
                 locationDisplay.style.display = 'none';
-                console.log('✅ Location display hidden');
             }
         }
     }
@@ -2229,25 +2227,39 @@ class QuoteCalculator {
     }
 
     async showLoadModal() {
-        document.getElementById('loadModal').style.display = 'flex';
+        const modal = document.getElementById('loadModal');
+        if (!modal) {
+            window.location.href = '/quotes';
+            return;
+        }
+
+        modal.style.display = 'flex';
         await this.loadSavedQuotes();
     }
 
     closeLoadModal() {
-        document.getElementById('loadModal').style.display = 'none';
+        const modal = document.getElementById('loadModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
     }
 
     async loadSavedQuotes() {
         try {
-            const response = await fetch('/api/saved-quotes');
-            const quotes = await response.json();
-            
-            this.allQuotes = quotes;
-            this.displayQuotes(quotes);
+            const response = await fetch('/api/saved-quotes?limit=100&archived=false');
+            if (!response.ok) {
+                throw new Error('Failed to load quotes');
+            }
+
+            const data = await response.json();
+            this.allQuotes = Array.isArray(data) ? data : (data.quotes || []);
+            this.displayQuotes(this.allQuotes);
         } catch (error) {
             console.error('Error loading saved quotes:', error);
-            document.getElementById('quotesContainer').innerHTML = 
-                '<div class="no-quotes">Error loading saved quotes</div>';
+            const container = document.getElementById('quotesContainer');
+            if (container) {
+                container.innerHTML = '<div class="no-quotes">Error loading saved quotes</div>';
+            }
         }
     }
 
@@ -2260,22 +2272,25 @@ class QuoteCalculator {
         }
 
         container.innerHTML = quotes.map(quote => {
-            const totalServices = quote.quoteData.days.reduce((sum, day) => sum + day.services.length, 0);
+            const quoteData = quote.quoteData || {};
+            const days = quoteData.days || [];
+            const totalServices = days.reduce((sum, day) => sum + (day.services?.length || 0), 0);
             const createdDate = new Date(quote.createdAt).toLocaleDateString();
             const updatedDate = new Date(quote.updatedAt).toLocaleDateString();
-            const dateRange = this.getQuoteDateRange(quote.quoteData.days);
+            const dateRange = this.getQuoteDateRange(days);
+            const displayTitle = quoteData.quoteTitle || quote.name;
             
             return `
                 <div class="quote-item" data-quote-name="${this.escapeHtml(quote.name)}">
                     <div class="quote-item-header">
-                        <h3 class="quote-name">${this.escapeHtml(quote.name)}</h3>
+                        <h3 class="quote-name">${this.escapeHtml(displayTitle)}</h3>
                         <div class="quote-actions">
                             <button class="delete-quote-btn" data-quote-name="${this.escapeHtml(quote.name)}">Delete</button>
                         </div>
                     </div>
                     <div class="quote-info">
-                        <span>💰 Total: ${this.formatCurrency(quote.quoteData.total)}</span>
-                        <span>📅 Days: ${quote.quoteData.days.length}</span>
+                        <span>💰 Total: ${this.formatCurrency(quoteData.total || 0)}</span>
+                        <span>📅 Days: ${days.length}</span>
                         <span>🎯 Services: ${totalServices}</span>
                         ${dateRange ? `<span>📅 Service Dates: ${dateRange}</span>` : ''}
                         <span>📅 Created: ${createdDate}</span>
@@ -4160,20 +4175,10 @@ class QuoteCalculator {
     }
 }
 
-// Display logged in user name
-function displayUserName() {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const userNameEl = document.getElementById('userDisplayName');
-    if (userNameEl && user.name) {
-        userNameEl.textContent = user.name;
-    }
-}
-
 // Initialize calculator when page loads
 let calculator;
 document.addEventListener('DOMContentLoaded', () => {
     calculator = new QuoteCalculator();
-    displayUserName();
     
     // Check if we should load a quote from calendar navigation
     const loadQuoteData = sessionStorage.getItem('loadQuoteData');
@@ -4193,6 +4198,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     calculator.updateQuoteActionsMenu();
+    calculator.updateSaveStatus('saved');
+
+    if (window.AppShell?.updateLayoutOffsets) {
+        window.AppShell.updateLayoutOffsets();
+    }
 });
 
 // Global functions for HTML onclick handlers
@@ -4379,100 +4389,7 @@ async function clearQuote() {
     }
 }
 
-// Custom Modal System
-let currentAlertModal = null;
-let currentConfirmCallback = null;
 let currentPromptCallback = null;
-
-function showAlertModal(message, type = 'info', title = null, autoClose = false) {
-    const modal = document.getElementById('alertModal');
-    const titleEl = document.getElementById('alertModalTitle');
-    const messageEl = document.getElementById('alertModalMessage');
-    const iconEl = document.getElementById('alertModalIcon');
-    const contentEl = modal.querySelector('.alert-modal-content');
-    
-    // Set title
-    titleEl.textContent = title || (type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Information');
-    
-    // Set message
-    messageEl.textContent = message;
-    
-    // Set icon type
-    iconEl.className = `alert-icon ${type}`;
-    
-    // Remove any existing auto-close class
-    contentEl.classList.remove('auto-close');
-    
-    // Show modal
-    modal.style.display = 'flex';
-    currentAlertModal = modal;
-    
-    // Auto-close for success messages
-    if (autoClose && type === 'success') {
-        contentEl.classList.add('auto-close');
-        setTimeout(() => {
-            hideAlertModal();
-        }, 3500);
-    }
-    
-    // Focus management
-    setTimeout(() => {
-        const okButton = modal.querySelector('.primary-button');
-        okButton.focus();
-    }, 100);
-}
-
-function hideAlertModal() {
-    const modal = document.getElementById('alertModal');
-    if (modal) {
-        modal.classList.add('closing');
-        setTimeout(() => {
-            modal.style.display = 'none';
-            modal.classList.remove('closing');
-            currentAlertModal = null;
-        }, 200);
-    }
-}
-
-function showConfirmModal(message, title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel') {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('confirmModal');
-        const titleEl = document.getElementById('confirmModalTitle');
-        const messageEl = document.getElementById('confirmModalMessage');
-        const confirmBtn = document.getElementById('confirmModalOk');
-        
-        // Set content
-        titleEl.textContent = title;
-        messageEl.textContent = message;
-        confirmBtn.textContent = confirmText;
-        
-        // Set callback
-        currentConfirmCallback = resolve;
-        
-        // Show modal
-        modal.style.display = 'flex';
-        
-        // Focus management
-        setTimeout(() => {
-            confirmBtn.focus();
-        }, 100);
-    });
-}
-
-function hideConfirmModal(result) {
-    const modal = document.getElementById('confirmModal');
-    if (modal) {
-        modal.classList.add('closing');
-        setTimeout(() => {
-            modal.style.display = 'none';
-            modal.classList.remove('closing');
-            if (currentConfirmCallback) {
-                currentConfirmCallback(result);
-                currentConfirmCallback = null;
-            }
-        }, 200);
-    }
-}
 
 function showPromptModal(message, defaultValue = '', title = 'Input Required', placeholder = 'Enter value') {
     return new Promise((resolve) => {
@@ -4613,14 +4530,10 @@ function submitExportModal() {
     hideExportModal(result);
 }
 
-// Keyboard support for modals
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        if (currentAlertModal) {
-            hideAlertModal();
-        } else if (document.getElementById('confirmModal').style.display === 'flex') {
-            hideConfirmModal(false);
-        } else if (document.getElementById('promptModal').style.display === 'flex') {
+        const promptModal = document.getElementById('promptModal');
+        if (promptModal && promptModal.style.display === 'flex') {
             hidePromptModal(null);
         }
     }
@@ -4634,27 +4547,6 @@ document.addEventListener('click', (e) => {
         });
     }
     });
-
-// Logout function
-async function logout() {
-    try {
-        const response = await fetch('/api/logout', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-        
-        // Clear local storage tokens
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-        
-        window.location.href = '/login';
-    } catch (error) {
-        console.error('Logout error:', error);
-        window.location.href = '/login';
-    }
-}
 
 // Editable Quote Title Functions
 function editQuoteTitle() {

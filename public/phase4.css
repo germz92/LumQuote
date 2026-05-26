@@ -1,0 +1,530 @@
+/**
+ * Phase 4 — Reports, Admin, Calendar polish
+ */
+
+/* ── Reports ─────────────────────────────────────────────────── */
+
+body[data-app-page="reports"] .main-content {
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-8);
+}
+
+body[data-app-page="reports"] .app-page-header {
+  padding-bottom: var(--space-3);
+}
+
+.reports-page {
+  margin-top: 0;
+}
+
+.reports-sticky-filters {
+  position: sticky;
+  top: var(--app-topbar-height, 56px);
+  z-index: 140;
+  margin: 0 calc(-1 * var(--space-6)) var(--space-4);
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  isolation: isolate;
+}
+
+.reports-sticky-filters::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 100vh;
+  background: var(--color-surface);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.reports-filters-bar,
+.reports-sticky-filters .filters-bar {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.reports-filters-bar .filter-group,
+.reports-sticky-filters .filters-bar .filter-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.reports-filters-bar .filter-group label,
+.reports-sticky-filters .filters-bar .filter-group label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  font-weight: var(--font-weight-medium);
+}
+
+.reports-filters-bar .filter-group select,
+.reports-filters-bar .filter-group input[type="date"],
+.reports-sticky-filters .filters-bar .filter-group select,
+.reports-sticky-filters .filters-bar .filter-group input[type="date"] {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.reports-filters-bar .filter-group select:focus,
+.reports-filters-bar .filter-group input[type="date"]:focus,
+.reports-sticky-filters .filters-bar .filter-group select:focus,
+.reports-sticky-filters .filters-bar .filter-group input[type="date"]:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+.reports-filters-bar .date-range-inputs,
+.reports-sticky-filters .filters-bar .date-range-inputs {
+  display: none;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.reports-filters-bar .date-range-inputs.visible,
+.reports-sticky-filters .filters-bar .date-range-inputs.visible {
+  display: flex;
+}
+
+.reports-filters-bar .date-range-inputs span,
+.reports-sticky-filters .filters-bar .date-range-inputs span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.reports-summary-cards,
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.reports-summary-card,
+.summary-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+}
+
+.reports-summary-card .label,
+.summary-card .label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.reports-summary-card .value,
+.summary-card .value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.reports-summary-card .value.currency,
+.summary-card .value.currency {
+  color: var(--color-success);
+}
+
+.reports-summary-card .subtext,
+.summary-card .subtext {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: var(--space-5);
+}
+
+.reports-report-card,
+.report-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.reports-report-card-header,
+.report-card-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reports-report-card-header h3 {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.reports-report-card-body,
+.report-card-body {
+  padding: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.reports-list,
+.report-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reports-list-item,
+.report-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  transition: background var(--transition-fast);
+}
+
+.reports-list-item:last-child,
+.report-list-item:last-child {
+  border-bottom: none;
+}
+
+.reports-list-item:hover,
+.report-list-item:hover {
+  background: var(--color-bg);
+}
+
+.reports-list-item .rank,
+.report-list-item .rank {
+  width: 28px;
+  height: 28px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  margin-right: var(--space-3);
+  flex-shrink: 0;
+}
+
+.reports-list-item .rank.top-3,
+.report-list-item .rank.top-3 {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  border-color: transparent;
+  color: white;
+}
+
+.reports-list-item .info,
+.report-list-item .info {
+  flex: 1;
+  min-width: 0;
+}
+
+.reports-list-item .name,
+.report-list-item .name {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reports-list-item .details,
+.report-list-item .details {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.reports-list-item .stats,
+.report-list-item .stats {
+  text-align: right;
+  flex-shrink: 0;
+  margin-left: var(--space-3);
+}
+
+.reports-list-item .primary-stat,
+.report-list-item .primary-stat {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.reports-list-item .secondary-stat,
+.report-list-item .secondary-stat {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.reports-no-data,
+.no-data {
+  padding: var(--space-10) var(--space-5);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.reports-no-data-icon,
+.no-data-icon {
+  font-size: 2.5rem;
+  margin-bottom: var(--space-3);
+  display: block;
+}
+
+.reports-page .loading-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-10);
+}
+
+.reports-page .loading-spinner::after {
+  content: "";
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-bg);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: phase4-spin 1s linear infinite;
+}
+
+.reports-progress-bar-container,
+.progress-bar-container {
+  width: 100px;
+  height: 6px;
+  background: var(--color-bg);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: var(--space-1);
+  margin-left: auto;
+}
+
+.reports-progress-bar,
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), #7c3aed);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+@keyframes phase4-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Admin ───────────────────────────────────────────────────── */
+
+body[data-app-page="admin"] .main-content {
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-8);
+}
+
+body[data-app-page="admin"] .admin-section > h2,
+body[data-app-page="admin"] .admin-section > p.subtitle {
+  display: none;
+}
+
+body[data-app-page="admin"] .admin-section {
+  max-width: none;
+  margin: 0;
+}
+
+.admin-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.admin-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5) var(--space-6);
+}
+
+.admin-card h3 {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.admin-card .add-service-form {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.admin-card .add-service-form h3 {
+  display: none;
+}
+
+.admin-card .services-list {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.admin-card .services-list h3 {
+  display: none;
+}
+
+.admin-card .drag-instructions {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.admin-card .drag-instructions p {
+  margin: 0;
+}
+
+.admin-lumdash-card.lumdash-info-card {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+  background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
+  border-color: #c7d2fe;
+  margin-top: 0;
+}
+
+.admin-lumdash-card .lumdash-info-icon {
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.admin-lumdash-card .lumdash-info-content h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
+}
+
+.admin-lumdash-card .lumdash-info-content p {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.admin-lumdash-card .lumdash-info-content ul {
+  margin: 0 0 var(--space-4);
+  padding-left: var(--space-5);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.admin-lumdash-card .lumdash-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+}
+
+.admin-lumdash-card .lumdash-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Calendar (Phase 4 refinements) ─────────────────────────── */
+
+body[data-app-page="calendar"] .main-content {
+  padding-top: var(--space-4);
+}
+
+body[data-app-page="calendar"] .app-page-header {
+  padding-bottom: var(--space-3);
+}
+
+.calendar-section .event-tooltip {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.calendar-section .tooltip-header h3 {
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+.calendar-section .tooltip-btn.primary {
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+}
+
+.calendar-section .tooltip-btn.secondary {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .reports-sticky-filters {
+    margin-left: calc(-1 * var(--space-4));
+    margin-right: calc(-1 * var(--space-4));
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+
+  .reports-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reports-filters-bar,
+  .reports-sticky-filters .filters-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reports-filters-bar .filter-group,
+  .reports-sticky-filters .filters-bar .filter-group {
+    flex-wrap: wrap;
+  }
+
+  .reports-summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .admin-lumdash-card {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .reports-summary-cards {
+    grid-template-columns: 1fr;
+  }
+}

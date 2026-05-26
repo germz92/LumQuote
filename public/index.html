@@ -3,44 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quote Generator - Conference Services</title>
+    <title>Builder - LumQuote</title>
+    <link rel="stylesheet" href="design-tokens.css">
+    <link rel="stylesheet" href="components.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="builder.css">
+    <link rel="stylesheet" href="phase5.css">
+    <link rel="icon" href="/assets/logo.png" type="image/png">
 </head>
-<body>
+<body data-app-page="builder" data-app-title="Builder" data-app-show-back="true" data-app-new-quote="true">
     <div class="container">
-        <div class="logo-section">
-            <img src="/assets/logo.png" alt="Lumetry Media" class="company-logo" onclick="window.location.href='/'" style="cursor: pointer;">
-        </div>
-        <header class="header">
-            <button class="back-button" onclick="window.location.href='/quotes'">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="15,18 9,12 15,6"></polyline>
-                </svg>
-            </button>
-            <div class="header-title">
-                <h1>Quote Generator</h1>
-                <span id="client-display" class="client-display" style="display: none;"></span>
-            </div>
-            <div class="header-actions">
-                <a href="/" class="admin-link">Quotes</a>
-                <a href="/calendar" class="admin-link">Calendar</a>
-                <a href="/reports" class="admin-link" id="reportsLink" style="display: none;">Reports</a>
-                <a href="/admin" class="admin-link">Admin</a>
-                <span class="user-name" id="userDisplayName"></span>
-                <button class="logout-btn" onclick="logout()">Logout</button>
-            </div>
-        </header>
-
         <main class="main-content">
-            <div class="quote-section">
-                <div class="quote-title-container">
-                    <div class="quote-title-row">
-                        <div class="quote-title-edit">
-                            <h2 id="quoteTitle" class="editable-title" onclick="editQuoteTitle()" title="Click to edit quote title">Conference Services Quote</h2>
-                            <input type="text" id="quoteTitleInput" class="title-input" style="display: none;" placeholder="Enter quote title" onblur="saveQuoteTitle()" onkeydown="handleTitleKeydown(event)">
+            <div class="quote-section builder-page">
+                <div class="builder-sticky-chrome">
+                    <div class="builder-quote-bar">
+                        <div class="builder-quote-main">
+                            <div class="builder-title-row">
+                                <div class="quote-title-edit">
+                                    <h2 id="quoteTitle" class="editable-title" onclick="editQuoteTitle()" title="Click to edit quote title">Conference Services Quote</h2>
+                                    <input type="text" id="quoteTitleInput" class="title-input" style="display: none;" placeholder="Enter quote title" onblur="saveQuoteTitle()" onkeydown="handleTitleKeydown(event)">
+                                </div>
+                            </div>
+                            <div class="builder-meta-row">
+                                <span id="builder-client-display" class="builder-meta-chip"></span>
+                                <span id="location-display" class="builder-meta-chip location-display"></span>
+                                <div id="autoSaveIndicator" class="builder-save-status">
+                                    <span class="save-status-icon">✓</span>
+                                    <span class="save-status-text">All changes saved</span>
+                                </div>
+                            </div>
                         </div>
+                        <div class="builder-quote-aside">
+                            <div class="builder-header-pricing" aria-live="polite">
+                                <div class="builder-pricing-lines">
+                                    <div class="builder-pricing-line" id="subtotalRow" style="display: none;">
+                                        <span>Subtotal</span>
+                                        <span id="subtotal-amount">$0</span>
+                                    </div>
+                                    <div class="builder-pricing-line" id="markupsRow" style="display: none;">
+                                        <span>Markups</span>
+                                        <span id="markups-amount">$0</span>
+                                    </div>
+                                    <div class="builder-pricing-line" id="discountRow" style="display: none;">
+                                        <span id="discount-label">Discount</span>
+                                        <span id="discount-amount">-$0</span>
+                                    </div>
+                                    <div class="builder-pricing-line builder-pricing-line--tentative" id="tentativeRow" style="display: none;">
+                                        <span class="tentative-label">Tentative</span>
+                                        <span class="tentative-amount">($0)</span>
+                                    </div>
+                                </div>
+                                <div class="builder-pricing-total">
+                                    <span class="builder-pricing-total__label">Total</span>
+                                    <span id="total-amount" class="builder-pricing-total__value">$0</span>
+                                </div>
+                            </div>
                         <div class="quote-overflow-menu calculator-quote-menu" id="calculatorQuoteMenu">
-                            <button type="button" class="quote-overflow-btn" id="calculatorQuoteMenuBtn" onclick="calculator.toggleQuoteActionsMenu(event)" aria-label="Quote actions" disabled>
+                            <button type="button" class="quote-overflow-btn" id="calculatorQuoteMenuBtn" onclick="calculator.toggleQuoteActionsMenu(event)" aria-label="Quote actions" aria-haspopup="true" aria-expanded="false" disabled>
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                                     <circle cx="12" cy="12" r="1"></circle>
                                     <circle cx="12" cy="5" r="1"></circle>
@@ -54,39 +73,33 @@
                                 <button type="button" class="overflow-menu-item danger" onclick="calculator.handleDelete()">Delete</button>
                             </div>
                         </div>
+                        </div>
                     </div>
-                    <div id="location-display" class="location-display" style="display: none;"></div>
-                </div>
-                <p class="subtitle">Select days and services to calculate your quote</p>
 
-                <div class="days-controls">
-                    <label for="days-input">Number of Days</label>
-                    <div class="counter-control">
-                        <button type="button" class="counter-btn" id="decrease-days">−</button>
-                        <span class="counter-display" id="days-count">1</span>
-                        <button type="button" class="counter-btn" id="increase-days">+</button>
+                    <div class="builder-toolbar">
+                        <div class="builder-days-inline">
+                            <label for="days-input">Days</label>
+                            <div class="counter-control">
+                                <button type="button" class="counter-btn" id="decrease-days">−</button>
+                                <span class="counter-display" id="days-count">1</span>
+                                <button type="button" class="counter-btn" id="increase-days">+</button>
+                            </div>
+                        </div>
+                        <div class="builder-toolbar-actions">
+                            <button type="button" class="btn btn-primary btn-md" onclick="showSaveModal()">Save</button>
+                            <button type="button" class="btn btn-secondary btn-md" onclick="showLoadModal()">Load</button>
+                            <button type="button" class="btn btn-secondary btn-md" onclick="clearQuote()">Clear</button>
+                            <button type="button" class="override-btn btn btn-md" id="overrideBtn" onclick="calculator.toggleOverrideMode()">Override</button>
+                        </div>
                     </div>
-                </div>
 
-                <div class="table-controls">
-                    <div id="autoSaveIndicator" class="auto-save-indicator">
-                        <span class="save-status-icon">✓</span>
-                        <span class="save-status-text">All changes saved</span>
+                    <div id="overrideBanner" class="override-banner" style="display: none;">
+                        <span class="override-text">Override mode — click a service to edit name, price, and description. Dependencies are disabled.</span>
+                        <button type="button" class="override-exit-btn" onclick="calculator.toggleOverrideMode()">Exit override</button>
                     </div>
-                    <div class="save-load-buttons">
-                        <button class="save-btn" onclick="showSaveModal()">Save</button>
-                        <button class="load-btn" onclick="window.location.href='/'">Load</button>
-                        <button class="clear-btn" onclick="clearQuote()">Clear</button>
-                        <button class="override-btn" id="overrideBtn" onclick="calculator.toggleOverrideMode()">Override</button>
-                    </div>
-                </div>
-
-                <!-- Override Mode Banner -->
-                <div id="overrideBanner" class="override-banner" style="display: none;">
-                    <span class="override-text">Override Mode - Click any service to edit name, unit price, and description. ALL dependencies are temporarily disabled</span>
                 </div>
 
-                <div class="quote-table">
+                <div class="quote-table builder-table-card">
                     <div class="table-header">
                         <div class="col-day">Day</div>
                         <div class="col-service">Service</div>
@@ -125,21 +138,6 @@
                     </div>
                 </div>
 
-                <div class="quote-summary">
-                    <div class="summary-row" id="subtotalRow" style="display: none;">
-                        <span>Subtotal</span>
-                        <span id="subtotal-amount">$0</span>
-                    </div>
-                    <div class="summary-row" id="discountRow" style="display: none;">
-                        <span id="discount-label">Discount (0%)</span>
-                        <span id="discount-amount">-$0</span>
-                    </div>
-                    <div class="summary-row total-row">
-                        <span>Grand Total</span>
-                        <span id="total-amount">$0</span>
-                    </div>
-                </div>
-
                 <div class="actions">
                     <button class="primary-button" id="generate-pdf" disabled>
                         Download Quote (PDF)
@@ -164,6 +162,32 @@
         <div class="loading-spinner">
             <div class="spinner"></div>
             <p>Generating your quote...</p>
+        </div>
+    </div>
+
+    <!-- Load Quote Modal -->
+    <div id="loadModal" class="modal" style="display: none;">
+        <div class="modal-content load-modal-content">
+            <div class="modal-header">
+                <h2>Load Quote</h2>
+                <span class="close" onclick="closeLoadModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="load-modal-controls">
+                    <input type="text"
+                           id="searchQuotes"
+                           class="search-input"
+                           placeholder="Search by title, client, or location..."
+                           oninput="filterQuotes()">
+                    <select id="sortQuotes" class="sort-select" onchange="sortQuotes()">
+                        <option value="newest" selected>Recently updated</option>
+                        <option value="oldest">Oldest updated</option>
+                    </select>
+                </div>
+                <div id="quotesContainer" class="load-quotes-list">
+                    <div class="no-quotes">Loading quotes...</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -226,45 +250,6 @@
                         <button type="submit" class="primary-button">Save Quote</button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Alert Modal -->
-    <div id="alertModal" class="modal" style="display: none;">
-        <div class="modal-content alert-modal-content">
-            <div class="modal-header">
-                <h2 id="alertModalTitle">Message</h2>
-                <span class="close" onclick="hideAlertModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="alert-content">
-                    <div id="alertModalIcon" class="alert-icon"></div>
-                    <p id="alertModalMessage">Message content</p>
-                </div>
-                <div class="modal-buttons">
-                    <button type="button" class="primary-button" onclick="hideAlertModal()">OK</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Confirm Modal -->
-    <div id="confirmModal" class="modal" style="display: none;">
-        <div class="modal-content confirm-modal-content">
-            <div class="modal-header">
-                <h2 id="confirmModalTitle">Confirm</h2>
-                <span class="close" onclick="hideConfirmModal(false)">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="confirm-content">
-                    <div class="confirm-icon">⚠️</div>
-                    <p id="confirmModalMessage">Are you sure?</p>
-                </div>
-                <div class="modal-buttons">
-                    <button type="button" class="secondary-button" onclick="hideConfirmModal(false)">Cancel</button>
-                    <button type="button" class="primary-button" id="confirmModalOk" onclick="hideConfirmModal(true)">Confirm</button>
-                </div>
             </div>
         </div>
     </div>
@@ -418,6 +403,10 @@
         </div>
     </div>
 
+    <script src="toasts.js"></script>
+    <script src="a11y.js"></script>
+    <script src="modals.js"></script>
+    <script src="shell.js"></script>
     <script src="lead-sources.js"></script>
     <script src="lumdash-integration.js"></script>
     <script src="script.js"></script>

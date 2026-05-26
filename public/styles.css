@@ -6,20 +6,20 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    line-height: 1.6;
-    color: #333;
-    background-color: #f8fafc;
+    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif);
+    line-height: var(--line-height-relaxed, 1.6);
+    color: var(--color-text, #333);
+    background-color: var(--color-bg, #f8fafc);
     min-height: 100vh;
 }
 
 .container {
-    max-width: 1400px;
+    max-width: var(--app-max-width, 1400px);
     margin: 0 auto;
-    padding: 0 24px;
+    padding: 0 var(--space-6, 24px);
     min-height: 100vh;
-    background-color: white;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    background-color: var(--color-surface, white);
+    box-shadow: var(--shadow-md, 0 0 20px rgba(0, 0, 0, 0.1));
 }
 
 /* Logo Section */
@@ -1336,11 +1336,11 @@ body {
 }
 
 .primary-button {
-    background: #4f46e5;
-    color: white;
-    border: none;
+    background: var(--color-primary, #4f46e5);
+    color: var(--color-text-inverse, white);
+    border: 1px solid var(--color-primary, #4f46e5);
     padding: 16px 32px;
-    border-radius: 12px;
+    border-radius: var(--radius-lg, 12px);
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
@@ -1349,9 +1349,10 @@ body {
 }
 
 .primary-button:hover:not(:disabled) {
-    background: #4338ca;
+    background: var(--color-primary-hover, #4338ca);
+    border-color: var(--color-primary-hover, #4338ca);
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    box-shadow: var(--shadow-md, 0 4px 12px rgba(79, 70, 229, 0.3));
 }
 
 .primary-button:disabled {
@@ -3866,13 +3867,9 @@ textarea:focus {
 }
 
 .quotes-controls-header {
-    position: sticky;
-    top: 0;
-    background: white;
-    z-index: 100;
-    padding: 20px 0;
-    border-bottom: 2px solid #e2e8f0;
-    margin-bottom: 24px;
+    padding: 0;
+    border-bottom: none;
+    margin-bottom: 0;
 }
 
 .search-filter-controls {
@@ -4023,11 +4020,11 @@ textarea:focus {
 
 /* List View Table */
 .quotes-list-view {
-    margin-top: 24px;
+    margin-top: 0;
     background: white;
-    border-radius: 12px;
-    border: 1px solid #e2e8f0;
-    overflow: hidden;
+    border-radius: 0;
+    border: none;
+    overflow: visible;
 }
 
 .quotes-table {

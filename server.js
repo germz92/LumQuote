@@ -297,11 +297,15 @@ app.use((req, res, next) => {
 
 // Define custom routes BEFORE static middleware
 app.get('/', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'quotes.html'));
+  res.redirect(302, '/quotes');
+});
+
+app.get('/builder', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/calculator', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.redirect(302, '/builder');
 });
 
 app.get('/admin', requireAuth, (req, res) => {
@@ -2620,7 +2624,7 @@ function formatDateForCalendar(date) {
 app.get('/reports', requireAuth, (req, res) => {
   // Check if user is admin
   if (req.user.role !== 'admin') {
-    return res.redirect('/');
+    return res.redirect('/quotes');
   }
   res.sendFile(path.join(__dirname, 'public', 'reports.html'));
 });

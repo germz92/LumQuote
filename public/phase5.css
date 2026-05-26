@@ -1,0 +1,137 @@
+/**
+ * Phase 5 — Toasts, focus rings, polish
+ */
+
+/* ── Focus & keyboard ────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.app-nav-link:focus-visible,
+.app-page-header-back:focus-visible,
+.quote-overflow-btn:focus-visible,
+.overflow-menu-item:focus-visible,
+.btn:focus-visible,
+.primary-button:focus-visible,
+.secondary-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.overflow-menu-item:focus-visible {
+  background: var(--color-bg);
+}
+
+/* ── Toasts ──────────────────────────────────────────────────── */
+
+.app-toast-container {
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: min(400px, calc(100vw - var(--space-8)));
+  pointer-events: none;
+}
+
+.app-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--transition-base), transform var(--transition-base);
+}
+
+.app-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.app-toast--leaving {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.app-toast-icon {
+  flex-shrink: 0;
+  display: flex;
+  margin-top: 1px;
+}
+
+.app-toast--success .app-toast-icon {
+  color: var(--color-success);
+}
+
+.app-toast--error .app-toast-icon {
+  color: var(--color-danger);
+}
+
+.app-toast--info .app-toast-icon {
+  color: var(--color-info);
+}
+
+.app-toast-message {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  line-height: var(--line-height-normal);
+  padding-right: var(--space-2);
+}
+
+.app-toast-dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+}
+
+.app-toast-dismiss:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+@media (max-width: 480px) {
+  .app-toast-container {
+    left: var(--space-4);
+    right: var(--space-4);
+    bottom: var(--space-4);
+    max-width: none;
+  }
+}
+
+/* ── Overflow menus (open state) ─────────────────────────────── */
+
+.quote-overflow-dropdown[role="menu"] {
+  outline: none;
+}
+
+.quote-overflow-btn[aria-expanded="true"] {
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+}

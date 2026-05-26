@@ -3,37 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - Quote Calculator</title>
+    <title>Admin - LumQuote</title>
+    <link rel="stylesheet" href="design-tokens.css">
+    <link rel="stylesheet" href="components.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="phase4.css">
+    <link rel="stylesheet" href="phase5.css">
+    <link rel="icon" href="/assets/logo.png" type="image/png">
 </head>
-<body>
+<body data-app-page="admin" data-app-title="Admin" data-app-subtitle="Manage services and pricing" data-app-show-back="true">
     <div class="container">
-        <div class="logo-section">
-            <img src="/assets/logo.png" alt="Lumetry Media" class="company-logo" onclick="window.location.href='/'" style="cursor: pointer;">
-        </div>
-        <header class="header">
-            <button class="back-button" onclick="window.location.href='/'">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="15,18 9,12 15,6"></polyline>
-                </svg>
-            </button>
-            <h1>Admin Panel</h1>
-            <div class="header-actions">
-                <a href="/quotes" class="admin-link">Quotes</a>
-                <a href="/calendar" class="admin-link">Calendar</a>
-                <a href="/reports" class="admin-link" id="reportsLink" style="display: none;">Reports</a>
-                <span class="user-name" id="userDisplayName"></span>
-                <button class="logout-btn" onclick="logout()">Logout</button>
-            </div>
-        </header>
-
         <main class="main-content">
+            <div class="admin-layout">
             <div class="admin-section">
                 <h2>Manage Services</h2>
                 <p class="subtitle">Add, edit, or remove photography services and their prices</p>
 
+                <div class="admin-card">
+                <h3>Add New Service</h3>
                 <div class="add-service-form">
-                    <h3>Add New Service</h3>
                     <form id="service-form">
                         <div class="form-group">
                             <label for="service-name">Service Name</label>
@@ -88,9 +76,11 @@
                         </button>
                     </form>
                 </div>
+                </div>
 
+                <div class="admin-card">
+                <h3>Current Services</h3>
                 <div class="services-list">
-                    <h3>Current Services</h3>
                     <div class="drag-instructions">
                         <p><strong>💡 Tip:</strong> Drag and drop services to reorder them. Subservices can only be reordered within their parent group, and parent services move with all their subservices.</p>
                     </div>
@@ -98,13 +88,14 @@
                         <!-- Services will be loaded here -->
                     </div>
                 </div>
+                </div>
             </div>
 
             <div class="admin-section">
                 <h2>User Management</h2>
                 <p class="subtitle">Users are managed through LumDash</p>
                 
-                <div class="lumdash-info-card">
+                <div class="admin-card admin-lumdash-card lumdash-info-card">
                     <div class="lumdash-info-icon">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2">
                             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -131,6 +122,7 @@
                     </div>
                 </div>
             </div>
+            </div>
         </main>
     </div>
 
@@ -138,45 +130,6 @@
         <div class="loading-spinner">
             <div class="spinner"></div>
             <p>Loading...</p>
-        </div>
-    </div>
-
-    <!-- Alert Modal -->
-    <div id="alertModal" class="modal" style="display: none;">
-        <div class="modal-content alert-modal-content">
-            <div class="modal-header">
-                <h2 id="alertModalTitle">Message</h2>
-                <span class="close" onclick="hideAlertModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="alert-content">
-                    <div id="alertModalIcon" class="alert-icon"></div>
-                    <p id="alertModalMessage">Message content</p>
-                </div>
-                <div class="modal-buttons">
-                    <button type="button" class="primary-button" onclick="hideAlertModal()">OK</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Confirm Modal -->
-    <div id="confirmModal" class="modal" style="display: none;">
-        <div class="modal-content confirm-modal-content">
-            <div class="modal-header">
-                <h2 id="confirmModalTitle">Confirm</h2>
-                <span class="close" onclick="hideConfirmModal(false)">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="confirm-content">
-                    <div class="confirm-icon">⚠️</div>
-                    <p id="confirmModalMessage">Are you sure?</p>
-                </div>
-                <div class="modal-buttons">
-                    <button type="button" class="secondary-button" onclick="hideConfirmModal(false)">Cancel</button>
-                    <button type="button" class="primary-button" id="confirmModalOk" onclick="hideConfirmModal(true)">Confirm</button>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -202,6 +155,10 @@
         </div>
     </div>
 
+    <script src="toasts.js"></script>
+    <script src="a11y.js"></script>
+    <script src="modals.js"></script>
+    <script src="shell.js"></script>
     <script src="admin.js"></script>
 </body>
 </html> 

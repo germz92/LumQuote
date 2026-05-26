@@ -64,9 +64,13 @@ class CalendarView {
         });
     }
 
-    async loadEvents() {
+    async loadEvents(options = {}) {
+        const { silent = false } = options;
+
         try {
-            this.showLoading(true);
+            if (!silent) {
+                this.showLoading(true);
+            }
             
             const response = await fetch('/api/calendar-events');
             if (!response.ok) {
@@ -74,12 +78,15 @@ class CalendarView {
             }
             
             this.events = await response.json();
+            this.updateEmptyBanner();
             
         } catch (error) {
             console.error('Error loading events:', error);
             this.showAlert('Failed to load calendar events. Please try again.', 'error');
         } finally {
-            this.showLoading(false);
+            if (!silent) {
+                this.showLoading(false);
+            }
         }
     }
 
@@ -198,9 +205,43 @@ class CalendarView {
         }
     }
 
+    applyEventStyles(eventElement, event) {
+        const isBooked = event.extendedProps?.booked || false;
+        eventElement.classList.add('calendar-event');
+        if (isBooked) {
+            eventElement.classList.add('calendar-event--booked');
+        }
+    }
+
+    updateEmptyBanner() {
+        const banner = document.getElementById('calendarEmptyBanner');
+        if (!banner) return;
+
+        if (!this.events || this.events.length === 0) {
+            banner.style.display = 'block';
+            banner.textContent = 'No scheduled quote events yet. Add service dates in the Builder to see quotes on the calendar.';
+        } else {
+            banner.style.display = 'none';
+            banner.textContent = '';
+        }
+    }
+
+    renderCalendarSkeleton() {
+        const skeleton = document.getElementById('calendarSkeleton');
+        if (!skeleton) return;
+
+        skeleton.innerHTML = Array.from({ length: 42 }, () => `
+            <div class="calendar-skeleton-cell">
+                <div class="skeleton-block skeleton-block--short"></div>
+                <div class="skeleton-block skeleton-block--line"></div>
+                <div class="skeleton-block skeleton-block--line"></div>
+            </div>
+        `).join('');
+    }
+
     createEventElement(event, currentDate) {
         const eventElement = document.createElement('div');
-        eventElement.className = 'calendar-event';
+        this.applyEventStyles(eventElement, event);
         
         // Determine event position (start, middle, end, single)
         const eventStart = new Date(event.start);
@@ -421,7 +462,7 @@ class CalendarView {
         
         // Create the event element
         const eventElement = document.createElement('div');
-        eventElement.className = 'calendar-event';
+        this.applyEventStyles(eventElement, event);
         eventElement.textContent = event.title;
         
         // Calculate dimensions
@@ -438,14 +479,8 @@ class CalendarView {
         eventElement.style.top = `${weekIndex * 121 + eventStartTop + (layerIndex * (eventHeight + eventSpacing))}px`;
         eventElement.style.height = `${eventHeight}px`;
         
-        // Style the event
-        // Use red color for booked events, blue for regular events
-        const isBooked = event.extendedProps?.booked || false;
-        eventElement.style.backgroundColor = isBooked ? '#dc2626' : '#4f46e5';
         eventElement.style.color = 'white';
-        eventElement.style.borderRadius = '4px';
         eventElement.style.padding = '2px 8px';
-        eventElement.style.fontSize = '0.75rem';
         eventElement.style.fontWeight = '500';
         eventElement.style.cursor = 'pointer';
         eventElement.style.zIndex = '10';
@@ -574,8 +609,8 @@ class CalendarView {
             // Store quote data in session storage for the calculator page to load
             sessionStorage.setItem('loadQuoteData', JSON.stringify(quoteData));
             
-            // Navigate to calculator page
-            window.location.href = '/calculator';
+            // Navigate to builder page
+            window.location.href = '/builder';
             
         } catch (error) {
             console.error('Error loading quote:', error);
@@ -615,8 +650,7 @@ class CalendarView {
                 await window.LumDashIntegration.onQuoteMarkedAsBooked(quoteName, currentBooked);
             }
 
-            // Reload events to reflect the change
-            await this.loadEvents();
+            await this.loadEvents({ silent: true });
             this.renderCalendar();
 
             const statusText = newBookedStatus ? 'booked' : 'not booked';
@@ -655,8 +689,7 @@ class CalendarView {
                 throw new Error(result.error || 'Failed to update archive status');
             }
 
-            // Reload events to reflect the change (archived quotes won't appear on calendar)
-            await this.loadEvents();
+            await this.loadEvents({ silent: true });
             this.renderCalendar();
 
             const statusText = newArchivedStatus ? 'archived' : 'unarchived';
@@ -694,109 +727,36 @@ class CalendarView {
     }
 
     showLoading(show) {
+        const frame = document.getElementById('calendarFrame');
+        const skeleton = document.getElementById('calendarSkeleton');
         const overlay = document.getElementById('loading-overlay');
-        overlay.style.display = show ? 'flex' : 'none';
+
+        if (frame) {
+            if (show) {
+                this.renderCalendarSkeleton();
+            }
+            frame.classList.toggle('is-loading', show);
+        }
+
+        if (skeleton) {
+            skeleton.setAttribute('aria-hidden', show ? 'false' : 'true');
+        }
+
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
     }
 
     showAlert(message, type = 'info') {
-        const modal = document.getElementById('alertModal');
-        const title = document.getElementById('alertModalTitle');
-        const content = document.getElementById('alertModalMessage');
-        const icon = document.getElementById('alertModalIcon');
-
-        if (type === 'success') {
-            title.textContent = 'Success';
-            icon.textContent = '✅';
-            icon.style.color = '#16a34a';
-        } else if (type === 'error') {
-            title.textContent = 'Error';
-            icon.textContent = '❌';
-            icon.style.color = '#dc2626';
-        } else {
-            title.textContent = 'Information';
-            icon.textContent = 'ℹ️';
-            icon.style.color = '#2563eb';
+        if (typeof showAlertModal === 'function') {
+            showAlertModal(message, type, null, false, true);
         }
-        
-        content.innerHTML = message;
-        modal.style.display = 'flex';
-    }
-}
-
-// Modal functions (reused from main app)
-let currentConfirmCallback = null;
-
-function showConfirmModal(message, title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel') {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('confirmModal');
-        const titleEl = document.getElementById('confirmModalTitle');
-        const messageEl = document.getElementById('confirmModalMessage');
-        const confirmBtn = document.getElementById('confirmModalOk');
-        const cancelBtn = modal.querySelector('.secondary-button');
-
-        titleEl.textContent = title;
-        messageEl.textContent = message;
-        confirmBtn.textContent = confirmText;
-        if (cancelBtn) cancelBtn.textContent = cancelText;
-
-        currentConfirmCallback = resolve;
-        modal.style.display = 'flex';
-
-        setTimeout(() => {
-            confirmBtn.focus();
-        }, 100);
-    });
-}
-
-function hideConfirmModal(result) {
-    const modal = document.getElementById('confirmModal');
-    if (modal) {
-        modal.style.display = 'none';
-        if (currentConfirmCallback) {
-            currentConfirmCallback(result);
-            currentConfirmCallback = null;
-        }
-    }
-}
-
-function hideAlertModal() {
-    document.getElementById('alertModal').style.display = 'none';
-}
-
-// Logout function (reused from main app)
-async function logout() {
-    try {
-        const response = await fetch('/api/logout', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-
-        // Clear local storage tokens
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-        
-        window.location.href = '/login';
-    } catch (error) {
-        console.error('Logout error:', error);
-        window.location.href = '/login';
-    }
-}
-
-// Display logged in user name
-function displayUserName() {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const userNameEl = document.getElementById('userDisplayName');
-    if (userNameEl && user.name) {
-        userNameEl.textContent = user.name;
     }
 }
 
 // Initialize calendar when page loads
 document.addEventListener('DOMContentLoaded', () => {
     window.calendar = new CalendarView();
-    displayUserName();
 });
 
 // Add custom CSS for events list in alert modal

@@ -340,18 +340,8 @@ class ReportsManager {
     }
 }
 
-// Display logged in user name
-function displayUserName() {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const userNameEl = document.getElementById('userDisplayName');
-    if (userNameEl && user.name) {
-        userNameEl.textContent = user.name;
-    }
-}
-
 // Initialize the reports manager
 let reportsManager;
 document.addEventListener('DOMContentLoaded', () => {
     reportsManager = new ReportsManager();
-    displayUserName();
 });

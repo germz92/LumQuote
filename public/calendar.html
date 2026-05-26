@@ -3,61 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calendar View - Quote Scheduler</title>
+    <title>Calendar - LumQuote</title>
+    <link rel="stylesheet" href="design-tokens.css">
+    <link rel="stylesheet" href="components.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="phase2.css">
+    <link rel="stylesheet" href="phase4.css">
+    <link rel="stylesheet" href="phase5.css">
+    <link rel="icon" href="/assets/logo.png" type="image/png">
 </head>
-<body>
+<body data-app-page="calendar" data-app-title="Calendar" data-app-subtitle="Visual schedule of all saved quotes" data-app-show-back="true">
     <div class="container">
-        <div class="logo-section">
-            <img src="/assets/logo.png" alt="Lumetry Media" class="company-logo" onclick="window.location.href='/'" style="cursor: pointer;">
-        </div>
-        <header class="header">
-            <button class="back-button" onclick="window.location.href='/'">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="15,18 9,12 15,6"></polyline>
-                </svg>
-            </button>
-            <div class="header-title">
-                <h1>Quote Calendar</h1>
-                <span class="subtitle">Visual schedule of all saved quotes</span>
-            </div>
-            <div class="header-actions">
-                <a href="/quotes" class="admin-link">Quotes</a>
-                <a href="/reports" class="admin-link" id="reportsLink" style="display: none;">Reports</a>
-                <a href="/admin" class="admin-link">Admin</a>
-                <span class="user-name" id="userDisplayName"></span>
-                <button class="logout-btn" onclick="logout()">Logout</button>
-            </div>
-        </header>
-
         <main class="main-content">
             <div class="calendar-section">
+                <div class="calendar-panel">
                 <div class="calendar-controls">
-                    <button class="nav-btn" id="prevMonth">
+                    <button class="nav-btn" id="prevMonth" aria-label="Previous month">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="15,18 9,12 15,6"></polyline>
                         </svg>
                     </button>
                     <h2 id="currentMonth" class="month-title">Loading...</h2>
-                    <button class="nav-btn" id="nextMonth">
+                    <button class="nav-btn" id="nextMonth" aria-label="Next month">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="9,18 15,12 9,6"></polyline>
                         </svg>
                     </button>
                 </div>
 
-                <div class="calendar-header">
-                    <div class="day-header">Sun</div>
-                    <div class="day-header">Mon</div>
-                    <div class="day-header">Tue</div>
-                    <div class="day-header">Wed</div>
-                    <div class="day-header">Thu</div>
-                    <div class="day-header">Fri</div>
-                    <div class="day-header">Sat</div>
-                </div>
+                <div id="calendarEmptyBanner" class="calendar-empty-banner" style="display: none;"></div>
 
-                <div id="calendarGrid" class="calendar-grid">
-                    <!-- Calendar days will be generated here -->
+                <div id="calendarFrame" class="calendar-frame">
+                    <div id="calendarSkeleton" class="calendar-skeleton" aria-hidden="true"></div>
+
+                    <div class="calendar-header">
+                        <div class="day-header">Sun</div>
+                        <div class="day-header">Mon</div>
+                        <div class="day-header">Tue</div>
+                        <div class="day-header">Wed</div>
+                        <div class="day-header">Thu</div>
+                        <div class="day-header">Fri</div>
+                        <div class="day-header">Sat</div>
+                    </div>
+
+                    <div id="calendarGrid" class="calendar-grid">
+                        <!-- Calendar days will be generated here -->
+                    </div>
                 </div>
 
                 <div class="calendar-legend">
@@ -70,6 +61,7 @@
                         <span>Booked Events</span>
                     </div>
                     <p class="legend-note">Click on any event to view quote details</p>
+                </div>
                 </div>
             </div>
         </main>
@@ -116,45 +108,10 @@
         </div>
     </div>
 
-    <!-- Confirm Modal -->
-    <div id="confirmModal" class="modal" style="display: none;">
-        <div class="modal-content confirm-modal-content">
-            <div class="modal-header">
-                <h2 id="confirmModalTitle">Confirm</h2>
-                <span class="close" onclick="hideConfirmModal(false)">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="confirm-content">
-                    <div class="confirm-icon">⚠️</div>
-                    <p id="confirmModalMessage">Are you sure?</p>
-                </div>
-                <div class="modal-buttons">
-                    <button type="button" class="secondary-button" onclick="hideConfirmModal(false)">Cancel</button>
-                    <button type="button" class="primary-button" id="confirmModalOk" onclick="hideConfirmModal(true)">Confirm</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Alert Modal (reuse from main app) -->
-    <div id="alertModal" class="modal" style="display: none;">
-        <div class="modal-content alert-modal-content">
-            <div class="modal-header">
-                <h2 id="alertModalTitle">Message</h2>
-                <span class="close" onclick="hideAlertModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="alert-content">
-                    <div id="alertModalIcon" class="alert-icon"></div>
-                    <p id="alertModalMessage">Message content</p>
-                </div>
-                <div class="modal-buttons">
-                    <button type="button" class="primary-button" onclick="hideAlertModal()">OK</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    <script src="toasts.js"></script>
+    <script src="a11y.js"></script>
+    <script src="modals.js"></script>
+    <script src="shell.js"></script>
     <script src="lumdash-integration.js"></script>
     <script src="calendar.js"></script>
 </body>

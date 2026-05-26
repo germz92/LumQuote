@@ -497,116 +497,13 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Display logged in user name
-function displayUserName() {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const userNameEl = document.getElementById('userDisplayName');
-    if (userNameEl && user.name) {
-        userNameEl.textContent = user.name;
-    }
-}
-
 // Initialize admin panel when page loads
 let adminPanel;
 document.addEventListener('DOMContentLoaded', () => {
     adminPanel = new AdminPanel();
-    displayUserName();
 });
 
-// Custom Modal System (shared with main script)
-let currentAlertModal = null;
-let currentConfirmCallback = null;
 let currentPromptCallback = null;
-
-function showAlertModal(message, type = 'info', title = null, autoClose = false) {
-    const modal = document.getElementById('alertModal');
-    const titleEl = document.getElementById('alertModalTitle');
-    const messageEl = document.getElementById('alertModalMessage');
-    const iconEl = document.getElementById('alertModalIcon');
-    const contentEl = modal.querySelector('.alert-modal-content');
-    
-    // Set title
-    titleEl.textContent = title || (type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Information');
-    
-    // Set message
-    messageEl.textContent = message;
-    
-    // Set icon type
-    iconEl.className = `alert-icon ${type}`;
-    
-    // Remove any existing auto-close class
-    contentEl.classList.remove('auto-close');
-    
-    // Show modal
-    modal.style.display = 'flex';
-    currentAlertModal = modal;
-    
-    // Auto-close for success messages
-    if (autoClose && type === 'success') {
-        contentEl.classList.add('auto-close');
-        setTimeout(() => {
-            hideAlertModal();
-        }, 3500);
-    }
-    
-    // Focus management
-    setTimeout(() => {
-        const okButton = modal.querySelector('.primary-button');
-        okButton.focus();
-    }, 100);
-}
-
-function hideAlertModal() {
-    const modal = document.getElementById('alertModal');
-    if (modal) {
-        modal.classList.add('closing');
-        setTimeout(() => {
-            modal.style.display = 'none';
-            modal.classList.remove('closing');
-            currentAlertModal = null;
-        }, 200);
-    }
-}
-
-function showConfirmModal(message, title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel') {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('confirmModal');
-        const titleEl = document.getElementById('confirmModalTitle');
-        const messageEl = document.getElementById('confirmModalMessage');
-        const confirmBtn = document.getElementById('confirmModalOk');
-        
-        // Set content
-        titleEl.textContent = title;
-        messageEl.textContent = message;
-        confirmBtn.textContent = confirmText;
-        
-        // Set callback
-        currentConfirmCallback = resolve;
-        
-        // Show modal
-        modal.style.display = 'flex';
-        
-        // Focus management
-        setTimeout(() => {
-            confirmBtn.focus();
-        }, 100);
-    });
-}
-
-function hideConfirmModal(result) {
-    const modal = document.getElementById('confirmModal');
-    if (modal) {
-        modal.classList.add('closing');
-        setTimeout(() => {
-            modal.style.display = 'none';
-            modal.classList.remove('closing');
-            if (currentConfirmCallback) {
-                currentConfirmCallback(result);
-                currentConfirmCallback = null;
-            }
-        }, 200);
-    }
-}
 
 function showPromptModal(message, defaultValue = '', title = 'Input Required', placeholder = 'Enter value') {
     return new Promise((resolve) => {
@@ -657,36 +554,11 @@ function hidePromptModal(result) {
     }
 }
 
-// Keyboard support for modals
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        if (currentAlertModal) {
-            hideAlertModal();
-        } else if (document.getElementById('confirmModal').style.display === 'flex') {
-            hideConfirmModal(false);
-        } else if (document.getElementById('promptModal').style.display === 'flex') {
+        const promptModal = document.getElementById('promptModal');
+        if (promptModal && promptModal.style.display === 'flex') {
             hidePromptModal(null);
         }
     }
 });
-
-// Logout function
-async function logout() {
-    try {
-        const response = await fetch('/api/logout', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
-        
-        // Clear local storage tokens
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
-        
-        window.location.href = '/login';
-    } catch (error) {
-        console.error('Logout error:', error);
-        window.location.href = '/login';
-    }
-} 
