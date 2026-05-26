@@ -15,7 +15,8 @@
     "exceljs": "^4.4.0",
     "express": "^4.18.2",
     "express-session": "^1.18.1",
-    "html-pdf-node": "^1.0.8",
+    "@sparticuz/chromium": "^131.0.1",
+    "puppeteer-core": "^22.15.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^7.5.0",
     "path": "^0.12.7",
@@ -23,7 +24,8 @@
     "xlsx-style": "^0.8.13"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "puppeteer": "^22.15.0"
   },
   "engines": {
     "node": ">=18.0.0"

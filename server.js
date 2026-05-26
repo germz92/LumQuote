@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const htmlPdf = require('html-pdf-node');
+const { generatePdfFromHtml, useServerlessChromium } = require('./lib/pdf-generator');
 const ExcelJS = require('exceljs');
 const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, UnderlineType } = require('docx');
 const fs = require('fs');
@@ -520,7 +520,7 @@ app.post('/api/generate-pdf', async (req, res) => {
   try {
     const { quoteData } = req.body;
     
-    console.log('🔄 Starting PDF generation...');
+    console.log('🔄 Starting PDF generation...', useServerlessChromium() ? '(serverless chromium)' : '(local puppeteer)');
     
     console.log('📝 Generating HTML content...');
     const html = await generateQuoteHTML(quoteData);
@@ -536,8 +536,7 @@ app.post('/api/generate-pdf', async (req, res) => {
       }
     };
     
-    const file = { content: html };
-    const pdf = await htmlPdf.generatePdf(file, options);
+    const pdf = await generatePdfFromHtml(html, options);
     
     console.log('✅ PDF generated successfully');
     const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
