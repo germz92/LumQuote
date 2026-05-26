@@ -2,7 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const { generatePdfFromHtml, useServerlessChromium } = require('./lib/pdf-generator');
 const ExcelJS = require('exceljs');
 const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, UnderlineType } = require('docx');
 const fs = require('fs');
@@ -520,6 +519,7 @@ app.post('/api/generate-pdf', async (req, res) => {
   try {
     const { quoteData } = req.body;
     
+    const { generatePdfFromHtml, useServerlessChromium } = require('./lib/pdf-generator');
     console.log('🔄 Starting PDF generation...', useServerlessChromium() ? '(serverless chromium)' : '(local puppeteer)');
     
     console.log('📝 Generating HTML content...');
