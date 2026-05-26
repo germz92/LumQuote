@@ -121,6 +121,44 @@ function parseLocation(locationString) {
     return { city, state, venue };
 }
 
+// Prompt to transfer after a quote is newly marked as booked
+async function onQuoteMarkedAsBooked(quoteName, wasPreviouslyBooked = false) {
+    if (!quoteName || wasPreviouslyBooked) {
+        return;
+    }
+
+    if (typeof showConfirmModal !== 'function') {
+        console.warn('showConfirmModal not available for LumDash transfer prompt');
+        return;
+    }
+
+    const shouldTransfer = await showConfirmModal(
+        'Transfer to LumDash?',
+        'Quote Booked',
+        'Yes',
+        'No'
+    );
+
+    if (!shouldTransfer) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/load-quote/${encodeURIComponent(quoteName)}`);
+        if (!response.ok) {
+            throw new Error('Failed to load quote');
+        }
+
+        const fullQuote = await response.json();
+        await transferToLumDash(fullQuote);
+    } catch (err) {
+        console.error('Error loading quote for LumDash transfer:', err);
+        if (typeof showAlertModal === 'function') {
+            showAlertModal('Failed to load quote for LumDash transfer.', 'error');
+        }
+    }
+}
+
 // Transfer quote to LumDash
 async function transferToLumDash(quote) {
     // Check for valid token first
@@ -243,6 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Export for use in other files
 window.LumDashIntegration = {
     transferToLumDash,
+    onQuoteMarkedAsBooked,
     authenticateWithLumDash,
     hasValidLumDashToken,
     checkPendingLumDashTransfer

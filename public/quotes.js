@@ -408,6 +408,7 @@ class QuotesManager {
         const clientName = quote.clientName || '-';
         const location = quote.location || '-';
         const quoteTitle = quote.quoteData?.quoteTitle || quote.name;
+        const isArchived = quote.archived || false;
         const isBooked = quote.booked || false;
         const createdBy = quote.createdBy?.name || '-';
         const isSharedWithMe = !quote.isOwner && quote.accessLevel;
@@ -442,6 +443,33 @@ class QuotesManager {
             minute: '2-digit'
         });
 
+        const canEdit = quote.accessLevel !== 'read';
+        const canDelete = quote.isOwner || this.isCurrentUserAdmin();
+        const overflowMenuHtml = (canEdit || canDelete || isArchived) ? `
+            <div class="quote-overflow-menu table-overflow-menu">
+                <button class="table-action-btn secondary quote-overflow-btn" onclick="quotesManager.toggleOverflowMenu(event, '${this.escapeJs(quote.name)}')" aria-label="More actions">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <circle cx="12" cy="12" r="1"></circle>
+                        <circle cx="12" cy="5" r="1"></circle>
+                        <circle cx="12" cy="19" r="1"></circle>
+                    </svg>
+                </button>
+                <div class="quote-overflow-dropdown list-overflow-dropdown" style="display: none;">
+                    ${canEdit ? `
+                        <button class="overflow-menu-item" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')">Edit</button>
+                    ` : ''}
+                    ${isArchived ? `
+                        <button class="overflow-menu-item" onclick="quotesManager.unarchiveQuote('${this.escapeJs(quote.name)}')">Unarchive</button>
+                    ` : canEdit ? `
+                        <button class="overflow-menu-item" onclick="quotesManager.archiveQuote('${this.escapeJs(quote.name)}')">Archive</button>
+                    ` : ''}
+                    ${canDelete ? `
+                        <button class="overflow-menu-item danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')">Delete</button>
+                    ` : ''}
+                </div>
+            </div>
+        ` : '';
+
         return `
             <tr class="quote-row ${isBooked ? 'booked-row' : ''} ${isSharedWithMe ? 'shared-row' : ''}" data-quote-name="${this.escapeHtml(quote.name)}" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
                 <td class="quote-title-cell">
@@ -458,6 +486,7 @@ class QuotesManager {
                 <td>${modifiedDate}</td>
                 <td class="total-cell">${this.formatCurrency(total)}</td>
                 <td class="actions-cell" onclick="event.stopPropagation()">
+                    <div class="actions-cell-inner">
                     <button class="table-action-btn lumdash" onclick="quotesManager.transferToLumDash('${this.escapeJs(quote.name)}')" title="Transfer to LumDash">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M7 17L17 7"></path>
@@ -476,20 +505,15 @@ class QuotesManager {
                         </button>
                     ` : ''}
                     ${quote.accessLevel !== 'read' ? `
-                        <button class="table-action-btn secondary" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')" title="Edit">
+                        <button class="table-action-btn booked${isBooked ? ' active' : ''}" onclick="quotesManager.toggleBookedStatus('${this.escapeJs(quote.name)}', ${!isBooked})" title="${isBooked ? 'Mark as Not Booked' : 'Mark as Booked'}">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
                             </svg>
                         </button>
                     ` : ''}
-                    ${quote.isOwner || this.isCurrentUserAdmin() ? `
-                        <button class="table-action-btn danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')" title="Delete">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="3 6 5 6 21 6"></polyline>
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                        </button>
-                    ` : ''}
+                    ${overflowMenuHtml}
+                    </div>
                 </td>
             </tr>
         `;
@@ -964,47 +988,102 @@ class QuotesManager {
         }
     }
 
+    closeOverflowMenus(exceptDropdown = null) {
+        document.querySelectorAll('.quote-overflow-dropdown').forEach(dd => {
+            if (dd !== exceptDropdown) {
+                dd.style.display = 'none';
+                this.resetListOverflowDropdown(dd);
+            }
+        });
+        document.querySelectorAll('.quote-card.menu-open, .actions-cell.menu-open').forEach(c => {
+            c.classList.remove('menu-open');
+        });
+    }
+
+    resetListOverflowDropdown(dropdown) {
+        if (!dropdown?.classList.contains('list-overflow-dropdown')) return;
+        dropdown.style.position = '';
+        dropdown.style.top = '';
+        dropdown.style.right = '';
+        dropdown.style.left = '';
+        dropdown.style.bottom = '';
+        dropdown.style.minWidth = '';
+        dropdown.style.zIndex = '';
+    }
+
+    positionListOverflowDropdown(menu, dropdown) {
+        const btn = menu.querySelector('.quote-overflow-btn');
+        if (!btn) return;
+
+        dropdown.style.display = 'block';
+        dropdown.style.position = 'fixed';
+        dropdown.style.minWidth = '200px';
+        dropdown.style.zIndex = '150';
+
+        const rect = btn.getBoundingClientRect();
+        const dropdownHeight = dropdown.offsetHeight;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const spaceAbove = rect.top;
+
+        if (spaceBelow >= dropdownHeight + 8 || spaceBelow >= spaceAbove) {
+            dropdown.style.top = `${rect.bottom + 4}px`;
+        } else {
+            dropdown.style.top = `${rect.top - dropdownHeight - 4}px`;
+        }
+
+        const dropdownWidth = dropdown.offsetWidth;
+        dropdown.style.left = `${Math.max(8, rect.right - dropdownWidth)}px`;
+        dropdown.style.right = 'auto';
+        dropdown.style.bottom = 'auto';
+    }
+
     toggleOverflowMenu(event, quoteName) {
         event.stopPropagation();
-        const safeName = quoteName.replace(/\s/g, '-');
-        const dropdown = document.getElementById(`overflow-${safeName}`);
-        const card = event.target.closest('.quote-card');
-        
-        // Close all other dropdowns and remove elevated class from other cards
-        document.querySelectorAll('.quote-overflow-dropdown').forEach(dd => {
-            if (dd !== dropdown) {
-                dd.style.display = 'none';
-            }
-        });
-        document.querySelectorAll('.quote-card').forEach(c => {
-            if (c !== card) {
-                c.classList.remove('menu-open');
-            }
-        });
-        
-        // Toggle this dropdown
-        if (dropdown.style.display === 'none') {
-            dropdown.style.display = 'block';
-            card.classList.add('menu-open'); // Keep card elevated while menu is open
-            
-            // Close dropdown when clicking outside
-            setTimeout(() => {
-                const closeDropdown = (e) => {
-                    if (!e.target.closest('.quote-overflow-menu')) {
-                        dropdown.style.display = 'none';
-                        card.classList.remove('menu-open');
-                        document.removeEventListener('click', closeDropdown);
-                    }
-                };
-                document.addEventListener('click', closeDropdown);
-            }, 0);
-        } else {
+        const menu = event.target.closest('.quote-overflow-menu');
+        if (!menu) return;
+
+        const dropdown = menu.querySelector('.quote-overflow-dropdown');
+        const isListMenu = dropdown.classList.contains('list-overflow-dropdown');
+        const container = event.target.closest('.quote-card') || event.target.closest('.actions-cell');
+        const isOpen = dropdown.style.display === 'block';
+
+        this.closeOverflowMenus();
+
+        if (isOpen) {
             dropdown.style.display = 'none';
-            card.classList.remove('menu-open');
+            this.resetListOverflowDropdown(dropdown);
+            return;
         }
+
+        dropdown.style.display = 'block';
+        if (container) container.classList.add('menu-open');
+
+        if (isListMenu) {
+            this.positionListOverflowDropdown(menu, dropdown);
+        }
+
+        const closeDropdown = (e) => {
+            if (!e.target.closest('.quote-overflow-menu') && !e.target.closest('.list-overflow-dropdown')) {
+                dropdown.style.display = 'none';
+                this.resetListOverflowDropdown(dropdown);
+                if (container) container.classList.remove('menu-open');
+                document.removeEventListener('click', closeDropdown);
+                window.removeEventListener('scroll', closeDropdown, true);
+                window.removeEventListener('resize', closeDropdown);
+            }
+        };
+
+        setTimeout(() => {
+            document.addEventListener('click', closeDropdown);
+            window.addEventListener('scroll', closeDropdown, true);
+            window.addEventListener('resize', closeDropdown);
+        }, 0);
     }
 
     async toggleBookedStatus(quoteName, newBookedStatus) {
+        const quote = this.allQuotes.find(q => q.name === quoteName);
+        const wasPreviouslyBooked = quote?.booked || false;
+
         try {
             this.showLoading(true);
 
@@ -1023,6 +1102,10 @@ class QuotesManager {
 
             if (!response.ok) {
                 throw new Error(result.error || 'Failed to update booked status');
+            }
+
+            if (newBookedStatus && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
+                await window.LumDashIntegration.onQuoteMarkedAsBooked(quoteName, wasPreviouslyBooked);
             }
 
             await this.loadQuotes();
@@ -1331,6 +1414,9 @@ class QuotesManager {
     async saveQuoteEdit(event) {
         event.preventDefault();
 
+        const editingQuote = this.allQuotes.find(q => q.name === this.editingQuoteName);
+        const wasPreviouslyBooked = editingQuote?.booked || false;
+
         const newName = document.getElementById('editQuoteName').value.trim();
         const clientName = document.getElementById('editQuoteClient').value.trim();
         const location = document.getElementById('editQuoteLocation').value.trim();
@@ -1366,6 +1452,10 @@ class QuotesManager {
 
             if (!response.ok) {
                 throw new Error(result.error || 'Failed to update quote');
+            }
+
+            if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
+                await window.LumDashIntegration.onQuoteMarkedAsBooked(newName, wasPreviouslyBooked);
             }
 
             await this.loadQuotes();

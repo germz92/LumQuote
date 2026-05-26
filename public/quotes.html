@@ -80,29 +80,38 @@
                         </button>
                     </div>
 
-                    <div class="view-toggle-container">
-                        <button class="view-toggle-btn desktop-only" 
-                                id="viewToggleBtn" 
-                                onclick="quotesManager.toggleView()"
-                                title="Toggle view">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="viewToggleIcon">
-                                <rect x="3" y="3" width="7" height="7"></rect>
-                                <rect x="14" y="3" width="7" height="7"></rect>
-                                <rect x="3" y="14" width="7" height="7"></rect>
-                                <rect x="14" y="14" width="7" height="7"></rect>
-                            </svg>
-                            <span id="viewToggleText">List View</span>
-                        </button>
-                        <button class="archive-toggle-btn" 
-                                id="archiveToggleBtn" 
-                                onclick="quotesManager.toggleArchiveView()">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 8v13H3V8"></path>
-                                <path d="M1 3h22v5H1z"></path>
-                                <path d="M10 12h4"></path>
-                            </svg>
-                            <span id="archiveToggleText">View Archived</span>
-                        </button>
+                    <div class="quotes-toolbar">
+                        <div class="quotes-toolbar-group" role="group" aria-label="View options">
+                            <button type="button"
+                                    class="quotes-toolbar-btn desktop-only"
+                                    id="viewToggleBtn"
+                                    onclick="quotesManager.toggleView()"
+                                    title="Toggle grid and list view">
+                                <span class="quotes-toolbar-btn__icon" aria-hidden="true">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="viewToggleIcon">
+                                        <rect x="3" y="3" width="7" height="7"></rect>
+                                        <rect x="14" y="3" width="7" height="7"></rect>
+                                        <rect x="3" y="14" width="7" height="7"></rect>
+                                        <rect x="14" y="14" width="7" height="7"></rect>
+                                    </svg>
+                                </span>
+                                <span class="quotes-toolbar-btn__label" id="viewToggleText">List View</span>
+                            </button>
+                            <button type="button"
+                                    class="quotes-toolbar-btn"
+                                    id="archiveToggleBtn"
+                                    onclick="quotesManager.toggleArchiveView()"
+                                    title="View archived quotes">
+                                <span class="quotes-toolbar-btn__icon" aria-hidden="true">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M21 8v13H3V8"></path>
+                                        <path d="M1 3h22v5H1z"></path>
+                                        <path d="M10 12h4"></path>
+                                    </svg>
+                                </span>
+                                <span class="quotes-toolbar-btn__label" id="archiveToggleText">View Archived</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 

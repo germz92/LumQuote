@@ -34,8 +34,27 @@
         <main class="main-content">
             <div class="quote-section">
                 <div class="quote-title-container">
-                    <h2 id="quoteTitle" class="editable-title" onclick="editQuoteTitle()" title="Click to edit quote title">Conference Services Quote</h2>
-                    <input type="text" id="quoteTitleInput" class="title-input" style="display: none;" placeholder="Enter quote title" onblur="saveQuoteTitle()" onkeydown="handleTitleKeydown(event)">
+                    <div class="quote-title-row">
+                        <div class="quote-title-edit">
+                            <h2 id="quoteTitle" class="editable-title" onclick="editQuoteTitle()" title="Click to edit quote title">Conference Services Quote</h2>
+                            <input type="text" id="quoteTitleInput" class="title-input" style="display: none;" placeholder="Enter quote title" onblur="saveQuoteTitle()" onkeydown="handleTitleKeydown(event)">
+                        </div>
+                        <div class="quote-overflow-menu calculator-quote-menu" id="calculatorQuoteMenu">
+                            <button type="button" class="quote-overflow-btn" id="calculatorQuoteMenuBtn" onclick="calculator.toggleQuoteActionsMenu(event)" aria-label="Quote actions" disabled>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                    <circle cx="12" cy="12" r="1"></circle>
+                                    <circle cx="12" cy="5" r="1"></circle>
+                                    <circle cx="12" cy="19" r="1"></circle>
+                                </svg>
+                            </button>
+                            <div class="quote-overflow-dropdown" id="calculatorQuoteDropdown" style="display: none;">
+                                <button type="button" class="overflow-menu-item" id="calculatorToggleBookedBtn" onclick="calculator.handleToggleBooked()">Mark as Booked</button>
+                                <button type="button" class="overflow-menu-item" onclick="calculator.handleTransferToLumDash()">Transfer to LumDash</button>
+                                <button type="button" class="overflow-menu-item" id="calculatorArchiveBtn" onclick="calculator.handleArchive()">Archive</button>
+                                <button type="button" class="overflow-menu-item danger" onclick="calculator.handleDelete()">Delete</button>
+                            </div>
+                        </div>
+                    </div>
                     <div id="location-display" class="location-display" style="display: none;"></div>
                 </div>
                 <p class="subtitle">Select days and services to calculate your quote</p>
@@ -181,7 +200,19 @@
                     </div>
                     <div class="form-group">
                         <label for="leadSource">Lead Source *</label>
-                        <input type="text" id="leadSource" placeholder="Enter lead source (e.g., Referral, Website, LinkedIn)" required>
+                        <select id="leadSource" required onchange="handleLeadSourceChange()">
+                            <option value="">Select lead source</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="leadSourceReferralGroup" style="display: none;">
+                        <label for="leadSourceReferral">Referred by *</label>
+                        <input type="text" id="leadSourceReferral" placeholder="e.g., client name, company name" maxlength="120">
+                        <p class="field-hint">Stored with the referral for reporting (e.g. Referral: Jane Smith).</p>
+                    </div>
+                    <div class="form-group" id="leadSourceOtherGroup" style="display: none;">
+                        <label for="leadSourceOther">Specify lead source *</label>
+                        <input type="text" id="leadSourceOther" placeholder="" maxlength="120">
+                        <p class="field-hint">Saved as &ldquo;Other&rdquo; in reports so totals stay consistent.</p>
                     </div>
                     <div class="form-group">
                         <label class="checkbox-label">
@@ -387,6 +418,8 @@
         </div>
     </div>
 
+    <script src="lead-sources.js"></script>
+    <script src="lumdash-integration.js"></script>
     <script src="script.js"></script>
 </body>
 </html> 

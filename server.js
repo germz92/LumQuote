@@ -2731,11 +2731,39 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
     
-    // Top Sources
+    // Top Sources (normalize for consistent reporting buckets)
+    const normalizeLeadSourceForReport = (source) => {
+      if (!source) return 'Unknown';
+      const standard = [
+        'Repeat Client', 'Referral', 'Website / Inbound', 'LinkedIn', 'Social Media',
+        'Google Search', 'Email / Newsletter', 'Trade Show / Industry Event',
+        'Partner Referral', 'Cold Outreach', 'Other'
+      ];
+      if (standard.includes(source)) return source;
+      if (source.startsWith('Referral:')) return 'Referral';
+      if (source.startsWith('Other:')) return 'Other';
+      const legacy = {
+        repeat: 'Repeat Client',
+        'repeat client': 'Repeat Client',
+        referral: 'Referral',
+        website: 'Website / Inbound',
+        inbound: 'Website / Inbound',
+        linkedin: 'LinkedIn',
+        'social media': 'Social Media',
+        instagram: 'Social Media',
+        google: 'Google Search',
+        email: 'Email / Newsletter',
+        lumdash: 'Other'
+      };
+      const mapped = legacy[String(source).trim().toLowerCase()];
+      if (mapped) return mapped;
+      return 'Other';
+    };
+
     const sourceCounts = {};
     const sourceTotals = {};
     filteredQuotes.forEach(quote => {
-      const source = quote.leadSource || 'Unknown';
+      const source = normalizeLeadSourceForReport(quote.leadSource);
       if (!sourceCounts[source]) {
         sourceCounts[source] = 0;
         sourceTotals[source] = 0;

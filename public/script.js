@@ -9,6 +9,7 @@ class QuoteCalculator {
         this.currentLocation = null;
         this.currentLeadSource = null;
         this.currentBooked = false;
+        this.currentArchived = false;
         this.currentCreatedBy = null;
         this.currentQuoteTitle = "Conference Services Quote";
         this.activeCalendar = null;
@@ -56,6 +57,7 @@ class QuoteCalculator {
         this.updateTotal();
         this.renderMarkups();
         this.applyPerEventDiscountState();
+        this.updateQuoteActionsMenu();
     }
 
     loadDraftFromLocalStorage() {
@@ -72,6 +74,7 @@ class QuoteCalculator {
                 this.currentLocation = draftData.currentLocation || null;
                 this.currentLeadSource = draftData.currentLeadSource || null;
                 this.currentBooked = draftData.currentBooked || false;
+                this.currentArchived = draftData.currentArchived || false;
                 this.currentCreatedBy = draftData.currentCreatedBy || null;
                 this.perEventDiscountEnabled = draftData.perEventDiscountEnabled || false;
                 
@@ -87,10 +90,11 @@ class QuoteCalculator {
                 // Update the displays if we loaded data (with slight delay to ensure DOM is ready)
                 setTimeout(() => {
                     this.updateQuoteTitleDisplay();
-                    this.updateClientDisplay();
-                    this.updateLocationDisplay();
-                    this.applyPerEventDiscountState();
-                    console.log('📄 Display updated after localStorage restore');
+        this.updateClientDisplay();
+        this.updateLocationDisplay();
+        this.updateQuoteActionsMenu();
+        this.applyPerEventDiscountState();
+        console.log('📄 Display updated after localStorage restore');
                 }, 0);
                 
                 // Ensure existing services have tentative and discount properties
@@ -118,7 +122,7 @@ class QuoteCalculator {
         }
     }
 
-    saveDraftToLocalStorage() {
+    saveDraftToLocalStorage(skipAutoSave = false) {
         try {
             const draftData = {
                 days: this.days,
@@ -130,6 +134,7 @@ class QuoteCalculator {
                 currentLocation: this.currentLocation,
                 currentLeadSource: this.currentLeadSource,
                 currentBooked: this.currentBooked,
+                currentArchived: this.currentArchived,
                 currentCreatedBy: this.currentCreatedBy,
                 perEventDiscountEnabled: this.perEventDiscountEnabled,
                 lastSaved: new Date().toISOString()
@@ -144,8 +149,9 @@ class QuoteCalculator {
             });
             localStorage.setItem(this.autoSaveKey, JSON.stringify(draftData));
             
-            // Trigger auto-save to database if this is a loaded quote
-            this.triggerAutoSave();
+            if (!skipAutoSave) {
+                this.triggerAutoSave();
+            }
         } catch (error) {
             console.warn('⚠️ Error saving draft to localStorage:', error);
         }
@@ -161,6 +167,7 @@ class QuoteCalculator {
         this.currentQuoteName = null;
         this.currentClientName = null;
         this.currentBooked = false;
+        this.currentArchived = false;
         this.currentCreatedBy = null;
         this.currentQuoteTitle = "Conference Services Quote";
         this.currentLocation = null;
@@ -180,6 +187,8 @@ class QuoteCalculator {
         if (titleElement) {
             titleElement.textContent = this.currentQuoteTitle;
         }
+
+        this.updateQuoteActionsMenu();
         
         // Reset override mode
         if (this.isOverrideMode) {
@@ -1305,7 +1314,11 @@ class QuoteCalculator {
         document.getElementById('saveQuoteTitle').value = this.currentQuoteTitle || this.currentQuoteName || '';
         document.getElementById('clientName').value = this.currentClientName || '';
         document.getElementById('eventLocation').value = this.currentLocation || '';
-        document.getElementById('leadSource').value = this.currentLeadSource || '';
+        if (window.LeadSources) {
+            LeadSources.setLeadSourceFormValue(this.currentLeadSource || '');
+        } else {
+            document.getElementById('leadSource').value = this.currentLeadSource || '';
+        }
         document.getElementById('bookedCheckbox').checked = this.currentBooked || false;
         
         // Load previous clients for the dropdown
@@ -1460,78 +1473,52 @@ class QuoteCalculator {
     }
 
     async autoSaveQuoteTitle(newTitle) {
-        // Only auto-save if we have a currently saved quote
-        if (!this.currentQuoteName) {
-            return;
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+            this.autoSaveTimeout = null;
         }
 
+        this.currentQuoteTitle = newTitle;
         const oldQuoteName = this.currentQuoteName;
-        
-        // If the title is the same as the old name, just update the existing quote
-        if (oldQuoteName === newTitle) {
+
+        if (!oldQuoteName) {
+            this.currentQuoteName = newTitle;
+            await this.performAutoSave(true);
             return;
         }
-
-        const quoteData = {
-            days: this.days,
-            total: this.getFinalTotal(),
-            discountPercentage: this.discountPercentage
-        };
 
         try {
-            // Save quote with new title
-            const saveResponse = await fetch('/api/save-quote', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    name: newTitle,
-                    quoteData,
-                    clientName: this.currentClientName || null
-                })
-            });
+            this.updateSaveStatus('saving');
 
-            const saveResult = await saveResponse.json();
-
-            if (saveResponse.status === 409) {
-                // Quote with this name already exists, use overwrite instead
-                const overwriteResponse = await fetch('/api/overwrite-quote', {
-                    method: 'POST',
+            if (oldQuoteName !== newTitle) {
+                const response = await fetch(`/api/update-quote-metadata/${encodeURIComponent(oldQuoteName)}`, {
+                    method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ 
-                        name: newTitle,
-                        quoteData,
-                        clientName: this.currentClientName || null
+                    body: JSON.stringify({
+                        newName: newTitle,
+                        clientName: this.currentClientName || null,
+                        location: this.currentLocation || null,
+                        booked: this.currentBooked || false
                     })
                 });
 
-                const overwriteResult = await overwriteResponse.json();
-                if (!overwriteResult.success) {
-                    throw new Error(overwriteResult.error || 'Failed to overwrite quote');
+                const result = await response.json();
+
+                if (response.status === 404) {
+                    this.currentQuoteName = newTitle;
+                } else if (!response.ok) {
+                    throw new Error(result.error || 'Failed to rename quote');
+                } else {
+                    this.currentQuoteName = newTitle;
+                    console.log(`✅ Quote renamed from "${oldQuoteName}" to "${newTitle}"`);
                 }
-            } else if (!saveResult.success) {
-                throw new Error(saveResult.error || 'Failed to save quote');
             }
 
-            // Successfully saved with new name, now delete the old quote
-            try {
-                await fetch(`/api/saved-quotes/${encodeURIComponent(oldQuoteName)}`, {
-                    method: 'DELETE'
-                });
-                console.log(`🗑️ Deleted old quote: ${oldQuoteName}`);
-            } catch (deleteError) {
-                console.warn('Could not delete old quote:', deleteError);
-                // Don't fail the whole operation if delete fails
-            }
-
-            // Update current quote name to match the new title
-            this.currentQuoteName = newTitle;
-            console.log(`✅ Quote renamed from "${oldQuoteName}" to "${newTitle}"`);
-
+            await this.performAutoSave(true);
         } catch (error) {
+            this.updateSaveStatus('error');
             throw new Error(`Failed to rename quote: ${error.message}`);
         }
     }
@@ -1558,8 +1545,11 @@ class QuoteCalculator {
         const title = document.getElementById('saveQuoteTitle').value.trim();
         const clientName = document.getElementById('clientName').value.trim();
         const location = document.getElementById('eventLocation').value.trim();
-        const leadSource = document.getElementById('leadSource').value.trim();
+        const leadSource = window.LeadSources
+            ? LeadSources.getLeadSourceFromForm()
+            : document.getElementById('leadSource').value.trim();
         const booked = document.getElementById('bookedCheckbox').checked;
+        const wasPreviouslyBooked = this.currentBooked || false;
         
         if (!title) {
             showAlertModal('Please enter a quote title.', 'error');
@@ -1576,8 +1566,11 @@ class QuoteCalculator {
             return;
         }
         
-        if (!leadSource) {
-            showAlertModal('Please enter a lead source.', 'error');
+        const leadSourceError = window.LeadSources
+            ? LeadSources.validateLeadSourceForm()
+            : (!leadSource ? 'Please select a lead source.' : null);
+        if (leadSourceError) {
+            showAlertModal(leadSourceError, 'error');
             return;
         }
 
@@ -1619,7 +1612,7 @@ class QuoteCalculator {
                     'Cancel'
                 );
                 if (overwrite) {
-                    await this.overwriteQuote(title, quoteData, clientName, location, leadSource, booked);
+                    await this.overwriteQuote(title, quoteData, clientName, location, leadSource, booked, wasPreviouslyBooked);
                     // If we're renaming, delete the old quote after successful overwrite
                     if (isRenaming) {
                         await this.deleteOldQuote(oldQuoteName);
@@ -1647,6 +1640,11 @@ class QuoteCalculator {
                 this.updateSaveStatus('saved');
                 
                 this.closeSaveModal();
+
+                if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
+                    await window.LumDashIntegration.onQuoteMarkedAsBooked(title, wasPreviouslyBooked);
+                }
+
                 showAlertModal('Quote saved successfully!', 'success', null, true);
             } else {
                 throw new Error(result.error || 'Failed to save quote');
@@ -1716,9 +1714,12 @@ class QuoteCalculator {
     }
     
     // Perform the actual auto-save
-    async performAutoSave() {
-        // Don't save if already saving or no quote loaded
-        if (this.isSaving || !this.currentQuoteName) {
+    async performAutoSave(force = false) {
+        if (!this.currentQuoteName) {
+            return;
+        }
+
+        if (this.isSaving && !force) {
             return;
         }
         
@@ -1775,6 +1776,7 @@ class QuoteCalculator {
             if (result.success) {
                 this.lastSavedTime = new Date();
                 this.updateSaveStatus('saved');
+                this.updateQuoteActionsMenu();
                 console.log('✅ Auto-saved:', this.currentQuoteName);
             } else {
                 throw new Error(result.error || 'Failed to auto-save');
@@ -1784,6 +1786,224 @@ class QuoteCalculator {
             this.updateSaveStatus('error');
         } finally {
             this.isSaving = false;
+        }
+    }
+
+    updateQuoteActionsMenu() {
+        const menuBtn = document.getElementById('calculatorQuoteMenuBtn');
+        const bookedBtn = document.getElementById('calculatorToggleBookedBtn');
+        const archiveBtn = document.getElementById('calculatorArchiveBtn');
+
+        if (!menuBtn) return;
+
+        menuBtn.disabled = !this.currentQuoteName;
+
+        if (bookedBtn) {
+            bookedBtn.textContent = this.currentBooked ? 'Mark as Not Booked' : 'Mark as Booked';
+        }
+        if (archiveBtn) {
+            archiveBtn.textContent = this.currentArchived ? 'Unarchive' : 'Archive';
+        }
+    }
+
+    closeQuoteActionsMenu() {
+        const dropdown = document.getElementById('calculatorQuoteDropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
+    }
+
+    toggleQuoteActionsMenu(event) {
+        event.stopPropagation();
+
+        if (!this.currentQuoteName) {
+            return;
+        }
+
+        const menu = document.getElementById('calculatorQuoteMenu');
+        const dropdown = document.getElementById('calculatorQuoteDropdown');
+        if (!menu || !dropdown) return;
+
+        document.querySelectorAll('.quote-overflow-dropdown').forEach(dd => {
+            if (dd !== dropdown) {
+                dd.style.display = 'none';
+            }
+        });
+
+        const isOpen = dropdown.style.display === 'block';
+        if (isOpen) {
+            this.closeQuoteActionsMenu();
+            return;
+        }
+
+        dropdown.style.display = 'block';
+
+        setTimeout(() => {
+            const closeDropdown = (e) => {
+                if (!e.target.closest('#calculatorQuoteMenu')) {
+                    this.closeQuoteActionsMenu();
+                    document.removeEventListener('click', closeDropdown);
+                }
+            };
+            document.addEventListener('click', closeDropdown);
+        }, 0);
+    }
+
+    async ensureQuoteSavedForAction() {
+        if (!this.currentQuoteName) {
+            this.currentQuoteName = this.generateUntitledQuoteName();
+            this.currentQuoteTitle = this.currentQuoteName;
+            this.updateQuoteTitleDisplay();
+            await this.performAutoSave(true);
+            this.updateQuoteActionsMenu();
+        }
+        return this.currentQuoteName;
+    }
+
+    async handleToggleBooked() {
+        this.closeQuoteActionsMenu();
+
+        try {
+            const quoteName = await this.ensureQuoteSavedForAction();
+            const wasPreviouslyBooked = this.currentBooked;
+            const newBookedStatus = !this.currentBooked;
+
+            const response = await fetch(`/api/update-quote-metadata/${encodeURIComponent(quoteName)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    newName: quoteName,
+                    booked: newBookedStatus
+                })
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to update booked status');
+            }
+
+            this.currentBooked = newBookedStatus;
+            this.saveDraftToLocalStorage(true);
+            this.updateQuoteActionsMenu();
+
+            if (newBookedStatus && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
+                await window.LumDashIntegration.onQuoteMarkedAsBooked(quoteName, wasPreviouslyBooked);
+            }
+
+            showAlertModal(`Quote marked as ${newBookedStatus ? 'booked' : 'not booked'}!`, 'success', null, true);
+        } catch (error) {
+            console.error('Error updating booked status:', error);
+            showAlertModal('Failed to update booked status. Please try again.', 'error');
+        }
+    }
+
+    async handleTransferToLumDash() {
+        this.closeQuoteActionsMenu();
+
+        try {
+            const quoteName = await this.ensureQuoteSavedForAction();
+            const response = await fetch(`/api/load-quote/${encodeURIComponent(quoteName)}`);
+            if (!response.ok) {
+                throw new Error('Failed to load quote data');
+            }
+
+            const fullQuote = await response.json();
+            if (fullQuote.error) {
+                throw new Error(fullQuote.error);
+            }
+
+            if (window.LumDashIntegration) {
+                await window.LumDashIntegration.transferToLumDash(fullQuote);
+            } else {
+                showAlertModal('LumDash integration not loaded.', 'error');
+            }
+        } catch (error) {
+            console.error('Error transferring to LumDash:', error);
+            showAlertModal('Failed to transfer quote to LumDash.', 'error');
+        }
+    }
+
+    async handleArchive() {
+        this.closeQuoteActionsMenu();
+
+        const quoteName = await this.ensureQuoteSavedForAction();
+        const newArchivedStatus = !this.currentArchived;
+
+        const confirmed = await showConfirmModal(
+            newArchivedStatus
+                ? `Are you sure you want to archive "${quoteName}"? Archived quotes will not appear on the calendar or in active quotes.`
+                : `Are you sure you want to unarchive "${quoteName}"? It will appear in active quotes and on the calendar.`,
+            newArchivedStatus ? 'Archive Quote' : 'Unarchive Quote',
+            newArchivedStatus ? 'Archive' : 'Unarchive',
+            'Cancel'
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const response = await fetch(`/api/archive-quote/${encodeURIComponent(quoteName)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ archived: newArchivedStatus })
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to update archive status');
+            }
+
+            this.currentArchived = newArchivedStatus;
+            this.saveDraftToLocalStorage(true);
+            this.updateQuoteActionsMenu();
+
+            showAlertModal(
+                newArchivedStatus
+                    ? `Quote "${quoteName}" has been archived.`
+                    : `Quote "${quoteName}" has been restored to active quotes.`,
+                'success',
+                null,
+                true
+            );
+        } catch (error) {
+            console.error('Error updating archive status:', error);
+            showAlertModal(`Failed to ${newArchivedStatus ? 'archive' : 'unarchive'} quote. Please try again.`, 'error');
+        }
+    }
+
+    async handleDelete() {
+        this.closeQuoteActionsMenu();
+
+        if (!this.currentQuoteName) {
+            return;
+        }
+
+        const quoteName = this.currentQuoteName;
+        const confirmed = await showConfirmModal(
+            `Are you sure you want to permanently delete "${quoteName}"? This action cannot be undone.`,
+            'Delete Quote',
+            'Delete',
+            'Cancel'
+        );
+
+        if (!confirmed) return;
+
+        try {
+            const response = await fetch(`/api/saved-quotes/${encodeURIComponent(quoteName)}`, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to delete quote');
+            }
+
+            this.clearDraft();
+            this.updateQuoteActionsMenu();
+            showAlertModal('Quote deleted successfully!', 'success', null, true);
+            window.location.href = '/quotes';
+        } catch (error) {
+            console.error('Error deleting quote:', error);
+            showAlertModal('Failed to delete quote. Please try again.', 'error');
         }
     }
     
@@ -1823,7 +2043,9 @@ class QuoteCalculator {
         }
     }
 
-    async overwriteQuote(name, quoteData, clientName, location, leadSource, booked) {
+    async overwriteQuote(name, quoteData, clientName, location, leadSource, booked, wasPreviouslyBooked = null) {
+        const prevBooked = wasPreviouslyBooked ?? this.currentBooked ?? false;
+
         try {
             const response = await fetch('/api/overwrite-quote', {
                 method: 'POST',
@@ -1848,6 +2070,7 @@ class QuoteCalculator {
                 this.currentClientName = clientName || null;
                 this.currentLocation = location || null;
                 this.currentLeadSource = leadSource || null;
+                this.currentBooked = booked;
                 this.currentQuoteTitle = name; // Update the main page title
                 this.lastSavedTime = new Date();
                 this.updateSaveStatus('saved');
@@ -1858,6 +2081,11 @@ class QuoteCalculator {
                 this.updateLocationDisplay();
                 
                 this.closeSaveModal();
+
+                if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
+                    await window.LumDashIntegration.onQuoteMarkedAsBooked(name, prevBooked);
+                }
+
                 showAlertModal('Quote updated successfully!', 'success', null, true);
             } else {
                 throw new Error(result.error || 'Failed to update quote');
@@ -1919,11 +2147,13 @@ class QuoteCalculator {
         this.currentClientName = null;
         this.currentLocation = null;
         this.currentBooked = false;
+        this.currentArchived = false;
         this.currentCreatedBy = null;
         this.currentQuoteTitle = "Conference Services Quote";
         this.updateQuoteTitleDisplay();
         this.updateClientDisplay();
         this.updateLocationDisplay();
+        this.updateQuoteActionsMenu();
     }
 
     markQuoteAsModified() {
@@ -1945,14 +2175,11 @@ class QuoteCalculator {
             this.currentLocation = quote.location || null;
             this.currentLeadSource = quote.leadSource || null;
             this.currentBooked = quote.booked || false;
+            this.currentArchived = quote.archived || false;
             this.currentCreatedBy = quote.createdBy?._id || null;
-            this.currentQuoteTitle = quote.name; // Use quote name as title (matching regular loadQuote)
-            
-            // Update the quote title display
-            const titleElement = document.getElementById('quoteTitle');
-            if (titleElement) {
-                titleElement.textContent = this.currentQuoteTitle;
-            }
+            this.currentQuoteTitle = quote.quoteData?.quoteTitle || quote.name;
+            this.updateQuoteTitleDisplay();
+            this.updateQuoteActionsMenu();
             
             // Ensure all services have quantity property and days have date property
             this.days.forEach(day => {
@@ -2145,14 +2372,11 @@ class QuoteCalculator {
             this.currentLocation = quote.location || null;
             this.currentLeadSource = quote.leadSource || null;
             this.currentBooked = quote.booked || false;
+            this.currentArchived = quote.archived || false;
             this.currentCreatedBy = quote.createdBy?._id || null;
-            this.currentQuoteTitle = quote.name; // Use quote name as title
-            
-            // Update the quote title display
-            const titleElement = document.getElementById('quoteTitle');
-            if (titleElement) {
-                titleElement.textContent = this.currentQuoteTitle;
-            }
+            this.currentQuoteTitle = quote.quoteData?.quoteTitle || quote.name;
+            this.updateQuoteTitleDisplay();
+            this.updateQuoteActionsMenu();
             
             // Ensure all services have quantity property and days have date property
             this.days.forEach(day => {
@@ -3960,12 +4184,15 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Load the quote data into the calculator
             calculator.loadQuoteFromData(quoteData);
+            calculator.updateQuoteActionsMenu();
             
         } catch (error) {
             console.error('Error loading quote from calendar:', error);
             showAlertModal('Failed to load quote from calendar.', 'error');
         }
     }
+
+    calculator.updateQuoteActionsMenu();
 });
 
 // Global functions for HTML onclick handlers
@@ -3981,7 +4208,9 @@ async function saveAsCopy() {
     const title = document.getElementById('saveQuoteTitle').value.trim();
     const clientName = document.getElementById('clientName').value.trim();
     const location = document.getElementById('eventLocation').value.trim();
-    const leadSource = document.getElementById('leadSource').value.trim();
+    const leadSource = window.LeadSources
+        ? LeadSources.getLeadSourceFromForm()
+        : document.getElementById('leadSource').value.trim();
     const booked = document.getElementById('bookedCheckbox').checked;
     
     if (!title) {
@@ -3999,8 +4228,11 @@ async function saveAsCopy() {
         return;
     }
     
-    if (!leadSource) {
-        showAlertModal('Please enter a lead source.', 'error');
+    const leadSourceError = window.LeadSources
+        ? LeadSources.validateLeadSourceForm()
+        : (!leadSource ? 'Please select a lead source.' : null);
+    if (leadSourceError) {
+        showAlertModal(leadSourceError, 'error');
         return;
     }
 
@@ -4059,11 +4291,17 @@ async function saveAsCopy() {
                     calculator.currentClientName = clientName || null;
                     calculator.currentLeadSource = leadSource || null;
                     calculator.currentQuoteTitle = uniqueTitle;
+                    calculator.currentBooked = booked;
                     
                     // Update displays
                     calculator.updateQuoteTitleDisplay();
                     calculator.updateClientDisplay();
                     calculator.closeSaveModal();
+
+                    if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
+                        await window.LumDashIntegration.onQuoteMarkedAsBooked(uniqueTitle, false);
+                    }
+
                     showAlertModal(`Quote saved as "${uniqueTitle}"!`, 'success', null, true);
                     break;
                 } else if (retryResponse.status === 409) {
@@ -4078,11 +4316,17 @@ async function saveAsCopy() {
             calculator.currentClientName = clientName || null;
             calculator.currentLeadSource = leadSource || null;
             calculator.currentQuoteTitle = copyTitle;
+            calculator.currentBooked = booked;
             
             // Update displays
             calculator.updateQuoteTitleDisplay();
             calculator.updateClientDisplay();
             calculator.closeSaveModal();
+
+            if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
+                await window.LumDashIntegration.onQuoteMarkedAsBooked(copyTitle, false);
+            }
+
             showAlertModal(`Quote saved as "${copyTitle}"!`, 'success', null, true);
         } else {
             throw new Error(result.error || 'Failed to save quote copy');
@@ -4429,23 +4673,22 @@ async function saveQuoteTitle() {
     const inputElement = document.getElementById('quoteTitleInput');
     
     const newTitle = inputElement.value.trim();
-    if (newTitle) {
+    if (newTitle && calculator) {
+        const previousTitle = calculator.currentQuoteTitle;
+        const previousName = calculator.currentQuoteName;
+
         titleElement.textContent = newTitle;
-        if (calculator) {
-            const oldTitle = calculator.currentQuoteTitle;
-            calculator.currentQuoteTitle = newTitle;
-            calculator.saveDraftToLocalStorage(); // Save the title change to localStorage
-            
-            // If there's a current quote saved, automatically update it in the database
-            if (calculator.currentQuoteName && oldTitle !== newTitle) {
-                try {
-                    await calculator.autoSaveQuoteTitle(newTitle);
-                } catch (error) {
-                    console.error('Error auto-saving quote title:', error);
-                    // Show a subtle notification
-                    showAlertModal('Title updated locally. Save quote to update database.', 'info');
-                }
+
+        if (previousTitle !== newTitle || previousName !== newTitle) {
+            try {
+                await calculator.autoSaveQuoteTitle(newTitle);
+                calculator.saveDraftToLocalStorage(true);
+            } catch (error) {
+                console.error('Error auto-saving quote title:', error);
+                showAlertModal(error.message || 'Failed to save quote title. Please try again.', 'error');
             }
+        } else {
+            calculator.saveDraftToLocalStorage(true);
         }
     }
     

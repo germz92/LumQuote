@@ -116,6 +116,26 @@
         </div>
     </div>
 
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal" style="display: none;">
+        <div class="modal-content confirm-modal-content">
+            <div class="modal-header">
+                <h2 id="confirmModalTitle">Confirm</h2>
+                <span class="close" onclick="hideConfirmModal(false)">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="confirm-content">
+                    <div class="confirm-icon">⚠️</div>
+                    <p id="confirmModalMessage">Are you sure?</p>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="secondary-button" onclick="hideConfirmModal(false)">Cancel</button>
+                    <button type="button" class="primary-button" id="confirmModalOk" onclick="hideConfirmModal(true)">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Alert Modal (reuse from main app) -->
     <div id="alertModal" class="modal" style="display: none;">
         <div class="modal-content alert-modal-content">
@@ -135,6 +155,7 @@
         </div>
     </div>
 
+    <script src="lumdash-integration.js"></script>
     <script src="calendar.js"></script>
 </body>
 </html>

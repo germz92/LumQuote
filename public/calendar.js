@@ -611,6 +611,10 @@ class CalendarView {
                 throw new Error(result.error || 'Failed to update booked status');
             }
 
+            if (newBookedStatus && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
+                await window.LumDashIntegration.onQuoteMarkedAsBooked(quoteName, currentBooked);
+            }
+
             // Reload events to reflect the change
             await this.loadEvents();
             this.renderCalendar();
@@ -720,6 +724,41 @@ class CalendarView {
 }
 
 // Modal functions (reused from main app)
+let currentConfirmCallback = null;
+
+function showConfirmModal(message, title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('confirmModal');
+        const titleEl = document.getElementById('confirmModalTitle');
+        const messageEl = document.getElementById('confirmModalMessage');
+        const confirmBtn = document.getElementById('confirmModalOk');
+        const cancelBtn = modal.querySelector('.secondary-button');
+
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        confirmBtn.textContent = confirmText;
+        if (cancelBtn) cancelBtn.textContent = cancelText;
+
+        currentConfirmCallback = resolve;
+        modal.style.display = 'flex';
+
+        setTimeout(() => {
+            confirmBtn.focus();
+        }, 100);
+    });
+}
+
+function hideConfirmModal(result) {
+    const modal = document.getElementById('confirmModal');
+    if (modal) {
+        modal.style.display = 'none';
+        if (currentConfirmCallback) {
+            currentConfirmCallback(result);
+            currentConfirmCallback = null;
+        }
+    }
+}
+
 function hideAlertModal() {
     document.getElementById('alertModal').style.display = 'none';
 }
