@@ -8,4 +8,8 @@ services:
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
-        value: production 
+        value: production
+      - key: PUPPETEER_SKIP_DOWNLOAD
+        value: "true"
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: "true" 
