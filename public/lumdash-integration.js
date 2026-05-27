@@ -260,15 +260,10 @@ function checkPendingLumDashTransfer() {
     }
 }
 
-// Check if current user is admin and show admin-only elements
+// Check if current user is admin and show admin-only profile menu items
 function showAdminOnlyElements() {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    if (user.role === 'admin') {
-        // Show Reports link for admin users
-        const reportsLink = document.getElementById('reportsLink');
-        if (reportsLink) {
-            reportsLink.style.display = '';
-        }
+    if (window.AppShell?.syncAdminNav) {
+        window.AppShell.syncAdminNav();
     }
 }
 

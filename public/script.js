@@ -22,6 +22,8 @@ class QuoteCalculator {
         this.autoSaveDelay = 2000; // 2 seconds after last change
         this.isSaving = false;
         this.lastSavedTime = null;
+        this.isHydratingQuote = false;
+        this.lastPersistedSnapshot = null;
         
         // Per-event discount toggle
         this.perEventDiscountEnabled = false;
@@ -58,6 +60,10 @@ class QuoteCalculator {
         this.renderMarkups();
         this.applyPerEventDiscountState();
         this.updateQuoteActionsMenu();
+        if (this.currentQuoteName) {
+            this.syncPersistedSnapshot();
+            this.updateSaveStatus('saved');
+        }
     }
 
     loadDraftFromLocalStorage() {
@@ -149,7 +155,7 @@ class QuoteCalculator {
             });
             localStorage.setItem(this.autoSaveKey, JSON.stringify(draftData));
             
-            if (!skipAutoSave) {
+            if (!skipAutoSave && !this.isHydratingQuote) {
                 this.triggerAutoSave();
             }
         } catch (error) {
@@ -157,9 +163,8 @@ class QuoteCalculator {
         }
     }
 
-    clearDraft() {
+    clearDraft(options = {}) {
         console.log('🗑️ clearDraft() called - clearing all data');
-        console.trace('clearDraft stack trace');
         localStorage.removeItem(this.autoSaveKey);
         this.days = [{ services: [], date: null }];
         this.discountPercentage = 0;
@@ -169,28 +174,19 @@ class QuoteCalculator {
         this.currentBooked = false;
         this.currentArchived = false;
         this.currentCreatedBy = null;
-        this.currentQuoteTitle = "Conference Services Quote";
+        this.currentQuoteTitle = 'Conference Services Quote';
         this.currentLocation = null;
         this.currentLeadSource = null;
         this.perEventDiscountEnabled = false;
         
-        // Reset auto-save state
         if (this.autoSaveTimeout) {
             clearTimeout(this.autoSaveTimeout);
             this.autoSaveTimeout = null;
         }
         this.lastSavedTime = null;
-        this.updateSaveStatus('saved');
-        
-        // Reset title display
-        const titleElement = document.getElementById('quoteTitle');
-        if (titleElement) {
-            titleElement.textContent = this.currentQuoteTitle;
-        }
+        this.isSaving = false;
+        this.lastPersistedSnapshot = null;
 
-        this.updateQuoteActionsMenu();
-        
-        // Reset override mode
         if (this.isOverrideMode) {
             this.toggleOverrideMode();
         }
@@ -200,7 +196,27 @@ class QuoteCalculator {
         this.updateTotal();
         this.updateClientDisplay();
         this.updateLocationDisplay();
+        this.updateQuoteTitleDisplay();
+        this.updateQuoteActionsMenu();
+
+        if (options.startUntitled) {
+            this.beginUntitledAutoSave();
+        } else {
+            this.updateSaveStatus('saved');
+        }
+
         console.log('🗑️ Draft cleared from localStorage');
+    }
+
+    beginUntitledAutoSave() {
+        this.currentQuoteName = this.generateUntitledQuoteName();
+        this.currentQuoteTitle = this.currentQuoteName;
+        this.updateQuoteTitleDisplay();
+        this.updateQuoteActionsMenu();
+        this.saveDraftToLocalStorage(true);
+        this.updateSaveStatus('unsaved');
+        this.performAutoSave(true);
+        console.log('📝 Started untitled auto-save quote:', this.currentQuoteName);
     }
 
     async loadServices() {
@@ -724,6 +740,7 @@ class QuoteCalculator {
         this.days[dayIndex].services.splice(serviceIndex, 1);
         this.renderDays();
         this.updateTotal();
+        this.saveDraftToLocalStorage();
     }
 
     countServiceInstances(serviceId, excludeDayIndex = -1, excludeServiceIndex = -1) {
@@ -750,8 +767,10 @@ class QuoteCalculator {
             // In override mode, bypass all dependency checks
             if (this.isOverrideMode) {
                 this.days.splice(dayIndex, 1);
+                this.updateDaysDisplay();
                 this.renderDays();
                 this.updateTotal();
+                this.markQuoteAsModified();
                 return;
             }
             
@@ -782,8 +801,10 @@ class QuoteCalculator {
             
             // Safe to remove
             this.days.splice(dayIndex, 1);
+            this.updateDaysDisplay();
             this.renderDays();
             this.updateTotal();
+            this.markQuoteAsModified();
         }
     }
 
@@ -1631,7 +1652,9 @@ class QuoteCalculator {
                 this.updateQuoteTitleDisplay();
                 this.updateClientDisplay();
                 this.updateLocationDisplay();
+                this.syncPersistedSnapshot();
                 this.updateSaveStatus('saved');
+                this.saveDraftToLocalStorage(true);
                 
                 this.closeSaveModal();
 
@@ -1683,8 +1706,36 @@ class QuoteCalculator {
         return `Untitled Quote - ${timestamp}`;
     }
     
+    getQuotePersistenceSnapshot() {
+        return JSON.stringify({
+            name: this.currentQuoteName,
+            clientName: this.currentClientName,
+            location: this.currentLocation,
+            leadSource: this.currentLeadSource,
+            booked: this.currentBooked,
+            quoteTitle: this.currentQuoteTitle,
+            days: this.days,
+            discountPercentage: this.discountPercentage,
+            markups: this.markups
+        });
+    }
+
+    syncPersistedSnapshot() {
+        this.lastPersistedSnapshot = this.getQuotePersistenceSnapshot();
+    }
+
+    finalizeQuoteLoad() {
+        this.saveDraftToLocalStorage(true);
+        this.syncPersistedSnapshot();
+        this.updateSaveStatus('saved');
+    }
+
     // Trigger auto-save (debounced)
     triggerAutoSave() {
+        if (this.isHydratingQuote) {
+            return;
+        }
+
         // If no quote name exists, generate one for auto-save
         if (!this.currentQuoteName) {
             this.currentQuoteName = this.generateUntitledQuoteName();
@@ -1709,11 +1760,17 @@ class QuoteCalculator {
     
     // Perform the actual auto-save
     async performAutoSave(force = false) {
-        if (!this.currentQuoteName) {
+        if (!this.currentQuoteName || this.isHydratingQuote) {
             return;
         }
 
         if (this.isSaving && !force) {
+            return;
+        }
+
+        const snapshot = this.getQuotePersistenceSnapshot();
+        if (!force && this.lastPersistedSnapshot === snapshot) {
+            this.updateSaveStatus('saved');
             return;
         }
         
@@ -1732,6 +1789,7 @@ class QuoteCalculator {
             // Try to overwrite first (for existing quotes)
             let response = await fetch('/api/overwrite-quote', {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
                 },
@@ -1745,12 +1803,13 @@ class QuoteCalculator {
                 })
             });
             
-            let result = await response.json();
+            let result = await response.json().catch(() => ({}));
             
-            // If quote doesn't exist (404), create it with save-quote
-            if (response.status === 404 || !result.success) {
+            // If quote doesn't exist yet, create it with save-quote
+            if (response.status === 404) {
                 response = await fetch('/api/save-quote', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: {
                         'Content-Type': 'application/json',
                     },
@@ -1764,13 +1823,35 @@ class QuoteCalculator {
                     })
                 });
                 
-                result = await response.json();
+                result = await response.json().catch(() => ({}));
+
+                if (response.status === 409) {
+                    this.currentQuoteName = this.generateUntitledQuoteName();
+                    this.currentQuoteTitle = this.currentQuoteName;
+                    this.updateQuoteTitleDisplay();
+                    response = await fetch('/api/save-quote', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: this.currentQuoteName,
+                            quoteData,
+                            clientName: this.currentClientName || null,
+                            location: this.currentLocation || null,
+                            leadSource: this.currentLeadSource || null,
+                            booked: this.currentBooked || false
+                        })
+                    });
+                    result = await response.json().catch(() => ({}));
+                }
             }
             
-            if (result.success) {
+            if (response.ok && result.success) {
                 this.lastSavedTime = new Date();
+                this.lastPersistedSnapshot = snapshot;
                 this.updateSaveStatus('saved');
                 this.updateQuoteActionsMenu();
+                this.saveDraftToLocalStorage(true);
                 console.log('✅ Auto-saved:', this.currentQuoteName);
             } else {
                 throw new Error(result.error || 'Failed to auto-save');
@@ -2155,14 +2236,22 @@ class QuoteCalculator {
     }
 
     markQuoteAsModified() {
-        // Keep the quote name and client name for saving/PDF, but update display to show it's modified
-        // This allows the save modal to be pre-filled and PDF to use existing client name
-        console.log('📝 markQuoteAsModified called');
         this.updateClientDisplay();
+        if (this.isHydratingQuote) {
+            return;
+        }
+        if (!this.currentQuoteName) {
+            this.currentQuoteName = this.generateUntitledQuoteName();
+            this.currentQuoteTitle = this.currentQuoteName;
+            this.updateQuoteTitleDisplay();
+            this.updateQuoteActionsMenu();
+        }
+        this.saveDraftToLocalStorage();
     }
 
     // Load quote data directly from a quote object (used for calendar navigation)
     loadQuoteFromData(quote) {
+        this.isHydratingQuote = true;
         try {
             // Load the quote data
             this.days = quote.quoteData.days;
@@ -2216,13 +2305,12 @@ class QuoteCalculator {
             this.renderDays();
             this.renderMarkups();
             this.updateTotal();
-            
-            // Save the loaded quote data to localStorage (matching regular loadQuote)
-            this.saveDraftToLocalStorage();
-            
+            this.finalizeQuoteLoad();
         } catch (error) {
             console.error('Error loading quote data:', error);
             throw error;
+        } finally {
+            this.isHydratingQuote = false;
         }
     }
 
@@ -2370,6 +2458,7 @@ class QuoteCalculator {
     }
 
     async loadQuote(quoteName) {
+        this.isHydratingQuote = true;
         try {
             const response = await fetch(`/api/load-quote/${encodeURIComponent(quoteName)}`);
             const quote = await response.json();
@@ -2431,16 +2520,14 @@ class QuoteCalculator {
             this.renderMarkups();
             this.updateTotal();
             
-            // Close the modal
             this.closeLoadModal();
-            
-            // Save the loaded quote data to localStorage
-            this.saveDraftToLocalStorage();
-            
+            this.finalizeQuoteLoad();
             showAlertModal(`Quote "${quoteName}" loaded successfully!`, 'success', null, true);
         } catch (error) {
             console.error('Error loading quote:', error);
             showAlertModal('Error loading quote. Please try again.', 'error');
+        } finally {
+            this.isHydratingQuote = false;
         }
     }
 
@@ -3209,7 +3296,7 @@ class QuoteCalculator {
         // Re-render and update
         this.renderDays();
         this.updateTotal();
-        this.markQuoteAsModified(); // Mark as modified
+        this.markQuoteAsModified();
     }
 
     clearDropIndicators() {
@@ -4185,20 +4272,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loadQuoteData) {
         try {
             const quoteData = JSON.parse(loadQuoteData);
-            sessionStorage.removeItem('loadQuoteData'); // Clean up
-            
-            // Load the quote data into the calculator
+            sessionStorage.removeItem('loadQuoteData');
             calculator.loadQuoteFromData(quoteData);
-            calculator.updateQuoteActionsMenu();
-            
         } catch (error) {
             console.error('Error loading quote from calendar:', error);
             showAlertModal('Failed to load quote from calendar.', 'error');
         }
+    } else if (sessionStorage.getItem('lumquote_start_new') === '1') {
+        sessionStorage.removeItem('lumquote_start_new');
+        calculator.beginUntitledAutoSave();
     }
 
     calculator.updateQuoteActionsMenu();
-    calculator.updateSaveStatus('saved');
+    if (!calculator.currentQuoteName) {
+        calculator.updateSaveStatus('saved');
+    }
 
     if (window.AppShell?.updateLayoutOffsets) {
         window.AppShell.updateLayoutOffsets();

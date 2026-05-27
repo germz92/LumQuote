@@ -219,7 +219,7 @@ class CalendarView {
 
         if (!this.events || this.events.length === 0) {
             banner.style.display = 'block';
-            banner.textContent = 'No scheduled quote events yet. Add service dates in the Builder to see quotes on the calendar.';
+            banner.textContent = 'No scheduled quote events yet. Add service dates on a quote to see events on the calendar.';
         } else {
             banner.style.display = 'none';
             banner.textContent = '';
@@ -610,7 +610,7 @@ class CalendarView {
             sessionStorage.setItem('loadQuoteData', JSON.stringify(quoteData));
             
             // Navigate to builder page
-            window.location.href = '/builder';
+            window.location.href = '/quote';
             
         } catch (error) {
             console.error('Error loading quote:', error);

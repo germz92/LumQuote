@@ -37,7 +37,12 @@ class QuotesManager {
         await this.loadUsers();
         await this.loadQuotes();
         this.applyViewMode(); // Apply saved view mode
-        this.renderQuotes();
+        try {
+            this.renderQuotes();
+        } catch (error) {
+            console.error('Error rendering quotes:', error);
+            showAlertModal('Could not display quotes. Please refresh the page.', 'error');
+        }
         this.updateStickyOffsets();
         
         // Update sort indicators if in list view
@@ -58,9 +63,14 @@ class QuotesManager {
         this.users = [];
     }
 
-    async loadQuotes() {
+    async loadQuotes(options = {}) {
+        const showSkeleton = options.showSkeleton !== false;
         try {
-            this.showLoading(true);
+            if (showSkeleton) {
+                this.showLoading(true);
+            } else {
+                this.setQuotesRefreshing(true);
+            }
             
             // Build query parameters
             const params = new URLSearchParams({
@@ -154,7 +164,18 @@ class QuotesManager {
             showAlertModal('Error loading quotes. Please try again.', 'error');
             this.allQuotes = [];
         } finally {
-            this.showLoading(false);
+            if (showSkeleton) {
+                this.showLoading(false);
+            } else {
+                this.setQuotesRefreshing(false);
+            }
+        }
+    }
+
+    setQuotesRefreshing(isRefreshing) {
+        const dataArea = document.getElementById('quotesDataArea');
+        if (dataArea) {
+            dataArea.classList.toggle('is-refreshing', isRefreshing);
         }
     }
     
@@ -207,7 +228,7 @@ class QuotesManager {
     async goToPage(page) {
         if (page < 1 || page > this.totalPages) return;
         this.currentPage = page;
-        await this.loadQuotes();
+        await this.loadQuotes({ showSkeleton: false });
         this.renderQuotes();
         
         // Scroll to top of quotes container
@@ -288,7 +309,7 @@ class QuotesManager {
         this.currentPage = 1;
         
         // Reload quotes with filters and sorting from server
-        await this.loadQuotes();
+        await this.loadQuotes({ showSkeleton: false });
         
         // Apply date filter client-side (complex date parsing in quoteData.days)
         let filtered = [...this.allQuotes];
@@ -619,13 +640,15 @@ class QuotesManager {
             <div class="quote-card ${isArchived ? 'archived' : ''} ${isSharedWithMe ? 'shared-quote' : ''}" data-quote-name="${this.escapeHtml(quote.name)}">
                 ${isBooked ? '<div class="booked-banner">BOOKED</div>' : ''}
                 <div class="quote-card-header">
-                    <div class="quote-card-title-section">
-                        <h3 class="quote-card-title">${this.escapeHtml(quoteTitle)}</h3>
-                        ${isArchived ? '<span class="archived-badge">Archived</span>' : ''}
-                        ${isSharedWithMe ? `<span class="shared-badge ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${quote.accessLevel === 'read' ? 'Shared (View)' : 'Shared (Edit)'}</span>` : ''}
-                        ${hasShares && quote.isOwner ? `<span class="sharing-badge" title="Shared with ${quote.sharedWith.length} user(s)">👥 ${quote.sharedWith.length}</span>` : ''}
+                    <div class="quote-card-header-main">
+                        <h3 class="quote-card-title" title="${this.escapeHtml(quoteTitle)}">${this.escapeHtml(quoteTitle)}</h3>
+                        <div class="quote-card-badges">
+                            ${isArchived ? '<span class="archived-badge">Archived</span>' : ''}
+                            ${isSharedWithMe ? `<span class="shared-badge ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${quote.accessLevel === 'read' ? 'Shared (View)' : 'Shared (Edit)'}</span>` : ''}
+                            ${hasShares && quote.isOwner ? `<span class="sharing-badge" title="Shared with ${quote.sharedWith.length} user(s)">👥 ${quote.sharedWith.length}</span>` : ''}
+                        </div>
                     </div>
-                    <div class="quote-card-header-right">
+                    <div class="quote-card-header-aside">
                         <div class="quote-card-total">${this.formatCurrency(total)}</div>
                         <div class="quote-overflow-menu">
                             <button class="quote-overflow-btn" onclick="quotesManager.toggleOverflowMenu(event, '${this.escapeJs(quote.name)}')" aria-label="More actions">
@@ -652,41 +675,41 @@ class QuotesManager {
                 </div>
                 
                 <div class="quote-card-body">
-                    <div class="quote-card-info">
-                        <div class="info-row">
-                            <span class="info-label">Client:</span>
-                            <span class="info-value">${this.escapeHtml(clientName)}</span>
+                    <dl class="quote-card-info">
+                        <div class="quote-card-info-row">
+                            <dt>Client</dt>
+                            <dd>${this.escapeHtml(clientName)}</dd>
                         </div>
                         ${location ? `
-                            <div class="info-row">
-                                <span class="info-label">Location:</span>
-                                <span class="info-value">${this.escapeHtml(location)}</span>
+                            <div class="quote-card-info-row">
+                                <dt>Location</dt>
+                                <dd>${this.escapeHtml(location)}</dd>
                             </div>
                         ` : ''}
-                        <div class="info-row">
-                            <span class="info-label">Created By:</span>
-                            <span class="info-value">${this.escapeHtml(createdBy)}</span>
+                        <div class="quote-card-info-row">
+                            <dt>Created by</dt>
+                            <dd>${this.escapeHtml(createdBy)}</dd>
                         </div>
                         ${dateRange ? `
-                            <div class="info-row">
-                                <span class="info-label">Dates:</span>
-                                <span class="info-value">${dateRange}</span>
+                            <div class="quote-card-info-row">
+                                <dt>Dates</dt>
+                                <dd>${dateRange}</dd>
                             </div>
                         ` : ''}
-                        <div class="info-row">
-                            <span class="info-label">Services:</span>
-                            <span class="info-value">${totalServices} service${totalServices !== 1 ? 's' : ''} across ${days.length} day${days.length !== 1 ? 's' : ''}</span>
+                        <div class="quote-card-info-row">
+                            <dt>Services</dt>
+                            <dd>${totalServices} service${totalServices !== 1 ? 's' : ''} · ${days.length} day${days.length !== 1 ? 's' : ''}</dd>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">Updated:</span>
-                            <span class="info-value">${updatedDate}</span>
+                        <div class="quote-card-info-row">
+                            <dt>Updated</dt>
+                            <dd>${updatedDate}</dd>
                         </div>
-                    </div>
+                    </dl>
                 </div>
 
                 <div class="quote-card-actions">
-                    <button class="quote-action-btn primary" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
-                        Load Quote
+                    <button class="quote-action-btn primary quote-action-btn--full" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
+                        Open Quote
                     </button>
                     ${quote.accessLevel !== 'read' ? `
                         <button class="quote-action-btn secondary" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')">
@@ -824,7 +847,7 @@ class QuotesManager {
         document.getElementById('userFilter').value = '';
         document.getElementById('bookedFilter').value = '';
         this.currentPage = 1;
-        await this.loadQuotes();
+        await this.loadQuotes({ showSkeleton: false });
         this.renderQuotes();
     }
 
@@ -848,7 +871,7 @@ class QuotesManager {
             dataArea?.classList.remove('showing-archived');
         }
         
-        await this.loadQuotes();
+        await this.loadQuotes({ showSkeleton: false });
         this.renderQuotes();
     }
 
@@ -967,7 +990,7 @@ class QuotesManager {
             sessionStorage.setItem('loadQuoteData', JSON.stringify(quoteData));
             
             // Navigate to calculator page
-            window.location.href = '/builder';
+            window.location.href = '/quote';
             
         } catch (error) {
             console.error('Error loading quote:', error);
@@ -1554,17 +1577,20 @@ class QuotesManager {
         const dataArea = document.getElementById('quotesDataArea');
         const skeleton = document.getElementById('quotesSkeleton');
 
-        if (!dataArea || !skeleton) return;
+        if (!dataArea) return;
 
         if (show) {
             this.renderSkeleton();
             dataArea.classList.add('is-loading');
-            skeleton.hidden = false;
-            skeleton.setAttribute('aria-hidden', 'false');
+            dataArea.classList.remove('is-refreshing');
+            if (skeleton) skeleton.setAttribute('aria-hidden', 'false');
         } else {
             dataArea.classList.remove('is-loading');
-            skeleton.hidden = true;
-            skeleton.setAttribute('aria-hidden', 'true');
+            dataArea.classList.remove('is-refreshing');
+            if (skeleton) {
+                skeleton.setAttribute('aria-hidden', 'true');
+                skeleton.className = 'quotes-skeleton';
+            }
         }
     }
 

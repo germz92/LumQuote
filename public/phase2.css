@@ -48,6 +48,12 @@ body[data-app-page="quotes"] .main-content {
   padding-bottom: var(--space-6);
 }
 
+body[data-app-page="quotes"] .app-page-header {
+  position: relative;
+  z-index: 160;
+  background: var(--color-surface);
+}
+
 body[data-app-page="quotes"] .quotes-page-section {
   margin-top: 0;
   padding-bottom: var(--space-6);
@@ -139,18 +145,36 @@ body[data-app-page="quotes"] .app-page-subtitle {
   margin-top: 0;
 }
 
-.quotes-data-area.is-loading .quotes-list-view,
+.quotes-data-area.is-loading .quotes-list-scroll,
 .quotes-data-area.is-loading .quotes-grid {
   visibility: hidden;
   pointer-events: none;
 }
 
+.quotes-data-area.is-refreshing {
+  opacity: 0.65;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+
+/* Skeleton only while .is-loading — display:grid on --grid broke [hidden] (same as calendar) */
 .quotes-skeleton {
+  display: none;
   position: absolute;
   inset: 0;
   z-index: 5;
   background: var(--color-surface);
   padding: var(--space-2) 0;
+}
+
+.quotes-data-area.is-loading .quotes-skeleton {
+  display: block;
+}
+
+.quotes-data-area.is-loading .quotes-skeleton.quotes-skeleton--grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
 }
 
 .quotes-skeleton--list .skeleton-row {
@@ -162,11 +186,7 @@ body[data-app-page="quotes"] .app-page-subtitle {
   border-bottom: 1px solid var(--color-border);
 }
 
-.quotes-skeleton--grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--space-4);
-}
+/* Do not set display on .quotes-skeleton--grid alone — it overrides display:none (grid view stuck loading) */
 
 .skeleton-block {
   background: linear-gradient(
@@ -399,6 +419,171 @@ body[data-app-page="quotes"] .app-page-subtitle {
 .quotes-grid .quote-card:hover {
   border-color: var(--color-border-strong);
   box-shadow: var(--shadow-md);
+}
+
+/* Quote grid cards — aligned layout */
+.quotes-grid {
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-4);
+}
+
+.quotes-grid .quote-card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  min-height: 0;
+}
+
+.quotes-grid .quote-card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3) var(--space-4);
+  align-items: start;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.quotes-grid .quote-card-header-main {
+  min-width: 0;
+}
+
+.quotes-grid .quote-card-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  line-height: var(--line-height-tight);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.quotes-grid .quote-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.quotes-grid .quote-card-badges:empty {
+  display: none;
+}
+
+.quotes-grid .quote-card-header-aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.quotes-grid .quote-card-total {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  line-height: 1.2;
+  text-align: right;
+}
+
+.quotes-grid .quote-card-body {
+  flex: 1;
+  margin-bottom: var(--space-4);
+}
+
+.quotes-grid .quote-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.quotes-grid .quote-card-info-row {
+  display: grid;
+  grid-template-columns: 6.25rem minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  margin: 0;
+}
+
+.quotes-grid .quote-card-info-row dt {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.quotes-grid .quote-card-info-row dd {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  line-height: var(--line-height-normal);
+  word-break: break-word;
+}
+
+.quotes-grid .quote-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.quotes-grid .quote-action-btn {
+  flex: none;
+  min-width: 0;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}
+
+.quotes-grid .quote-action-btn--full {
+  grid-column: 1 / -1;
+}
+
+.quotes-grid .quote-action-btn.primary {
+  flex: none;
+}
+
+.quotes-grid .quote-action-btn.share,
+.quotes-grid .quote-action-btn.lumdash {
+  grid-column: span 1;
+}
+
+.quotes-grid .booked-banner {
+  margin: calc(-1 * var(--space-5)) calc(-1 * var(--space-5)) var(--space-4);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+@media (max-width: 768px) {
+  .quotes-grid .quote-card-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quotes-grid .quote-action-btn {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .quotes-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quotes-grid .quote-card-info-row {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+  }
 }
 
 /* ── Calendar panel ────────────────────────────────────────── */

@@ -125,12 +125,7 @@ class ReportsManager {
     showError() {
         const containers = ['topClientsByAmount', 'topClientsByCount', 'topCities', 'topSources', 'topCategories'];
         containers.forEach(id => {
-            document.getElementById(id).innerHTML = `
-                <div class="no-data">
-                    <div class="no-data-icon">⚠️</div>
-                    <p>Error loading data</p>
-                </div>
-            `;
+            document.getElementById(id).innerHTML = this.getNoDataHTML('Error loading data', 'alert');
         });
     }
 
@@ -313,13 +308,20 @@ class ReportsManager {
         `;
     }
 
-    getNoDataHTML(message) {
+    getNoDataHTML(message, iconKey = 'inbox') {
+        const icon = (window.ReportsIcons && window.ReportsIcons[iconKey]) || '';
         return `
-            <div class="no-data">
-                <div class="no-data-icon">📭</div>
-                <p>${message}</p>
+            <div class="no-data reports-no-data">
+                <div class="reports-no-data__icon">${icon}</div>
+                <p class="reports-no-data__message">${this.escapeHtml(message)}</p>
             </div>
         `;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text ?? '';
+        return div.innerHTML;
     }
 
     formatCurrency(amount) {
@@ -330,13 +332,6 @@ class ReportsManager {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         }).format(amount);
-    }
-
-    escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 }
 

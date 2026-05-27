@@ -7,6 +7,7 @@
 body[data-app-page="reports"] .main-content {
   padding-top: var(--space-4);
   padding-bottom: var(--space-8);
+  background: var(--color-bg);
 }
 
 body[data-app-page="reports"] .app-page-header {
@@ -104,6 +105,8 @@ body[data-app-page="reports"] .app-page-header {
   font-size: var(--font-size-sm);
 }
 
+/* Summary metrics strip (Stripe-style) */
+.reports-summary-strip,
 .reports-summary-cards,
 .summary-cards {
   display: grid;
@@ -112,35 +115,75 @@ body[data-app-page="reports"] .app-page-header {
   margin-bottom: var(--space-6);
 }
 
-.reports-summary-card,
-.summary-card {
+.reports-metric-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  padding: var(--space-4) var(--space-5);
   box-shadow: var(--shadow-sm);
 }
 
-.reports-summary-card .label,
-.summary-card .label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
+.reports-metric-card__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
 }
 
-.reports-summary-card .value,
-.summary-card .value {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text);
-  line-height: 1.2;
+.reports-metric-card__icon--primary {
+  background: var(--color-primary-muted);
+  border-color: transparent;
+  color: var(--color-primary);
 }
 
-.reports-summary-card .value.currency,
-.summary-card .value.currency {
+.reports-metric-card__icon--success {
+  background: var(--color-success-bg);
+  border-color: transparent;
   color: var(--color-success);
 }
 
+.reports-metric-card__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.reports-metric-card .label,
+.reports-summary-card .label,
+.summary-card .label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--space-1);
+}
+
+.reports-metric-card .value,
+.reports-summary-card .value,
+.summary-card .value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  line-height: var(--line-height-tight);
+  letter-spacing: -0.02em;
+}
+
+.reports-metric-card .value.currency,
+.reports-summary-card .value.currency,
+.summary-card .value.currency {
+  color: var(--color-text);
+}
+
+.reports-metric-card .subtext,
 .reports-summary-card .subtext,
 .summary-card .subtext {
   font-size: var(--font-size-xs);
@@ -167,17 +210,36 @@ body[data-app-page="reports"] .app-page-header {
 .report-card-header {
   padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  background: var(--color-surface);
 }
 
+.report-card-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.report-card-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+  border: 1px solid rgba(99, 91, 255, 0.12);
+}
+
+.report-card-heading h3,
 .reports-report-card-header h3 {
   margin: 0;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
+  letter-spacing: -0.01em;
 }
 
 .reports-report-card-body,
@@ -233,9 +295,10 @@ body[data-app-page="reports"] .app-page-header {
 
 .reports-list-item .rank.top-3,
 .report-list-item .rank.top-3 {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  border-color: transparent;
-  color: white;
+  background: var(--color-primary-muted);
+  border-color: rgba(99, 91, 255, 0.2);
+  color: var(--color-primary);
+  font-weight: var(--font-weight-bold);
 }
 
 .reports-list-item .info,
@@ -285,11 +348,32 @@ body[data-app-page="reports"] .app-page-header {
   color: var(--color-text-muted);
 }
 
+.reports-no-data__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.reports-no-data__message {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
 .reports-no-data-icon,
 .no-data-icon {
-  font-size: 2.5rem;
-  margin-bottom: var(--space-3);
-  display: block;
+  display: none;
+}
+
+body[data-app-page="reports"] .app-page-subtitle {
+  color: var(--color-text-secondary);
 }
 
 .reports-page .loading-spinner {
@@ -323,9 +407,10 @@ body[data-app-page="reports"] .app-page-header {
 .reports-progress-bar,
 .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), #7c3aed);
+  background: var(--color-primary);
   border-radius: 3px;
   transition: width 0.3s ease;
+  opacity: 0.85;
 }
 
 @keyframes phase4-spin {

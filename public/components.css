@@ -93,6 +93,38 @@
   background: var(--color-primary-muted);
 }
 
+.app-nav-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-inverse);
+  background: var(--color-primary);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.app-nav-cta:hover {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text-inverse);
+}
+
+.app-nav-cta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+.app-nav-cta__icon {
+  flex-shrink: 0;
+}
+
 .app-shell-util {
   display: flex;
   align-items: center;
@@ -101,17 +133,186 @@
   margin-left: auto;
 }
 
-.app-user-badge {
-  color: var(--color-primary);
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-sm);
-  padding: var(--space-1) var(--space-3);
-  background: var(--color-primary-muted);
+/* ── Profile menu (avatar trigger + dropdown) ─────────────── */
+
+.app-profile-menu {
+  position: relative;
+}
+
+.app-profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 2px solid transparent;
   border-radius: var(--radius-full);
+  background: transparent;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.app-profile-trigger:hover {
+  border-color: var(--color-border-strong);
+}
+
+.app-profile-trigger:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+.app-profile-trigger[aria-expanded="true"] {
+  border-color: var(--color-primary);
+}
+
+.app-profile-avatar {
+  --avatar-size: 36px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: hsl(var(--avatar-hue, 220) 52% 42%);
+  color: #fff;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.app-profile-avatar--lg {
+  --avatar-size: 44px;
+  font-size: var(--font-size-sm);
+}
+
+.app-profile-avatar__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: none;
+}
+
+.app-profile-avatar--has-image .app-profile-avatar__img {
+  display: block;
+}
+
+.app-profile-avatar--has-image .app-profile-avatar__initials {
+  display: none;
+}
+
+.app-profile-avatar__initials {
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.app-profile-dropdown {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: var(--z-dropdown, 200);
+  min-width: 220px;
+  padding: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.app-profile-dropdown.is-open {
+  animation: profile-menu-in 0.15s ease-out;
+}
+
+@keyframes profile-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-profile-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.app-profile-dropdown-meta {
+  min-width: 0;
+}
+
+.app-profile-dropdown-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
   white-space: nowrap;
-  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.app-profile-dropdown-email {
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-profile-dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.app-profile-dropdown-item:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.app-profile-dropdown-item--action {
+  cursor: pointer;
+}
+
+.app-profile-dropdown-item--danger {
+  color: var(--color-danger);
+}
+
+.app-profile-dropdown-item--danger:hover {
+  background: #fef2f2;
+  color: var(--color-danger);
+}
+
+.app-profile-dropdown-divider {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--color-border);
+}
+
+.app-profile-dropdown-item[hidden],
+.app-profile-dropdown [hidden] {
+  display: none !important;
 }
 
 .app-page-header {
@@ -352,7 +553,12 @@ body.app-has-shell .header {
     padding: 0 var(--space-4);
   }
 
-  .app-user-badge {
+  .app-nav-cta {
+    margin-left: var(--space-1);
+    padding: var(--space-2);
+  }
+
+  .app-nav-cta__label {
     display: none;
   }
 

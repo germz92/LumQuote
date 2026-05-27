@@ -17,7 +17,7 @@
             <div class="reports-sticky-filters">
             <div class="filters-bar">
                 <div class="filter-group">
-                    <label for="timePreset">Time Period:</label>
+                    <label for="timePreset">Period</label>
                     <select id="timePreset" onchange="reportsManager.handleTimePresetChange()">
                         <option value="current-month">Current Month</option>
                         <option value="last-month">Last Month</option>
@@ -36,7 +36,7 @@
                 </div>
 
                 <div class="filter-group">
-                    <label for="bookedFilter">Status:</label>
+                    <label for="bookedFilter">Status</label>
                     <select id="bookedFilter" onchange="reportsManager.loadReports()">
                         <option value="all">All Quotes</option>
                         <option value="true">Booked Only</option>
@@ -47,72 +47,112 @@
             </div>
 
             <!-- Summary Cards -->
-            <div class="summary-cards" id="summaryCards">
-                <div class="summary-card">
-                    <div class="label">Total Quotes</div>
-                    <div class="value" id="totalQuotes">-</div>
+            <div class="summary-cards reports-summary-strip" id="summaryCards">
+                <div class="summary-card reports-metric-card">
+                    <div class="reports-metric-card__icon" aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <div class="reports-metric-card__body">
+                        <div class="label">Total quotes</div>
+                        <div class="value" id="totalQuotes">-</div>
+                    </div>
                 </div>
-                <div class="summary-card">
-                    <div class="label">Invoice Total</div>
-                    <div class="value currency" id="totalInvoice">-</div>
+                <div class="summary-card reports-metric-card">
+                    <div class="reports-metric-card__icon reports-metric-card__icon--success" aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </div>
+                    <div class="reports-metric-card__body">
+                        <div class="label">Invoice total</div>
+                        <div class="value currency" id="totalInvoice">-</div>
+                    </div>
                 </div>
-                <div class="summary-card">
-                    <div class="label">Booked</div>
-                    <div class="value" id="bookedCount">-</div>
-                    <div class="subtext" id="conversionRate"></div>
+                <div class="summary-card reports-metric-card">
+                    <div class="reports-metric-card__icon reports-metric-card__icon--primary" aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    </div>
+                    <div class="reports-metric-card__body">
+                        <div class="label">Booked</div>
+                        <div class="value" id="bookedCount">-</div>
+                        <div class="subtext" id="conversionRate"></div>
+                    </div>
                 </div>
-                <div class="summary-card">
-                    <div class="label">Not Booked</div>
-                    <div class="value" id="notBookedCount">-</div>
+                <div class="summary-card reports-metric-card">
+                    <div class="reports-metric-card__icon" aria-hidden="true">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </div>
+                    <div class="reports-metric-card__body">
+                        <div class="label">Not booked</div>
+                        <div class="value" id="notBookedCount">-</div>
+                    </div>
                 </div>
             </div>
 
             <!-- Report Cards Grid -->
             <div class="reports-grid">
-                <!-- Top Clients by Amount -->
                 <div class="report-card">
                     <div class="report-card-header">
-                        <h3>💰 Top Clients by Revenue</h3>
+                        <div class="report-card-heading">
+                            <span class="report-card-icon" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                            </span>
+                            <h3>Top clients by revenue</h3>
+                        </div>
                     </div>
                     <div class="report-card-body" id="topClientsByAmount">
                         <div class="loading-spinner"></div>
                     </div>
                 </div>
 
-                <!-- Top Clients by Count -->
                 <div class="report-card">
                     <div class="report-card-header">
-                        <h3>🏆 Most Events by Client</h3>
+                        <div class="report-card-heading">
+                            <span class="report-card-icon" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            </span>
+                            <h3>Most events by client</h3>
+                        </div>
                     </div>
                     <div class="report-card-body" id="topClientsByCount">
                         <div class="loading-spinner"></div>
                     </div>
                 </div>
 
-                <!-- Top Cities -->
                 <div class="report-card">
                     <div class="report-card-header">
-                        <h3>🏙️ Top Cities</h3>
+                        <div class="report-card-heading">
+                            <span class="report-card-icon" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                            </span>
+                            <h3>Top cities</h3>
+                        </div>
                     </div>
                     <div class="report-card-body" id="topCities">
                         <div class="loading-spinner"></div>
                     </div>
                 </div>
 
-                <!-- Top Sources -->
                 <div class="report-card">
                     <div class="report-card-header">
-                        <h3>📣 Top Lead Sources</h3>
+                        <div class="report-card-heading">
+                            <span class="report-card-icon" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+                            </span>
+                            <h3>Top lead sources</h3>
+                        </div>
                     </div>
                     <div class="report-card-body" id="topSources">
                         <div class="loading-spinner"></div>
                     </div>
                 </div>
 
-                <!-- Top Categories -->
                 <div class="report-card">
                     <div class="report-card-header">
-                        <h3>📂 Top Categories</h3>
+                        <div class="report-card-heading">
+                            <span class="report-card-icon" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                            </span>
+                            <h3>Top categories</h3>
+                        </div>
                     </div>
                     <div class="report-card-body" id="topCategories">
                         <div class="loading-spinner"></div>
@@ -127,6 +167,7 @@
     <script src="modals.js"></script>
     <script src="shell.js"></script>
     <script src="lumdash-integration.js"></script>
+    <script src="reports-icons.js"></script>
     <script src="reports.js"></script>
 </body>
 </html>

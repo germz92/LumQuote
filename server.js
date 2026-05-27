@@ -160,18 +160,19 @@ app.post('/api/auth/lumdash', async (req, res) => {
     let localUser = await LumQuoteUser.findOne({ lumDashId: lumDashId });
     
     if (!localUser) {
-      // Create new local user from LumDash data
+      const nameParts = splitNameParts(userName);
       localUser = new LumQuoteUser({
         lumDashId: lumDashId,
         name: userName,
+        firstName: nameParts.firstName,
+        lastName: nameParts.lastName,
         email: userEmail,
         role: userRole
       });
       await localUser.save();
       console.log('✅ Created new LumQuote user:', localUser.name);
     } else {
-      // Update user info from LumDash (in case it changed)
-      localUser.name = userName;
+      applyNamePartsToUser(localUser, userName);
       if (userEmail) localUser.email = userEmail;
       localUser.role = userRole;
       localUser.lastLogin = new Date();
@@ -182,13 +183,7 @@ app.post('/api/auth/lumdash', async (req, res) => {
     // Store in session for page-based auth
     req.session.token = token;
     req.session.authenticated = true;
-    req.session.user = {
-      id: localUser._id,
-      lumDashId: localUser.lumDashId,
-      name: localUser.name,
-      email: localUser.email,
-      role: localUser.role
-    };
+    req.session.user = buildClientUser(localUser);
     
     // Also set a cookie for page navigation auth
     const isProduction = process.env.NODE_ENV === 'production';
@@ -210,12 +205,7 @@ app.post('/api/auth/lumdash', async (req, res) => {
     
     res.json({ 
       success: true,
-      user: {
-        id: localUser._id,
-        name: localUser.name,
-        email: localUser.email,
-        role: localUser.role
-      }
+      user: buildClientUser(localUser)
     });
   } catch (error) {
     console.error('LumDash auth error:', error.message);
@@ -240,13 +230,7 @@ app.get('/api/verify-token', requireApiAuth, (req, res) => {
   });
 });
 
-// Get current user endpoint
-app.get('/api/me', requireApiAuth, (req, res) => {
-  res.json({ 
-    success: true, 
-    user: req.user 
-  });
-});
+// Current user profile is served after LumQuoteUser model (see LUMQUOTE USER ENDPOINTS)
 
 // Logout endpoint
 app.post('/api/logout', (req, res) => {
@@ -299,12 +283,16 @@ app.get('/', requireAuth, (req, res) => {
   res.redirect(302, '/quotes');
 });
 
-app.get('/builder', requireAuth, (req, res) => {
+app.get('/quote', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get('/builder', requireAuth, (req, res) => {
+  res.redirect(302, '/quote');
+});
+
 app.get('/calculator', requireAuth, (req, res) => {
-  res.redirect(302, '/builder');
+  res.redirect(302, '/quote');
 });
 
 app.get('/admin', requireAuth, (req, res) => {
@@ -1901,12 +1889,119 @@ const User = mongoose.model('User', userSchema, 'users');
 const lumQuoteUserSchema = new mongoose.Schema({
   lumDashId: { type: String, required: true, unique: true }, // User ID from LumDash
   name: { type: String, required: true },
-  email: { type: String, default: '', lowercase: true }, // Optional - LumDash may not provide
+  firstName: { type: String, default: '' },
+  lastName: { type: String, default: '' },
+  email: { type: String, default: '', lowercase: true },
   role: { type: String, enum: ['admin', 'user'], default: 'user' },
+  profileImagePath: { type: String, default: null },
   lastLogin: { type: Date, default: Date.now }
 }, { timestamps: true });
 
 const LumQuoteUser = mongoose.model('LumQuoteUser', lumQuoteUserSchema, 'lumQuoteUsers');
+
+const PROFILE_UPLOAD_DIR = path.join(__dirname, 'uploads', 'profiles');
+const PROFILE_IMAGE_MAX_BYTES = 1.5 * 1024 * 1024;
+
+function ensureProfileUploadDir() {
+  fs.mkdirSync(PROFILE_UPLOAD_DIR, { recursive: true });
+}
+
+function splitNameParts(fullName) {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return { firstName: '', lastName: '' };
+  }
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: '' };
+  }
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' ')
+  };
+}
+
+function getInitialsFromName(name, firstName, lastName) {
+  const first = (firstName || '').trim();
+  const last = (lastName || '').trim();
+  if (first && last) {
+    return (first.charAt(0) + last.charAt(0)).toUpperCase();
+  }
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
+function applyNamePartsToUser(user, fullName) {
+  const { firstName, lastName } = splitNameParts(fullName);
+  user.name = fullName || user.name;
+  if (!user.firstName && firstName) user.firstName = firstName;
+  if (!user.lastName && lastName) user.lastName = lastName;
+  if (!user.firstName && !user.lastName && fullName) {
+    const split = splitNameParts(fullName);
+    user.firstName = split.firstName;
+    user.lastName = split.lastName;
+  }
+}
+
+function buildClientUser(record) {
+  const id = record._id ? record._id.toString() : record.id;
+  return {
+    id,
+    lumDashId: record.lumDashId,
+    name: record.name,
+    firstName: record.firstName || '',
+    lastName: record.lastName || '',
+    email: record.email || '',
+    role: record.role || 'user',
+    profileImageUrl: record.profileImagePath ? `/api/profile-image/${id}` : null,
+    initials: getInitialsFromName(record.name, record.firstName, record.lastName)
+  };
+}
+
+async function resolveLumQuoteUserFromToken(jwtUser) {
+  const lumDashId = jwtUser.id || jwtUser.userId || jwtUser._id;
+  if (lumDashId) {
+    const byDash = await LumQuoteUser.findOne({ lumDashId: String(lumDashId) });
+    if (byDash) return byDash;
+  }
+  const name = jwtUser.fullName || jwtUser.name;
+  if (name) {
+    return LumQuoteUser.findOne({ name });
+  }
+  return null;
+}
+
+function parseProfileImageDataUrl(dataUrl) {
+  const match = /^data:(image\/(?:jpeg|jpg|png|gif|webp));base64,([A-Za-z0-9+/=]+)$/i.exec(dataUrl || '');
+  if (!match) return null;
+  const buffer = Buffer.from(match[2], 'base64');
+  if (buffer.length > PROFILE_IMAGE_MAX_BYTES) {
+    return { error: 'Image must be 1.5 MB or smaller' };
+  }
+  const extMap = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp'
+  };
+  return { buffer, ext: extMap[match[1].toLowerCase()] || 'jpg' };
+}
+
+async function deleteProfileImageFile(imagePath) {
+  if (!imagePath) return;
+  const absolute = path.isAbsolute(imagePath)
+    ? imagePath
+    : path.join(__dirname, imagePath);
+  try {
+    await fs.promises.unlink(absolute);
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.warn('Could not delete profile image:', err.message);
+    }
+  }
+}
 
 // Saved Quote Schema
 const savedQuoteSchema = new mongoose.Schema({
@@ -2863,6 +2958,109 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
 // LUMQUOTE USER ENDPOINTS
 // ============================================
 
+app.get('/api/me', requireApiAuth, async (req, res) => {
+  try {
+    const record = await resolveLumQuoteUserFromToken(req.user);
+    if (record) {
+      return res.json({ success: true, user: buildClientUser(record) });
+    }
+    const name = req.user.fullName || req.user.name || 'User';
+    res.json({
+      success: true,
+      user: {
+        name,
+        email: req.user.email || '',
+        role: req.user.role || 'user',
+        profileImageUrl: null,
+        initials: getInitialsFromName(name)
+      }
+    });
+  } catch (error) {
+    console.error('Error loading current user:', error);
+    res.status(500).json({ error: 'Failed to load user' });
+  }
+});
+
+app.get('/api/profile-image/:userId', requireApiAuth, async (req, res) => {
+  try {
+    const record = await LumQuoteUser.findById(req.params.userId);
+    if (!record?.profileImagePath) {
+      return res.status(404).end();
+    }
+    const absolute = path.isAbsolute(record.profileImagePath)
+      ? record.profileImagePath
+      : path.join(__dirname, record.profileImagePath);
+    if (!fs.existsSync(absolute)) {
+      return res.status(404).end();
+    }
+    res.sendFile(absolute);
+  } catch (error) {
+    console.error('Error serving profile image:', error);
+    res.status(500).end();
+  }
+});
+
+app.put('/api/me/profile-image', requireApiAuth, express.json({ limit: '2mb' }), async (req, res) => {
+  try {
+    const record = await resolveLumQuoteUserFromToken(req.user);
+    if (!record) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
+    const parsed = parseProfileImageDataUrl(req.body?.imageData);
+    if (!parsed) {
+      return res.status(400).json({ error: 'Invalid image data' });
+    }
+    if (parsed.error) {
+      return res.status(400).json({ error: parsed.error });
+    }
+
+    ensureProfileUploadDir();
+    await deleteProfileImageFile(record.profileImagePath);
+
+    const filename = `${record._id}.${parsed.ext}`;
+    const relativePath = path.join('uploads', 'profiles', filename);
+    const absolutePath = path.join(__dirname, relativePath);
+    await fs.promises.writeFile(absolutePath, parsed.buffer);
+
+    record.profileImagePath = relativePath;
+    await record.save();
+
+    const user = buildClientUser(record);
+    if (req.session?.user) {
+      req.session.user = user;
+    }
+
+    res.json({ success: true, user });
+  } catch (error) {
+    console.error('Error saving profile image:', error);
+    res.status(500).json({ error: 'Failed to save profile image' });
+  }
+});
+
+app.delete('/api/me/profile-image', requireApiAuth, async (req, res) => {
+  try {
+    const record = await resolveLumQuoteUserFromToken(req.user);
+    if (!record) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
+    await deleteProfileImageFile(record.profileImagePath);
+    record.profileImagePath = null;
+    await record.save();
+
+    const user = buildClientUser(record);
+    if (req.session?.user) {
+      req.session.user = user;
+    }
+
+    res.json({ success: true, user });
+  } catch (error) {
+    console.error('Error removing profile image:', error);
+    res.status(500).json({ error: 'Failed to remove profile image' });
+  }
+});
+
 // Get all LumQuote users (admin only)
 app.get('/api/lumquote-users', requireApiAuth, async (req, res) => {
   try {
@@ -2871,7 +3069,7 @@ app.get('/api/lumquote-users', requireApiAuth, async (req, res) => {
     }
     
     const users = await LumQuoteUser.find({}).sort({ name: 1 });
-    res.json(users);
+    res.json(users.map((user) => buildClientUser(user)));
   } catch (error) {
     console.error('Error fetching LumQuote users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
@@ -2881,8 +3079,14 @@ app.get('/api/lumquote-users', requireApiAuth, async (req, res) => {
 // Get all users for sharing (accessible by all logged-in users)
 app.get('/api/shareable-users', requireApiAuth, async (req, res) => {
   try {
-    const users = await LumQuoteUser.find({}, { name: 1, email: 1 }).sort({ name: 1 });
-    res.json(users);
+    const users = await LumQuoteUser.find({}).sort({ name: 1 });
+    res.json(users.map((user) => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      profileImageUrl: user.profileImagePath ? `/api/profile-image/${user._id}` : null,
+      initials: getInitialsFromName(user.name, user.firstName, user.lastName)
+    })));
   } catch (error) {
     console.error('Error fetching shareable users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });

@@ -2,16 +2,16 @@
  * Phase 3 — Builder page polish
  */
 
-body[data-app-page="builder"] .app-page-header {
+body[data-app-page="quote"] .app-page-header {
   display: none;
 }
 
-body[data-app-page="builder"] .main-content {
+body[data-app-page="quote"] .main-content {
   padding-top: var(--space-4);
   padding-bottom: var(--space-10);
 }
 
-body[data-app-page="builder"] .quote-section {
+body[data-app-page="quote"] .quote-section {
   max-width: none;
   margin: 0;
 }
