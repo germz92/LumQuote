@@ -505,7 +505,7 @@ class QuotesManager {
         const isArchived = quote.archived || false;
         const isBooked = quote.booked || false;
         const createdBy = quote.createdBy?.name || '-';
-        const isSharedWithMe = !quote.isOwner && quote.accessLevel;
+        const isSharedWithMe = this.isSharedQuoteForCurrentUser(quote);
         const hasShares = quote.sharedWith && quote.sharedWith.length > 0;
         
         // Get earliest service date
@@ -569,7 +569,7 @@ class QuotesManager {
                 <td class="quote-title-cell">
                     ${isBooked ? '<span class="status-badge status-badge--booked">Booked</span>' : ''}
                     ${isArchived ? '<span class="status-badge status-badge--archived">Archived</span>' : ''}
-                    ${isSharedWithMe ? `<span class="shared-badge-small ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${quote.accessLevel === 'read' ? 'VIEW' : 'EDIT'}</span>` : ''}
+                    ${isSharedWithMe ? `<span class="shared-badge-small ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${this.getSharedAccessBadgeLabel(quote.accessLevel)}</span>` : ''}
                     ${hasShares && quote.isOwner ? `<span class="sharing-badge-small" title="Shared with ${quote.sharedWith.length} user(s)">👥</span>` : ''}
                     <strong>${this.escapeHtml(quoteTitle)}</strong>
                 </td>
@@ -623,7 +623,7 @@ class QuotesManager {
         const isArchived = quote.archived || false;
         const isBooked = quote.booked || false;
         const createdBy = quote.createdBy?.name || 'Unknown User';
-        const isSharedWithMe = !quote.isOwner && quote.accessLevel;
+        const isSharedWithMe = this.isSharedQuoteForCurrentUser(quote);
         const hasShares = quote.sharedWith && quote.sharedWith.length > 0;
         
         // Calculate total services
@@ -644,7 +644,7 @@ class QuotesManager {
                         <h3 class="quote-card-title" title="${this.escapeHtml(quoteTitle)}">${this.escapeHtml(quoteTitle)}</h3>
                         <div class="quote-card-badges">
                             ${isArchived ? '<span class="archived-badge">Archived</span>' : ''}
-                            ${isSharedWithMe ? `<span class="shared-badge ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${quote.accessLevel === 'read' ? 'Shared (View)' : 'Shared (Edit)'}</span>` : ''}
+                            ${isSharedWithMe ? `<span class="shared-badge ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${this.getSharedAccessBadgeLabel(quote.accessLevel)}</span>` : ''}
                             ${hasShares && quote.isOwner ? `<span class="sharing-badge" title="Shared with ${quote.sharedWith.length} user(s)">👥 ${quote.sharedWith.length}</span>` : ''}
                         </div>
                     </div>
@@ -836,6 +836,15 @@ class QuotesManager {
         return user.role === 'admin';
     }
 
+    /** Shared-with-me quotes only (not owner); hidden for admins who already have full access. */
+    isSharedQuoteForCurrentUser(quote) {
+        return !quote.isOwner && quote.accessLevel && !this.isCurrentUserAdmin();
+    }
+
+    getSharedAccessBadgeLabel(accessLevel) {
+        return accessLevel === 'read' ? 'Viewer' : 'Editor';
+    }
+
     escapeJs(text) {
         if (!text) return '';
         return text.replace(/'/g, "\\'").replace(/"/g, '\\"');
@@ -978,24 +987,23 @@ class QuotesManager {
     async loadQuote(quoteName) {
         try {
             this.showLoading(true);
-            
+
             const response = await fetch(`/api/load-quote/${encodeURIComponent(quoteName)}`);
             if (!response.ok) {
                 throw new Error('Failed to load quote');
             }
-            
+
             const quoteData = await response.json();
-            
-            // Store quote data in session storage for calculator page to load
+
             sessionStorage.setItem('loadQuoteData', JSON.stringify(quoteData));
-            
-            // Navigate to calculator page
             window.location.href = '/quote';
-            
         } catch (error) {
             console.error('Error loading quote:', error);
             showAlertModal('Failed to load quote. Please try again.', 'error');
+        } finally {
+            // Clear before navigation so bfcache restore does not keep the skeleton visible
             this.showLoading(false);
+            this.setQuotesRefreshing(false);
         }
     }
 
@@ -1632,5 +1640,13 @@ class QuotesManager {
 let quotesManager;
 document.addEventListener('DOMContentLoaded', () => {
     quotesManager = new QuotesManager();
+});
+
+// Back/forward cache can restore the page with is-loading still set if navigation
+// interrupted an in-flight load; always clear the skeleton on restore.
+window.addEventListener('pageshow', (event) => {
+    if (!event.persisted || !quotesManager) return;
+    quotesManager.showLoading(false);
+    quotesManager.setQuotesRefreshing(false);
 });
 

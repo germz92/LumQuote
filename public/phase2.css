@@ -365,11 +365,11 @@ body[data-app-page="quotes"] .app-page-subtitle {
 }
 
 .quotes-table tbody tr.booked-row {
-  background: var(--color-success-bg);
+  background: var(--color-danger-bg);
 }
 
 .quotes-table tbody tr.booked-row:hover {
-  background: #d1fae5;
+  background: #fee2e2;
 }
 
 .quotes-table td {
@@ -402,8 +402,8 @@ body[data-app-page="quotes"] .app-page-subtitle {
 }
 
 .status-badge--booked {
-  background: var(--color-success-bg);
-  color: var(--color-success);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
 }
 
 .status-badge--archived {

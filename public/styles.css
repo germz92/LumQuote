@@ -4075,11 +4075,11 @@ textarea:focus {
 }
 
 .quotes-table tbody tr.booked-row {
-    background: #f0fdf4;
+    background: #fef2f2;
 }
 
 .quotes-table tbody tr.booked-row:hover {
-    background: #dcfce7;
+    background: #fee2e2;
 }
 
 .quotes-table td {
@@ -4832,7 +4832,6 @@ textarea:focus {
     padding: 3px 8px;
     border-radius: 12px;
     font-weight: 600;
-    text-transform: uppercase;
     letter-spacing: 0.3px;
     margin-left: 8px;
 }
@@ -4855,11 +4854,10 @@ textarea:focus {
 
 /* Shared Badge for Table Rows */
 .shared-badge-small {
-    font-size: 0.6rem;
+    font-size: 0.65rem;
     padding: 2px 6px;
     border-radius: 8px;
-    font-weight: 700;
-    text-transform: uppercase;
+    font-weight: 600;
     margin-right: 6px;
     vertical-align: middle;
 }
