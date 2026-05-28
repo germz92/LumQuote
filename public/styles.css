@@ -4586,12 +4586,17 @@ textarea:focus {
     .quotes-page-section {
         max-width: 100%;
         overflow-x: hidden;
+        margin-top: 0;
     }
     
     .quotes-controls-header {
-        padding: 16px 0;
+        padding: 8px 0 0;
         max-width: 100%;
         overflow-x: hidden;
+    }
+
+    body[data-app-page="quotes"] .main-content {
+        padding-top: 0;
     }
     
     .quotes-grid {

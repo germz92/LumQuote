@@ -16,28 +16,32 @@ body[data-app-page="reports"] .app-page-header {
 
 .reports-page {
   margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
 }
 
 .reports-sticky-filters {
   position: sticky;
   top: var(--app-topbar-height, 56px);
-  z-index: 140;
-  margin: 0 calc(-1 * var(--space-6)) var(--space-4);
+  z-index: 5;
+  margin: 0 calc(-1 * var(--space-6));
   padding: var(--space-3) var(--space-6);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  isolation: isolate;
+  flex-shrink: 0;
 }
 
+/* Small bleed mask when sticky — 100vh caused a white gap over the page header on mobile */
 .reports-sticky-filters::before {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 100%;
-  height: 100vh;
+  height: var(--space-6);
   background: var(--color-surface);
   z-index: -1;
   pointer-events: none;
@@ -113,6 +117,8 @@ body[data-app-page="reports"] .app-page-header {
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-6);
+  flex-shrink: 0;
+  position: relative;
 }
 
 .reports-metric-card {
@@ -577,11 +583,38 @@ body[data-app-page="calendar"] .app-page-header {
 /* ── Responsive ─────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
+  body[data-app-page="reports"] .app-page-header {
+    padding: var(--space-3) 0 var(--space-2);
+    border-bottom: none;
+  }
+
+  body[data-app-page="reports"] .main-content {
+    padding-top: 0;
+  }
+
+  .reports-page {
+    gap: var(--space-3);
+  }
+
   .reports-sticky-filters {
+    position: static;
+    top: auto;
+    z-index: auto;
     margin-left: calc(-1 * var(--space-4));
     margin-right: calc(-1 * var(--space-4));
-    padding-left: var(--space-4);
-    padding-right: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .reports-sticky-filters::before {
+    display: none;
+  }
+
+  .reports-summary-strip,
+  .reports-summary-cards,
+  .summary-cards {
+    margin-top: 0;
+    margin-bottom: var(--space-4);
+    grid-template-columns: 1fr;
   }
 
   .reports-grid {
@@ -592,15 +625,18 @@ body[data-app-page="calendar"] .app-page-header {
   .reports-sticky-filters .filters-bar {
     flex-direction: column;
     align-items: stretch;
+    gap: var(--space-2);
   }
 
   .reports-filters-bar .filter-group,
   .reports-sticky-filters .filters-bar .filter-group {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
   }
 
-  .reports-summary-cards {
-    grid-template-columns: repeat(2, 1fr);
+  .reports-sticky-filters .filters-bar .filter-group select {
+    width: 100%;
   }
 
   .admin-lumdash-card {

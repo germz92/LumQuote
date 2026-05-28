@@ -72,6 +72,30 @@ body[data-app-page="quotes"] .app-page-subtitle {
   margin-top: 2px;
 }
 
+@media (max-width: 768px) {
+  /* Title lives in shell; filters in main — remove stacked margins between them */
+  body[data-app-page="quotes"] .app-page-header {
+    padding: var(--space-3) 0 var(--space-2);
+    border-bottom: none;
+  }
+
+  body[data-app-page="quotes"] .main-content {
+    padding-top: 0;
+  }
+
+  body[data-app-page="quotes"] .quotes-page-section {
+    margin-top: 0;
+  }
+
+  body[data-app-page="quotes"] .quotes-sticky-chrome {
+    border-top: 1px solid var(--color-border);
+  }
+
+  body[data-app-page="quotes"] .quotes-page-section .quotes-controls-header {
+    padding-top: var(--space-2);
+  }
+}
+
 .quotes-page-section .search-filter-controls {
   gap: var(--space-2);
   margin-bottom: var(--space-2);
@@ -629,6 +653,11 @@ body[data-app-page="quotes"] .app-page-subtitle {
 .calendar-frame {
   position: relative;
   min-height: 420px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--color-border);
+  overflow: hidden;
 }
 
 /* Skeleton only visible while frame has .is-loading (not via [hidden] — display:grid broke hidden) */
@@ -666,40 +695,53 @@ body[data-app-page="quotes"] .app-page-subtitle {
   margin-bottom: 6px;
 }
 
+/* Single 7-column grid: headers + days share column tracks (fixes mobile misalignment) */
 .calendar-header {
-  background: var(--color-bg);
-  border-radius: 0;
+  display: contents;
 }
 
 .calendar-header .day-header {
-  background: transparent;
+  background: var(--color-bg);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  padding: var(--space-2) var(--space-1);
+  text-align: center;
+  min-width: 0;
 }
 
 .calendar-grid {
-  background: var(--color-border);
-  border-radius: 0;
+  display: contents;
 }
 
-.calendar-day {
+.calendar-frame .calendar-day {
   background: var(--color-surface);
   transition: background var(--transition-fast);
+  min-width: 0;
+  height: auto;
+  min-height: 100px;
 }
 
-.calendar-day:hover {
+.calendar-frame .calendar-event--spanning {
+  pointer-events: auto;
+}
+
+.calendar-frame .calendar-day:hover {
   background: var(--color-bg);
 }
 
-.calendar-day.today {
+.calendar-frame .calendar-day.today {
   background: var(--color-primary-muted);
 }
 
-.calendar-day.today .day-number {
+.calendar-frame .calendar-day.today .day-number {
   color: var(--color-primary);
+}
+
+.calendar-frame .calendar-day.other-month {
+  background: var(--color-bg);
 }
 
 .calendar-event {
@@ -792,11 +834,36 @@ body[data-app-page="quotes"] .app-page-subtitle {
     flex: 1;
   }
 
-  .calendar-grid {
-    grid-auto-rows: 88px;
+  .calendar-frame .calendar-day {
+    min-height: 88px;
+    padding: var(--space-1);
+  }
+
+  .calendar-header .day-header {
+    font-size: 0.65rem;
+    padding: var(--space-2) 2px;
+  }
+
+  .calendar-event {
+    font-size: 0.65rem !important;
+    padding: 1px 4px !important;
+  }
+
+  .calendar-panel {
+    overflow-x: hidden;
   }
 
   .calendar-skeleton {
     grid-auto-rows: 88px;
+  }
+
+  .calendar-legend {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .legend-note {
+    width: 100%;
   }
 }

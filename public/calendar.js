@@ -14,6 +14,9 @@ class CalendarView {
     }
 
     setupEventListeners() {
+        this.boundRepositionSpanningEvents = () => this.repositionSpanningEvents();
+        window.addEventListener('resize', this.boundRepositionSpanningEvents);
+
         // Navigation buttons
         document.getElementById('prevMonth').addEventListener('click', () => {
             this.currentDate.setMonth(this.currentDate.getMonth() - 1);
@@ -140,6 +143,7 @@ class CalendarView {
 
         // Render events using absolute positioning for true spanning
         this.renderSpanningEvents();
+        requestAnimationFrame(() => this.repositionSpanningEvents());
     }
 
     createDayElement(date, currentMonth, today) {
@@ -287,6 +291,9 @@ class CalendarView {
     }
 
     renderSpanningEvents() {
+        const frame = document.getElementById('calendarFrame');
+        frame?.querySelectorAll('.calendar-event--spanning').forEach((el) => el.remove());
+
         // Get unique events (no duplicates)
         const uniqueEvents = [];
         const seenEventIds = new Set();
@@ -339,15 +346,15 @@ class CalendarView {
     }
 
     renderWeekEvents(events, weekIndex) {
-        const grid = document.getElementById('calendarGrid');
-        
-        // Group events by the days they overlap to create proper stacking
+        const frame = document.getElementById('calendarFrame');
+        if (!frame) return;
+
         const eventLayers = this.createEventLayers(events, weekIndex);
-        
+
         eventLayers.forEach((layer, layerIndex) => {
             layer.forEach(event => {
-                const eventElement = this.createEventElement(event, weekIndex, layerIndex);
-                grid.appendChild(eventElement);
+                const eventElement = this.createSpanningEventElement(event, weekIndex, layerIndex);
+                frame.appendChild(eventElement);
             });
         });
     }
@@ -428,59 +435,49 @@ class CalendarView {
         return clampedStart1 <= clampedEnd2 && clampedStart2 <= clampedEnd1;
     }
 
-    createEventElement(event, weekIndex, layerIndex) {
-        // Parse dates without timezone conversion
+    getSpanningDayIndices(event, weekDates) {
         const eventStart = this.parseLocalDate(event.start);
         const eventEnd = this.parseLocalDate(event.end);
-        const weekStartIndex = weekIndex * 7;
-        const weekDates = this.calendarDates.slice(weekStartIndex, weekStartIndex + 7);
-        
-        // Find which day positions this event spans in this week
-        let startDayIndex = -1;
-        let endDayIndex = -1;
-        
-        // Normalize event dates to just date (no time)
         const eventStartDate = new Date(eventStart.getFullYear(), eventStart.getMonth(), eventStart.getDate());
         const eventEndDate = new Date(eventEnd.getFullYear(), eventEnd.getMonth(), eventEnd.getDate());
-        
-        // Find first and last day where event appears
+
+        let startDayIndex = -1;
+        let endDayIndex = -1;
+
         for (let i = 0; i < 7; i++) {
             const dayDate = new Date(weekDates[i].getFullYear(), weekDates[i].getMonth(), weekDates[i].getDate());
-            
-            // Check if this day is within the event range
             if (dayDate >= eventStartDate && dayDate <= eventEndDate) {
                 if (startDayIndex === -1) {
                     startDayIndex = i;
                 }
-                endDayIndex = i; // Keep updating to find the last day
+                endDayIndex = i;
             }
         }
-        
-        // Handle edge cases
-        if (startDayIndex === -1) startDayIndex = 0; // Event started before this week
-        if (endDayIndex === -1) endDayIndex = 6; // Event ends after this week
-        
-        // Create the event element
+
+        if (startDayIndex === -1) startDayIndex = 0;
+        if (endDayIndex === -1) endDayIndex = 6;
+
+        return { startDayIndex, endDayIndex };
+    }
+
+    createSpanningEventElement(event, weekIndex, layerIndex) {
+        const weekStartIndex = weekIndex * 7;
+        const weekDates = this.calendarDates.slice(weekStartIndex, weekStartIndex + 7);
+        const { startDayIndex, endDayIndex } = this.getSpanningDayIndices(event, weekDates);
+
         const eventElement = document.createElement('div');
         this.applyEventStyles(eventElement, event);
+        eventElement.classList.add('calendar-event--spanning');
         eventElement.textContent = event.title;
-        
-        // Calculate dimensions
-        const dayWidth = 100 / 7; // Each day is 1/7 of the calendar width
-        const eventHeight = 18;
-        const eventSpacing = 2;
-        const dayNumberHeight = 25;
-        const eventStartTop = dayNumberHeight + 5;
-        
-        // Position the event
+        eventElement.dataset.spanning = 'true';
+        eventElement.dataset.weekIndex = String(weekIndex);
+        eventElement.dataset.startDay = String(startDayIndex);
+        eventElement.dataset.endDay = String(endDayIndex);
+        eventElement.dataset.layerIndex = String(layerIndex);
+
         eventElement.style.position = 'absolute';
-        eventElement.style.left = `${startDayIndex * dayWidth}%`;
-        eventElement.style.width = `${(endDayIndex - startDayIndex + 1) * dayWidth}%`;
-        eventElement.style.top = `${weekIndex * 121 + eventStartTop + (layerIndex * (eventHeight + eventSpacing))}px`;
-        eventElement.style.height = `${eventHeight}px`;
-        
         eventElement.style.color = 'white';
-        eventElement.style.padding = '2px 8px';
+        eventElement.style.padding = '2px 6px';
         eventElement.style.fontWeight = '500';
         eventElement.style.cursor = 'pointer';
         eventElement.style.zIndex = '10';
@@ -488,28 +485,50 @@ class CalendarView {
         eventElement.style.overflow = 'hidden';
         eventElement.style.textOverflow = 'ellipsis';
         eventElement.style.whiteSpace = 'nowrap';
-        
-        // Add margins to prevent touching edges
-        eventElement.style.marginLeft = '2px';
-        eventElement.style.marginRight = '2px';
-        
-        // Debug specific dates
-        if (event.title && (event.title.toLowerCase().includes('cvent'))) {
-            console.log(`🐛 Event: "${event.title}"`);
-            console.log(`  Raw start: ${event.start}, Raw end: ${event.end}`);
-            console.log(`  Parsed start: ${eventStart.toDateString()}, Parsed end: ${eventEnd.toDateString()}`);
-            console.log(`  Week: ${weekIndex}, Layer: ${layerIndex}`);
-            console.log(`  Start day index: ${startDayIndex}, End day index: ${endDayIndex}`);
-            console.log(`  Week dates: ${weekDates[0].toDateString()} to ${weekDates[6].toDateString()}`);
-        }
+        eventElement.style.margin = '0';
 
-        // Add click handler
         eventElement.addEventListener('click', (e) => {
             e.stopPropagation();
             this.showEventTooltip(event, e.target);
         });
 
         return eventElement;
+    }
+
+    repositionSpanningEvents() {
+        const frame = document.getElementById('calendarFrame');
+        const grid = document.getElementById('calendarGrid');
+        if (!frame || !grid) return;
+
+        const days = grid.querySelectorAll('.calendar-day');
+        const frameRect = frame.getBoundingClientRect();
+        const eventHeight = 18;
+        const eventSpacing = 2;
+
+        frame.querySelectorAll('.calendar-event--spanning').forEach((eventElement) => {
+            const weekIndex = parseInt(eventElement.dataset.weekIndex, 10);
+            const startDayIndex = parseInt(eventElement.dataset.startDay, 10);
+            const endDayIndex = parseInt(eventElement.dataset.endDay, 10);
+            const layerIndex = parseInt(eventElement.dataset.layerIndex, 10) || 0;
+
+            const startDayEl = days[weekIndex * 7 + startDayIndex];
+            const endDayEl = days[weekIndex * 7 + endDayIndex];
+            if (!startDayEl || !endDayEl) return;
+
+            const startRect = startDayEl.getBoundingClientRect();
+            const endRect = endDayEl.getBoundingClientRect();
+            const dayNumberEl = startDayEl.querySelector('.day-number');
+            const dayNumberBottom = dayNumberEl
+                ? dayNumberEl.getBoundingClientRect().bottom - startRect.top
+                : 20;
+            const topOffset = dayNumberBottom + 4 + layerIndex * (eventHeight + eventSpacing);
+            const inset = 2;
+
+            eventElement.style.left = `${startRect.left - frameRect.left + inset}px`;
+            eventElement.style.width = `${Math.max(0, endRect.right - startRect.left - inset * 2)}px`;
+            eventElement.style.top = `${startRect.top - frameRect.top + topOffset}px`;
+            eventElement.style.height = `${eventHeight}px`;
+        });
     }
 
     showEventTooltip(event, targetElement) {
