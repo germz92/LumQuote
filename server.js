@@ -8,6 +8,7 @@ const fs = require('fs');
 const session = require('express-session');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
+const { v2: cloudinary } = require('cloudinary');
 require('dotenv').config();
 
 // JWT Configuration
@@ -178,6 +179,15 @@ app.post('/api/auth/lumdash', async (req, res) => {
       localUser.lastLogin = new Date();
       await localUser.save();
       console.log('✅ Updated existing LumQuote user:', localUser.name);
+    }
+
+    await syncProfileImageFromLumDash(localUser, lumDashId, userName, userEmail);
+
+    const profileFromToken = extractProfileImageFromDoc(decoded);
+    if (profileFromToken?.url && !localUser.profileImageUrl && !localUser.cloudinaryPublicId) {
+      localUser.profileImageUrl = profileFromToken.url;
+      localUser.cloudinaryPublicId = profileFromToken.publicId || null;
+      await localUser.save();
     }
     
     // Store in session for page-based auth
@@ -1894,6 +1904,8 @@ const lumQuoteUserSchema = new mongoose.Schema({
   email: { type: String, default: '', lowercase: true },
   role: { type: String, enum: ['admin', 'user'], default: 'user' },
   profileImagePath: { type: String, default: null },
+  profileImageUrl: { type: String, default: null },
+  cloudinaryPublicId: { type: String, default: null },
   lastLogin: { type: Date, default: Date.now }
 }, { timestamps: true });
 
@@ -1901,6 +1913,203 @@ const LumQuoteUser = mongoose.model('LumQuoteUser', lumQuoteUserSchema, 'lumQuot
 
 const PROFILE_UPLOAD_DIR = path.join(__dirname, 'uploads', 'profiles');
 const PROFILE_IMAGE_MAX_BYTES = 1.5 * 1024 * 1024;
+const CLOUDINARY_PROFILE_FOLDER = process.env.CLOUDINARY_PROFILE_FOLDER || 'lumquote/profile-photos';
+// LumDash MONGO_URI has no db name → Mongoose uses "test". LumQuote uses LumetryMedia.
+const LUMDASH_DB_NAME = process.env.LUMDASH_DB_NAME || 'test';
+
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+}
+
+function isCloudinaryConfigured() {
+  return Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
+  );
+}
+
+function cloudinaryAvatarUrl(publicId) {
+  if (!publicId || !isCloudinaryConfigured()) return null;
+  return cloudinary.url(publicId, {
+    secure: true,
+    width: 256,
+    height: 256,
+    crop: 'fill',
+    gravity: 'auto'
+  });
+}
+
+function extractCloudinaryPublicId(value) {
+  if (!value || typeof value !== 'string') return null;
+  if (!value.includes('cloudinary.com')) return null;
+  const match = value.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[a-zA-Z0-9]+)?$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function extractProfileImageFromDoc(doc) {
+  if (!doc) return null;
+
+  // LumDash User schema: profilePhoto (secure_url) + profilePhotoPublicId
+  if (typeof doc.profilePhoto === 'string' && /^https?:\/\//i.test(doc.profilePhoto)) {
+    return {
+      url: doc.profilePhoto,
+      publicId: doc.profilePhotoPublicId || extractCloudinaryPublicId(doc.profilePhoto)
+    };
+  }
+  if (typeof doc.profilePhotoPublicId === 'string' && doc.profilePhotoPublicId.trim()) {
+    const publicId = doc.profilePhotoPublicId.trim();
+    const url = cloudinaryAvatarUrl(publicId);
+    if (url) {
+      return { url, publicId };
+    }
+  }
+
+  const urlCandidates = [
+    doc.profileImageUrl,
+    doc.profileImage,
+    doc.profilePicture,
+    doc.avatar,
+    doc.avatarUrl,
+    doc.photoUrl,
+    doc.profile_img,
+    doc.image?.url,
+    doc.image?.secure_url,
+    doc.profileImage?.url,
+    doc.profileImage?.secure_url
+  ];
+
+  for (const candidate of urlCandidates) {
+    if (typeof candidate === 'string' && /^https?:\/\//i.test(candidate)) {
+      return {
+        url: candidate,
+        publicId: extractCloudinaryPublicId(candidate)
+      };
+    }
+  }
+
+  const publicIdCandidates = [
+    doc.cloudinaryPublicId,
+    doc.cloudinary_id,
+    doc.profileImageId,
+    doc.profileImgId,
+    doc.image?.publicId,
+    doc.image?.public_id,
+    doc.profileImage?.publicId,
+    doc.profileImage?.public_id
+  ];
+
+  for (const publicId of publicIdCandidates) {
+    if (typeof publicId === 'string' && publicId.trim()) {
+      const url = cloudinaryAvatarUrl(publicId.trim());
+      if (url) {
+        return { url, publicId: publicId.trim() };
+      }
+    }
+  }
+
+  return null;
+}
+
+async function findLumDashUserRecord(lumDashId, userName, userEmail) {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const collection = mongoose.connection.getClient().db(LUMDASH_DB_NAME).collection('users');
+  const queries = [];
+
+  if (lumDashId && mongoose.Types.ObjectId.isValid(String(lumDashId))) {
+    queries.push({ _id: new mongoose.Types.ObjectId(String(lumDashId)) });
+  }
+  if (userEmail) {
+    queries.push({ email: userEmail.toLowerCase() });
+  }
+  if (userName) {
+    queries.push({ fullName: userName }, { name: userName });
+  }
+
+  for (const query of queries) {
+    const doc = await collection.findOne(
+      query,
+      { projection: { fullName: 1, email: 1, profilePhoto: 1, profilePhotoPublicId: 1 } }
+    );
+    if (doc) return doc;
+  }
+
+  return null;
+}
+
+async function syncProfileImageFromLumDash(record, lumDashId, userName, userEmail) {
+  if (!record || record.profileImageUrl || record.cloudinaryPublicId) {
+    return false;
+  }
+
+  try {
+    const lumDashUser = await findLumDashUserRecord(lumDashId, userName, userEmail);
+    const profile = extractProfileImageFromDoc(lumDashUser);
+    if (!profile?.url) {
+      if (!lumDashUser) {
+        console.log(`ℹ️ No LumDash user in db "${LUMDASH_DB_NAME}" for profile sync (${userName || userEmail || lumDashId})`);
+      }
+      return false;
+    }
+
+    record.profileImageUrl = profile.url;
+    record.cloudinaryPublicId = profile.publicId || null;
+    await record.save();
+    console.log('✅ Synced Cloudinary profile photo for:', record.name);
+    return true;
+  } catch (error) {
+    console.warn('Could not sync profile photo from LumDash:', error.message);
+    return false;
+  }
+}
+
+async function uploadProfileImageToCloudinary(parsed, record) {
+  if (!isCloudinaryConfigured()) {
+    throw new Error('Cloudinary is not configured');
+  }
+
+  const mimeMap = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp'
+  };
+  const mime = mimeMap[parsed.ext] || 'image/jpeg';
+
+  return cloudinary.uploader.upload(
+    `data:${mime};base64,${parsed.buffer.toString('base64')}`,
+    {
+      folder: CLOUDINARY_PROFILE_FOLDER,
+      public_id: `lumquote-${record._id}`,
+      overwrite: true,
+      invalidate: true,
+      resource_type: 'image'
+    }
+  );
+}
+
+async function deleteCloudinaryProfileImage(record) {
+  if (!record?.cloudinaryPublicId || !isCloudinaryConfigured()) return;
+  try {
+    await cloudinary.uploader.destroy(record.cloudinaryPublicId, { invalidate: true });
+  } catch (err) {
+    console.warn('Could not delete Cloudinary profile image:', err.message);
+  }
+}
+
+async function clearStoredProfileImage(record) {
+  await deleteCloudinaryProfileImage(record);
+  await deleteProfileImageFile(record.profileImagePath);
+  record.profileImagePath = null;
+  record.profileImageUrl = null;
+  record.cloudinaryPublicId = null;
+}
 
 function ensureProfileUploadDir() {
   fs.mkdirSync(PROFILE_UPLOAD_DIR, { recursive: true });
@@ -1944,6 +2153,17 @@ function applyNamePartsToUser(user, fullName) {
   }
 }
 
+function resolveProfileImageUrl(record) {
+  if (!record) return null;
+  if (record.profileImageUrl) return record.profileImageUrl;
+  if (record.cloudinaryPublicId) return cloudinaryAvatarUrl(record.cloudinaryPublicId);
+  if (record.profileImagePath) {
+    const id = record._id ? record._id.toString() : record.id;
+    return id ? `/api/profile-image/${id}` : null;
+  }
+  return null;
+}
+
 function buildClientUser(record) {
   const id = record._id ? record._id.toString() : record.id;
   return {
@@ -1954,7 +2174,7 @@ function buildClientUser(record) {
     lastName: record.lastName || '',
     email: record.email || '',
     role: record.role || 'user',
-    profileImageUrl: record.profileImagePath ? `/api/profile-image/${id}` : null,
+    profileImageUrl: resolveProfileImageUrl(record),
     initials: getInitialsFromName(record.name, record.firstName, record.lastName)
   };
 }
@@ -2962,6 +3182,10 @@ app.get('/api/me', requireApiAuth, async (req, res) => {
   try {
     const record = await resolveLumQuoteUserFromToken(req.user);
     if (record) {
+      const lumDashId = req.user.id || req.user.userId || req.user._id;
+      const userName = req.user.fullName || req.user.name || record.name;
+      const userEmail = req.user.email || record.email;
+      await syncProfileImageFromLumDash(record, lumDashId, userName, userEmail);
       return res.json({ success: true, user: buildClientUser(record) });
     }
     const name = req.user.fullName || req.user.name || 'User';
@@ -3015,15 +3239,24 @@ app.put('/api/me/profile-image', requireApiAuth, express.json({ limit: '2mb' }),
       return res.status(400).json({ error: parsed.error });
     }
 
-    ensureProfileUploadDir();
-    await deleteProfileImageFile(record.profileImagePath);
+    if (isCloudinaryConfigured()) {
+      await clearStoredProfileImage(record);
+      const uploadResult = await uploadProfileImageToCloudinary(parsed, record);
+      record.profileImageUrl = uploadResult.secure_url;
+      record.cloudinaryPublicId = uploadResult.public_id;
+      record.profileImagePath = null;
+    } else {
+      ensureProfileUploadDir();
+      await deleteProfileImageFile(record.profileImagePath);
+      const filename = `${record._id}.${parsed.ext}`;
+      const relativePath = path.join('uploads', 'profiles', filename);
+      const absolutePath = path.join(__dirname, relativePath);
+      await fs.promises.writeFile(absolutePath, parsed.buffer);
+      record.profileImagePath = relativePath;
+      record.profileImageUrl = null;
+      record.cloudinaryPublicId = null;
+    }
 
-    const filename = `${record._id}.${parsed.ext}`;
-    const relativePath = path.join('uploads', 'profiles', filename);
-    const absolutePath = path.join(__dirname, relativePath);
-    await fs.promises.writeFile(absolutePath, parsed.buffer);
-
-    record.profileImagePath = relativePath;
     await record.save();
 
     const user = buildClientUser(record);
@@ -3045,8 +3278,7 @@ app.delete('/api/me/profile-image', requireApiAuth, async (req, res) => {
       return res.status(404).json({ error: 'User profile not found' });
     }
 
-    await deleteProfileImageFile(record.profileImagePath);
-    record.profileImagePath = null;
+    await clearStoredProfileImage(record);
     await record.save();
 
     const user = buildClientUser(record);
@@ -3084,7 +3316,7 @@ app.get('/api/shareable-users', requireApiAuth, async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
-      profileImageUrl: user.profileImagePath ? `/api/profile-image/${user._id}` : null,
+      profileImageUrl: resolveProfileImageUrl(user),
       initials: getInitialsFromName(user.name, user.firstName, user.lastName)
     })));
   } catch (error) {
