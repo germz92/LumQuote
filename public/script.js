@@ -974,92 +974,128 @@ class QuoteCalculator {
         }
     }
 
-    async generatePDF() {
+    async resolveExportMeta() {
         let clientName = this.currentClientName;
         let quoteTitle = this.currentQuoteName;
-        
-        // Only prompt if we don't already have both values
+
         if (!clientName || !quoteTitle) {
             const exportData = await showExportModal(quoteTitle || '', clientName || '');
-            if (exportData === null) return; // User cancelled
-            
+            if (exportData === null) return null;
             quoteTitle = exportData.title || null;
             clientName = exportData.clientName || null;
         }
-        
+
+        return { clientName, quoteTitle };
+    }
+
+    buildExportQuoteData(clientName, quoteTitle) {
+        const subtotal = this.calculateTotal();
+        const markupsTotal = this.calculateMarkupsTotal();
+        const subtotalWithMarkups = subtotal + markupsTotal;
+        return {
+            days: this.days,
+            subtotal,
+            markups: this.markups,
+            markupsTotal,
+            total: this.getFinalTotal(),
+            discountPercentage: this.discountPercentage,
+            discountAmount: subtotalWithMarkups * (this.discountPercentage / 100),
+            clientName,
+            quoteTitle,
+        };
+    }
+
+    getExportFilename(quoteTitle, extension) {
+        const date = new Date().toISOString().split('T')[0];
+        if (quoteTitle) {
+            const sanitized = quoteTitle
+                .replace(/[^a-zA-Z0-9\s-]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .toLowerCase();
+            if (sanitized) {
+                return `${sanitized}-${date}.${extension}`;
+            }
+        }
+        return `lumetry-quote-${date}.${extension}`;
+    }
+
+    triggerBlobDownload(blob, filename) {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+    }
+
+    async fetchQuoteHtml(quoteData) {
+        const response = await fetch('/api/quote-html', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ quoteData }),
+            signal: AbortSignal.timeout(60000),
+        });
+
+        if (!response.ok) {
+            const errBody = await response.json().catch(() => ({}));
+            throw new Error(errBody.details || errBody.error || 'Failed to prepare quote for PDF');
+        }
+
+        const { html } = await response.json();
+        if (!html) {
+            throw new Error('Empty quote content received from server');
+        }
+        return html;
+    }
+
+    async generatePDFServer(quoteData, filename) {
+        const response = await fetch('/api/generate-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ quoteData }),
+            signal: AbortSignal.timeout(180000),
+        });
+
+        if (!response.ok) {
+            const errBody = await response.json().catch(() => ({}));
+            throw new Error(errBody.details || errBody.error || 'Failed to generate PDF on server');
+        }
+
+        const blob = await response.blob();
+        this.triggerBlobDownload(blob, filename);
+    }
+
+    async generatePDF() {
+        const meta = await this.resolveExportMeta();
+        if (!meta) return;
+
         const loadingOverlay = document.getElementById('loading-overlay');
         loadingOverlay.style.display = 'flex';
 
+        const quoteData = this.buildExportQuoteData(meta.clientName, meta.quoteTitle);
+        const filename = this.getExportFilename(meta.quoteTitle, 'pdf');
+
         try {
-            const subtotal = this.calculateTotal();
-            const markupsTotal = this.calculateMarkupsTotal();
-            const subtotalWithMarkups = subtotal + markupsTotal;
-            const quoteData = {
-                days: this.days,
-                subtotal: subtotal,
-                markups: this.markups,
-                markupsTotal: markupsTotal,
-                total: this.getFinalTotal(),
-                discountPercentage: this.discountPercentage,
-                discountAmount: subtotalWithMarkups * (this.discountPercentage / 100),
-                clientName: clientName,
-                quoteTitle: quoteTitle
-            };
-
-            const response = await fetch('/api/generate-pdf', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({ quoteData }),
-                signal: AbortSignal.timeout(180000),
-            });
-
-            if (!response.ok) {
-                const errBody = await response.json().catch(() => ({}));
-                throw new Error(errBody.details || errBody.error || 'Failed to generate PDF');
+            const html = await this.fetchQuoteHtml(quoteData);
+            await downloadPdfFromHtml(html, filename);
+        } catch (clientError) {
+            console.warn('Client PDF failed, trying server fallback:', clientError);
+            try {
+                await this.generatePDFServer(quoteData, filename);
+            } catch (serverError) {
+                console.error('Error generating PDF:', serverError);
+                const message =
+                    serverError.name === 'TimeoutError' || serverError.name === 'AbortError'
+                        ? 'PDF generation timed out. Please try again on a desktop browser or wait and retry.'
+                        : serverError.message || clientError.message || 'Failed to generate PDF. Please try again.';
+                showAlertModal(message, 'error');
             }
-
-            // Generate filename based on quote title or default
-            let filename;
-            if (quoteTitle) {
-                // Sanitize title for filename
-                const sanitizedTitle = quoteTitle
-                    .replace(/[^a-zA-Z0-9\s-]/g, '') // Remove special characters
-                    .replace(/\s+/g, '-') // Replace spaces with hyphens
-                    .replace(/-+/g, '-') // Replace multiple hyphens with single
-                    .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
-                    .toLowerCase();
-                
-                // Use sanitized title if not empty, otherwise fallback to default
-                if (sanitizedTitle) {
-                    filename = `${sanitizedTitle}-${new Date().toISOString().split('T')[0]}.pdf`;
-                } else {
-                    filename = `lumetry-quote-${new Date().toISOString().split('T')[0]}.pdf`;
-                }
-            } else {
-                filename = `lumetry-quote-${new Date().toISOString().split('T')[0]}.pdf`;
-            }
-
-            // Create blob and download
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-
-        } catch (error) {
-            console.error('Error generating PDF:', error);
-            const message =
-                error.name === 'TimeoutError' || error.name === 'AbortError'
-                    ? 'PDF generation timed out. The server may still be starting Chromium — wait a moment and try again.'
-                    : (error.message || 'Failed to generate PDF. Please try again.');
-            showAlertModal(message, 'error');
         } finally {
             loadingOverlay.style.display = 'none';
         }

@@ -19,14 +19,14 @@
   isolation: isolate;
 }
 
-/* Cover rows that scroll through the sticky element's in-flow slot (above the pinned bar) */
+/* Small bleed mask when sticky — 100vh caused a growing white gap above filters on mobile */
 .quotes-sticky-chrome::before {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 100%;
-  height: 100vh;
+  height: var(--space-6);
   background: var(--color-surface);
   z-index: -1;
   pointer-events: none;
@@ -88,7 +88,18 @@ body[data-app-page="quotes"] .app-page-subtitle {
   }
 
   body[data-app-page="quotes"] .quotes-sticky-chrome {
+    position: static;
+    top: auto;
+    z-index: auto;
+    margin-left: calc(-1 * var(--space-4));
+    margin-right: calc(-1 * var(--space-4));
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
     border-top: 1px solid var(--color-border);
+  }
+
+  body[data-app-page="quotes"] .quotes-sticky-chrome::before {
+    display: none;
   }
 
   body[data-app-page="quotes"] .quotes-page-section .quotes-controls-header {

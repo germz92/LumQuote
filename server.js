@@ -512,7 +512,22 @@ app.post('/api/validate-service', async (req, res) => {
   }
 });
 
-// Generate PDF quote
+// Quote HTML for client-side PDF (same template as server PDF)
+app.post('/api/quote-html', async (req, res) => {
+  try {
+    const { quoteData } = req.body;
+    const html = await generateQuoteHTML(quoteData);
+    res.json({ html });
+  } catch (error) {
+    console.error('❌ Quote HTML error:', error.message);
+    res.status(500).json({
+      error: 'Failed to prepare quote for PDF.',
+      details: error.message,
+    });
+  }
+});
+
+// Generate PDF quote (server Chromium — fallback / API compatibility)
 app.post('/api/generate-pdf', async (req, res) => {
   try {
     const { quoteData } = req.body;

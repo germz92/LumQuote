@@ -441,10 +441,14 @@ function displayUserName() {
 
 document.addEventListener('DOMContentLoaded', () => AppShell.init());
 
+let layoutOffsetResizeTimer;
 window.addEventListener('resize', () => {
-    if (window.AppShell) {
-        AppShell.updateLayoutOffsets();
-    }
+    clearTimeout(layoutOffsetResizeTimer);
+    layoutOffsetResizeTimer = setTimeout(() => {
+        if (window.AppShell) {
+            AppShell.updateLayoutOffsets();
+        }
+    }, 150);
 });
 
 window.AppShell = AppShell;
