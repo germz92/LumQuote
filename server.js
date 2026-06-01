@@ -518,10 +518,13 @@ app.post('/api/generate-pdf', async (req, res) => {
     const { quoteData } = req.body;
     
     const { generatePdfFromHtml, useServerlessChromium } = require('./lib/pdf-generator');
-    console.log('🔄 Starting PDF generation...', useServerlessChromium() ? '(serverless chromium)' : '(local puppeteer)');
+    const pdfMode = useServerlessChromium() ? 'serverless chromium' : 'local puppeteer';
+    const startedAt = Date.now();
+    console.log(`🔄 Starting PDF generation (${pdfMode})...`);
     
     console.log('📝 Generating HTML content...');
     const html = await generateQuoteHTML(quoteData);
+    console.log(`📝 HTML ready (${html.length} chars, ${Date.now() - startedAt}ms)`);
     
     console.log('📄 Creating PDF...');
     const options = {
@@ -536,7 +539,7 @@ app.post('/api/generate-pdf', async (req, res) => {
     
     const pdf = await generatePdfFromHtml(html, options);
     
-    console.log('✅ PDF generated successfully');
+    console.log(`✅ PDF generated successfully (${pdf.length} bytes, ${Date.now() - startedAt}ms)`);
     const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=lumetry-quote-${currentDate}.pdf`);
@@ -1886,6 +1889,13 @@ async function initializeServices() {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   initializeServices();
+
+  const { warmupChromium, useServerlessChromium } = require('./lib/pdf-generator');
+  if (useServerlessChromium()) {
+    warmupChromium().catch((err) => {
+      console.warn('PDF warmup error:', err.message);
+    });
+  }
 });
 
 // User Schema (for quote creators - original)

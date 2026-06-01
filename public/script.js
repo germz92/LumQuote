@@ -1011,11 +1011,14 @@ class QuoteCalculator {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ quoteData })
+                credentials: 'include',
+                body: JSON.stringify({ quoteData }),
+                signal: AbortSignal.timeout(180000),
             });
 
             if (!response.ok) {
-                throw new Error('Failed to generate PDF');
+                const errBody = await response.json().catch(() => ({}));
+                throw new Error(errBody.details || errBody.error || 'Failed to generate PDF');
             }
 
             // Generate filename based on quote title or default
@@ -1052,7 +1055,11 @@ class QuoteCalculator {
 
         } catch (error) {
             console.error('Error generating PDF:', error);
-            showAlertModal('Failed to generate PDF. Please try again.', 'error');
+            const message =
+                error.name === 'TimeoutError' || error.name === 'AbortError'
+                    ? 'PDF generation timed out. The server may still be starting Chromium — wait a moment and try again.'
+                    : (error.message || 'Failed to generate PDF. Please try again.');
+            showAlertModal(message, 'error');
         } finally {
             loadingOverlay.style.display = 'none';
         }

@@ -3,7 +3,7 @@ services:
     name: quote-calculator
     env: node
     plan: free
-    buildCommand: npm ci --omit=dev
+    buildCommand: npm ci --omit=dev && node -e "require('@sparticuz/chromium').executablePath().then(() => console.log('Chromium binary ready')).catch(e => { console.error(e); process.exit(1); })"
     startCommand: npm start
     healthCheckPath: /health
     envVars:
@@ -11,7 +11,9 @@ services:
         value: "20.18.0"
       - key: NODE_ENV
         value: production
+      - key: USE_SERVERLESS_CHROMIUM
+        value: "true"
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: "true"
       - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
-        value: "true" 
+        value: "true"
