@@ -1032,45 +1032,6 @@ class QuoteCalculator {
         a.remove();
     }
 
-    async fetchQuoteHtml(quoteData) {
-        const response = await fetch('/api/quote-html', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ quoteData }),
-            signal: AbortSignal.timeout(60000),
-        });
-
-        if (!response.ok) {
-            const errBody = await response.json().catch(() => ({}));
-            throw new Error(errBody.details || errBody.error || 'Failed to prepare quote for PDF');
-        }
-
-        const { html } = await response.json();
-        if (!html) {
-            throw new Error('Empty quote content received from server');
-        }
-        return html;
-    }
-
-    async generatePDFServer(quoteData, filename) {
-        const response = await fetch('/api/generate-pdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ quoteData }),
-            signal: AbortSignal.timeout(180000),
-        });
-
-        if (!response.ok) {
-            const errBody = await response.json().catch(() => ({}));
-            throw new Error(errBody.details || errBody.error || 'Failed to generate PDF on server');
-        }
-
-        const blob = await response.blob();
-        this.triggerBlobDownload(blob, filename);
-    }
-
     async generatePDF() {
         const meta = await this.resolveExportMeta();
         if (!meta) return;
@@ -1082,20 +1043,28 @@ class QuoteCalculator {
         const filename = this.getExportFilename(meta.quoteTitle, 'pdf');
 
         try {
-            const html = await this.fetchQuoteHtml(quoteData);
-            await downloadPdfFromHtml(html, filename);
-        } catch (clientError) {
-            console.warn('Client PDF failed, trying server fallback:', clientError);
-            try {
-                await this.generatePDFServer(quoteData, filename);
-            } catch (serverError) {
-                console.error('Error generating PDF:', serverError);
-                const message =
-                    serverError.name === 'TimeoutError' || serverError.name === 'AbortError'
-                        ? 'PDF generation timed out. Please try again on a desktop browser or wait and retry.'
-                        : serverError.message || clientError.message || 'Failed to generate PDF. Please try again.';
-                showAlertModal(message, 'error');
+            const response = await fetch('/api/generate-pdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ quoteData }),
+                signal: AbortSignal.timeout(180000),
+            });
+
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                throw new Error(errBody.details || errBody.error || 'Failed to generate PDF');
             }
+
+            const blob = await response.blob();
+            this.triggerBlobDownload(blob, filename);
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            const message =
+                error.name === 'TimeoutError' || error.name === 'AbortError'
+                    ? 'PDF generation timed out. The server may still be starting Chromium — wait a moment and try again.'
+                    : error.message || 'Failed to generate PDF. Please try again.';
+            showAlertModal(message, 'error');
         } finally {
             loadingOverlay.style.display = 'none';
         }
