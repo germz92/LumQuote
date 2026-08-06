@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice</title>
+    <link rel="stylesheet" href="/design-tokens.css">
+    <link rel="stylesheet" href="/crm.css">
+    <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
+</head>
+<body class="public-doc-page">
+    <div class="public-doc" id="docContainer">
+        <div class="crm-loading" id="loadingState">Loading invoice…</div>
+
+        <div id="errorState" style="display:none; text-align:center; padding:40px 0;">
+            <h2>Invoice Unavailable</h2>
+            <p id="errorMessage" style="color:#697386">This invoice link is invalid or no longer active.</p>
+        </div>
+
+        <div id="invoiceContent" style="display:none;">
+            <div class="paid-banner" id="paidBanner" style="display:none">
+                <span>✓</span><span id="paidBannerText">This invoice has been paid. Thank you!</span>
+            </div>
+
+            <div class="public-doc-header">
+                <div>
+                    <h1 id="invoiceNumber"></h1>
+                    <div id="invoiceSubtitle" style="color:#697386; font-size:14px; white-space:pre-wrap"></div>
+                </div>
+                <div class="public-doc-meta">
+                    <div id="issueDate"></div>
+                    <div id="dueDate"></div>
+                </div>
+            </div>
+
+            <p id="headerNote" style="white-space:pre-wrap; color:#425466"></p>
+
+            <div class="public-parties">
+                <div id="toParty"></div>
+                <div id="fromParty"></div>
+            </div>
+
+            <table class="public-items">
+                <thead id="itemsHead">
+                    <tr><th>Description</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Amount</th></tr>
+                </thead>
+                <tbody id="itemsBody"></tbody>
+            </table>
+
+            <div class="invoice-totals" style="max-width:300px; margin-left:auto">
+                <div class="row"><span>Subtotal</span><span id="subtotalDisplay"></span></div>
+                <div class="row" id="discountRow" style="display:none"><span>Discount</span><span id="discountDisplay"></span></div>
+                <div class="row" id="paidRow" style="display:none"><span>Paid to date</span><span id="paidDisplay"></span></div>
+                <div class="row grand"><span id="totalLabel">Amount Due</span><span id="totalDisplay"></span></div>
+            </div>
+
+            <div id="scheduleArea" style="display:none; margin-top:26px">
+                <h3 style="font-size:14px; text-transform:uppercase; letter-spacing:0.04em; color:#697386">Payment Schedule</h3>
+                <table class="public-items">
+                    <thead>
+                        <tr><th>Payment</th><th>Due</th><th class="num">Amount</th><th>Status</th></tr>
+                    </thead>
+                    <tbody id="scheduleBody"></tbody>
+                </table>
+            </div>
+
+            <div style="margin-top:30px" id="payArea">
+                <div id="payMethodArea" class="pay-method-area" style="display:none"></div>
+                <button class="pay-button" id="payButton" onclick="invoicePage.pay()">Pay Invoice</button>
+                <div id="feeNote" style="text-align:center; color:#697386; font-size:13px; margin-top:8px; display:none"></div>
+                <div style="text-align:center; margin-top:10px">
+                    <button id="payFullBtn" onclick="invoicePage.pay(true)" style="display:none; background:none; border:none; color:#5469d4; font-size:14px; cursor:pointer; text-decoration:underline"></button>
+                </div>
+                <div id="payError" style="color:#df1b41; font-size:14px; margin-top:10px; display:none; text-align:center"></div>
+                <p style="text-align:center; color:#697386; font-size:12px; margin-top:10px">
+                    Secure payment powered by Stripe
+                </p>
+            </div>
+
+            <div class="public-doc-footer-note" id="footerNote"></div>
+
+            <div class="public-doc-download">
+                <a id="pdfLink" href="#">Download PDF</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/invoice-view.js"></script>
+</body>
+</html>

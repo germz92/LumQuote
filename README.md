@@ -11,6 +11,19 @@ A modern, responsive web application for generating photography service quotes w
 - **Real-time Calculations**: Instant quote updates as services are selected
 - **MongoDB Integration**: Persistent storage for services and pricing
 
+### CRM Features
+
+- **Projects** (`/projects`): every quote belongs to a project; projects track client info, dates, status (lead → quoted → booked → contract signed → invoiced → paid → complete), contract state, and invoices
+- **Client Records**: name, email, phone, company, and address, editable from the project's Overview tab
+- **Contract Generator**: assembles contract language from a template library based on the services in a quote (services sharing a category share a clause); merge fields like `{{client_name}}`, `{{project_dates}}`, `{{investment}}` are filled automatically. Contracts are editable inline, or you can upload an existing PDF
+- **Built-in E-Signing**: send a `/sign/:token` link; clients type or draw a signature, and the signed contract (with IP, timestamp, and SHA-256 document hash audit trail) is locked and downloadable as a PDF
+- **Invoicing with Stripe**: convert quotes to formal invoices (auto-numbered INV-1001+), customize From/To blocks and text above/below the line items, share via `/invoice/:token` links with a Pay button (Stripe Checkout) and PDF download
+- **Contract Templates & Company Settings**: managed from the Admin page
+
+New environment variables for invoicing (see `.env.example`): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (webhook endpoint: `POST /api/stripe/webhook`), and optional `APP_BASE_URL` for share links.
+
+On first startup after upgrading, existing quotes are automatically migrated: one client per distinct client name and one project per quote (also runnable manually via `node scripts/migrate-crm.js`).
+
 ## Tech Stack
 
 - **Frontend**: HTML5, CSS3, Vanilla JavaScript

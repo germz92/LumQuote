@@ -23,7 +23,12 @@ app.use(cors({
   origin: true,
   credentials: true
 }));
-app.use(express.json());
+// Raw body is kept for Stripe webhook signature verification.
+// Limit raised to allow base64 contract PDF uploads.
+app.use(express.json({
+  limit: '25mb',
+  verify: (req, res, buf) => { req.rawBody = buf; }
+}));
 
 // Cookie parser middleware (inline implementation)
 app.use((req, res, next) => {
@@ -282,6 +287,10 @@ app.use((req, res, next) => {
       req.path.startsWith('/api/auth/') ||
       req.path.startsWith('/login.') ||
       req.path.startsWith('/assets/') ||
+      req.path.startsWith('/sign/') ||        // public contract signing (token-protected)
+      req.path.startsWith('/invoice/') ||     // public invoice view (token-protected)
+      req.path.startsWith('/api/public/') ||  // public CRM data endpoints (token-protected)
+      req.path === '/api/stripe/webhook' ||
       isPublicStaticAsset(req.path)) {
     return next();
   }
@@ -1886,9 +1895,28 @@ async function initializeServices() {
   }
 }
 
+// Initialize CRM data (idempotent): seed contract templates + wrap legacy quotes in projects
+async function initializeCrm() {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      await new Promise((resolve, reject) => {
+        mongoose.connection.once('connected', resolve);
+        mongoose.connection.once('error', reject);
+        setTimeout(() => reject(new Error('Database connection timeout')), 10000);
+      });
+    }
+    const { runCrmMigration, seedContractTemplates } = require('./lib/crm-models');
+    await seedContractTemplates();
+    await runCrmMigration(SavedQuote);
+  } catch (error) {
+    console.error('❌ CRM initialization error:', error.message);
+  }
+}
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   initializeServices();
+  initializeCrm();
 
   const { warmupChromium, useServerlessChromium } = require('./lib/pdf-generator');
   if (useServerlessChromium()) {
@@ -2242,6 +2270,7 @@ const savedQuoteSchema = new mongoose.Schema({
   leadSource: { type: String, default: null },
   archived: { type: Boolean, default: false },
   booked: { type: Boolean, default: false },
+  project: { type: mongoose.Schema.Types.ObjectId, ref: 'CrmProject', default: null },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   sharedWith: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'LumQuoteUser' },
@@ -2251,6 +2280,17 @@ const savedQuoteSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const SavedQuote = mongoose.model('SavedQuote', savedQuoteSchema, 'savedQuotes');
+
+// ============================================
+// CRM (projects, clients, contracts, invoices)
+// ============================================
+require('./lib/crm-routes')(app, {
+  requireAuth,
+  requireApiAuth,
+  SavedQuote,
+  Service,
+  getOrCreateUserRecord: (userName) => getOrCreateUserRecord(userName)
+});
 
 // User management endpoints
 app.get('/api/users', async (req, res) => {
@@ -2350,7 +2390,7 @@ async function getOrCreateUserRecord(userName) {
 // Save quote endpoint (auto-assigns createdBy from logged-in user)
 app.post('/api/save-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, location, leadSource, booked } = req.body;
+    const { name, quoteData, clientName, location, leadSource, booked, projectId } = req.body;
     const user = req.user;
     
     if (!name || !quoteData) {
@@ -2383,6 +2423,7 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
       location: location || null,
       leadSource: leadSource || null,
       booked: booked || false,
+      project: projectId || null,
       createdBy: userRecord?._id || null
     });
 
@@ -2398,7 +2439,7 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
 // Overwrite existing quote (with access control)
 app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, location, leadSource, booked } = req.body;
+    const { name, quoteData, clientName, location, leadSource, booked, projectId } = req.body;
     const user = req.user;
     
     if (!name || !quoteData) {
@@ -2419,16 +2460,20 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
     }
 
     // Update the quote but keep the original createdBy
+    const updateFields = {
+      quoteData,
+      clientName: clientName || null,
+      location: location || null,
+      leadSource: leadSource || null,
+      booked: booked || false
+      // Don't update createdBy - keep original owner
+    };
+    if (projectId !== undefined) {
+      updateFields.project = projectId || null;
+    }
     const result = await SavedQuote.findOneAndUpdate(
       { name },
-      { 
-        quoteData,
-        clientName: clientName || null,
-        location: location || null,
-        leadSource: leadSource || null,
-        booked: booked || false
-        // Don't update createdBy - keep original owner
-      },
+      updateFields,
       { new: true }
     );
 
@@ -2602,6 +2647,7 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
       leadSource: 1,
       archived: 1,
       booked: 1,
+      project: 1,
       createdBy: 1,
       sharedWith: 1,
       createdAt: 1,
@@ -3448,4 +3494,4 @@ app.delete('/api/quotes/:name/share/:userId', requireApiAuth, async (req, res) =
     console.error('Error removing share:', error);
     res.status(500).json({ error: 'Failed to remove share access' });
   }
-}); 
+});

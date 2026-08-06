@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project - LumQuote</title>
+    <link rel="stylesheet" href="/design-tokens.css">
+    <link rel="stylesheet" href="/components.css">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/phase2.css">
+    <link rel="stylesheet" href="/phase5.css">
+    <link rel="stylesheet" href="/crm.css">
+    <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
+</head>
+<body data-app-page="projects" data-app-title="Project">
+    <div class="container">
+        <main class="main-content">
+            <div class="project-detail">
+                <div class="project-hero">
+                    <div>
+                        <a href="/projects" class="crm-inline-note" style="text-decoration:none">&larr; All projects</a>
+                        <div class="project-hero-meta" id="projectHeroMeta" style="margin-top:8px"></div>
+                    </div>
+                </div>
+
+                <div class="crm-tabs" role="tablist">
+                    <button class="crm-tab is-active" data-tab="overview" onclick="projectPage.showTab('overview')">Overview</button>
+                    <button class="crm-tab" data-tab="quotes" onclick="projectPage.showTab('quotes')">Quotes <span class="crm-tab-badge" id="quotesTabBadge">0</span></button>
+                    <button class="crm-tab" data-tab="contract" onclick="projectPage.showTab('contract')">Contract</button>
+                    <button class="crm-tab" data-tab="invoices" onclick="projectPage.showTab('invoices')">Invoices <span class="crm-tab-badge" id="invoicesTabBadge">0</span></button>
+                </div>
+
+                <!-- ============ OVERVIEW ============ -->
+                <div class="crm-panel is-active" id="panel-overview">
+                    <div class="crm-overview-grid">
+                    <div class="crm-card">
+                        <div class="crm-card-header">
+                            <h3>Project Info</h3>
+                            <span id="projectStatusChip"></span>
+                        </div>
+                        <div class="crm-form-grid">
+                            <div class="form-group form-group--full">
+                                <label for="projName">Project Name</label>
+                                <input type="text" id="projName">
+                            </div>
+                            <div class="form-group">
+                                <label for="projStatus">Status</label>
+                                <select id="projStatus">
+                                    <option value="lead">Lead</option>
+                                    <option value="quoted">Quoted</option>
+                                    <option value="booked">Booked</option>
+                                    <option value="contract_signed">Contract Signed</option>
+                                    <option value="invoiced">Invoiced</option>
+                                    <option value="paid">Paid</option>
+                                    <option value="complete">Complete</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="projStart">Start Date</label>
+                                <input type="date" id="projStart">
+                            </div>
+                            <div class="form-group">
+                                <label for="projEnd">End Date</label>
+                                <input type="date" id="projEnd">
+                            </div>
+                            <div class="form-group form-group--full">
+                                <label for="projNotes">Notes</label>
+                                <textarea id="projNotes" rows="3" placeholder="Internal notes about this project"></textarea>
+                            </div>
+                        </div>
+                        <div class="crm-actions-row">
+                            <button class="primary-button" onclick="projectPage.saveProject()">Save Project</button>
+                            <span class="crm-inline-note" id="projectSaveNote"></span>
+                        </div>
+                    </div>
+
+                    <div class="crm-card">
+                        <div class="crm-card-header">
+                            <h3>Client</h3>
+                        </div>
+                        <div class="crm-form-grid">
+                            <div class="form-group">
+                                <label for="clientName">Name</label>
+                                <input type="text" id="clientName" placeholder="Client full name">
+                            </div>
+                            <div class="form-group">
+                                <label for="clientCompany">Company</label>
+                                <input type="text" id="clientCompany">
+                            </div>
+                            <div class="form-group">
+                                <label for="clientEmail">Email</label>
+                                <input type="email" id="clientEmail">
+                            </div>
+                            <div class="form-group">
+                                <label for="clientPhone">Phone</label>
+                                <input type="tel" id="clientPhone">
+                            </div>
+                            <div class="form-group form-group--full">
+                                <label for="clientStreet">Street Address</label>
+                                <input type="text" id="clientStreet">
+                            </div>
+                            <div class="form-group">
+                                <label for="clientCity">City</label>
+                                <input type="text" id="clientCity">
+                            </div>
+                            <div class="form-group">
+                                <label for="clientState">State</label>
+                                <input type="text" id="clientState">
+                            </div>
+                            <div class="form-group">
+                                <label for="clientZip">ZIP</label>
+                                <input type="text" id="clientZip">
+                            </div>
+                        </div>
+                        <div class="crm-actions-row">
+                            <button class="primary-button" onclick="projectPage.saveClient()">Save Client</button>
+                            <span class="crm-inline-note" id="clientSaveNote"></span>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                <!-- ============ QUOTES ============ -->
+                <div class="crm-panel" id="panel-quotes">
+                    <div class="crm-card">
+                        <div class="crm-card-header">
+                            <h3>Quotes</h3>
+                            <div class="crm-actions-row" style="margin-top:0">
+                                <button class="crm-btn-sm" onclick="projectPage.openLinkQuoteModal()">Link Existing Quote</button>
+                                <a class="crm-btn-sm primary" href="/quote" style="text-decoration:none" onclick="clearQuoteData(event, '/quote?project=' + projectPage.projectId)">New Quote</a>
+                            </div>
+                        </div>
+                        <div id="quotesListArea"></div>
+                    </div>
+                </div>
+
+                <!-- ============ CONTRACT ============ -->
+                <div class="crm-panel" id="panel-contract">
+                    <div id="contractArea"></div>
+                </div>
+
+                <!-- ============ INVOICES ============ -->
+                <div class="crm-panel" id="panel-invoices">
+                    <div class="crm-card">
+                        <div class="crm-card-header">
+                            <h3>Invoices</h3>
+                            <div class="crm-actions-row" style="margin-top:0">
+                                <button class="crm-btn-sm primary" onclick="projectPage.openCreateInvoiceModal()">New Invoice</button>
+                            </div>
+                        </div>
+                        <div id="invoicesListArea"></div>
+                    </div>
+                    <div id="invoiceEditorArea"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Link Quote Modal -->
+    <div id="linkQuoteModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Link Existing Quote</h2>
+                <span class="close" onclick="projectPage.closeLinkQuoteModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <input type="text" id="linkQuoteSearch" class="search-input" placeholder="Search quotes..." oninput="projectPage.searchLinkableQuotes()">
+                </div>
+                <div id="linkQuoteResults" class="load-quotes-list" style="max-height:320px;overflow-y:auto"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generate Contract Modal -->
+    <div id="generateContractModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Generate Contract</h2>
+                <span class="close" onclick="projectPage.closeGenerateContractModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="crm-inline-note" style="margin-bottom:14px">
+                    Contract language is assembled from your template library based on the services in the selected quote.
+                    Services that share a category share the same clause.
+                </p>
+                <div class="form-group">
+                    <label for="generateContractQuote">Base Quote *</label>
+                    <select id="generateContractQuote"></select>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="secondary-button" onclick="projectPage.closeGenerateContractModal()">Cancel</button>
+                    <button type="button" class="primary-button" onclick="projectPage.generateContract()">Generate Contract</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Invoice Modal -->
+    <div id="createInvoiceModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>New Invoice</h2>
+                <span class="close" onclick="projectPage.closeCreateInvoiceModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="createInvoiceQuote">Create from Quote</label>
+                    <select id="createInvoiceQuote">
+                        <option value="">Blank invoice</option>
+                    </select>
+                    <p class="field-hint">Selecting a quote copies its services, markups, and discounts as invoice line items.</p>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="secondary-button" onclick="projectPage.closeCreateInvoiceModal()">Cancel</button>
+                    <button type="button" class="primary-button" onclick="projectPage.createInvoice()">Create Invoice</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/toasts.js"></script>
+    <script src="/a11y.js"></script>
+    <script src="/modals.js"></script>
+    <script src="/shell.js"></script>
+    <script src="/crm-common.js"></script>
+    <script src="/project.js"></script>
+</body>
+</html>

@@ -9,13 +9,22 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="phase4.css">
     <link rel="stylesheet" href="phase5.css">
+    <link rel="stylesheet" href="crm.css">
     <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
 </head>
-<body data-app-page="admin" data-app-title="Admin" data-app-subtitle="Manage services and pricing" data-app-show-back="true">
+<body data-app-page="admin" data-app-title="Admin" data-app-subtitle="Services, contracts, and company settings" data-app-show-back="true">
     <div class="container">
         <main class="main-content">
             <div class="admin-layout">
-            <div class="admin-section">
+            <div class="crm-tabs" role="tablist" id="adminTabs">
+                <button class="crm-tab is-active" data-tab="services" onclick="showAdminTab('services')">Services</button>
+                <button class="crm-tab" data-tab="contracts" onclick="showAdminTab('contracts')">Contract Templates</button>
+                <button class="crm-tab" data-tab="company" onclick="showAdminTab('company')">Company Settings</button>
+                <button class="crm-tab" data-tab="payments" onclick="showAdminTab('payments')">Payments</button>
+                <button class="crm-tab" data-tab="users" onclick="showAdminTab('users')">Users</button>
+            </div>
+
+            <div class="admin-section crm-panel is-active" id="admin-panel-services">
                 <h2>Manage Services</h2>
                 <p class="subtitle">Add, edit, or remove photography services and their prices</p>
 
@@ -91,7 +100,116 @@
                 </div>
             </div>
 
-            <div class="admin-section">
+            <div class="admin-section crm-panel" id="admin-panel-contracts">
+                <h2>Contract Templates</h2>
+                <p class="subtitle">Pre-canned contract language per service — assembled automatically when generating a contract from a quote</p>
+
+                <div class="tpl-workspace">
+                    <aside class="tpl-sidebar">
+                        <div class="tpl-sidebar-head">
+                            <input type="search" id="tplSearch" placeholder="Search clauses and services..." oninput="adminCrm.onSearch(this.value)">
+                            <button type="button" class="primary-button tpl-new-btn" onclick="adminCrm.newClause()">+ New Clause</button>
+                        </div>
+                        <div id="tplClauseList" class="tpl-clause-list">
+                            <!-- Clause list loads here -->
+                        </div>
+                    </aside>
+                    <section class="admin-card tpl-editor" id="tplEditor">
+                        <!-- Clause editor renders here -->
+                    </section>
+                </div>
+            </div>
+
+            <div class="admin-section crm-panel" id="admin-panel-company">
+                <h2>Company Settings</h2>
+                <p class="subtitle">Used as "our company" in contracts and the default "From" on invoices</p>
+
+                <div class="admin-card">
+                    <form id="company-settings-form">
+                        <div class="form-group">
+                            <label for="cs-companyName">Company Name</label>
+                            <input type="text" id="cs-companyName">
+                        </div>
+                        <div class="form-group">
+                            <label for="cs-email">Email</label>
+                            <input type="email" id="cs-email">
+                        </div>
+                        <div class="form-group">
+                            <label for="cs-phone">Phone</label>
+                            <input type="tel" id="cs-phone">
+                        </div>
+                        <div class="form-group">
+                            <label for="cs-website">Website</label>
+                            <input type="text" id="cs-website">
+                        </div>
+                        <div class="form-group">
+                            <label for="cs-street">Street Address</label>
+                            <input type="text" id="cs-street">
+                        </div>
+                        <div class="form-group">
+                            <label for="cs-city">City</label>
+                            <input type="text" id="cs-city">
+                        </div>
+                        <div class="form-group">
+                            <label for="cs-state">State</label>
+                            <input type="text" id="cs-state">
+                        </div>
+                        <div class="form-group">
+                            <label for="cs-zip">ZIP</label>
+                            <input type="text" id="cs-zip">
+                        </div>
+                        <div class="form-group">
+                            <label for="cs-signerName">Contract Signer Name</label>
+                            <input type="text" id="cs-signerName" placeholder="Who signs contracts for your company">
+                        </div>
+                        <div class="form-group">
+                            <label for="cs-signerTitle">Contract Signer Title</label>
+                            <input type="text" id="cs-signerTitle" placeholder="e.g., Owner, Managing Director">
+                        </div>
+                        <div class="form-group">
+                            <label for="cs-invoiceFooter">Default Invoice Footer</label>
+                            <textarea id="cs-invoiceFooter" placeholder="Shown at the bottom of new invoices"></textarea>
+                        </div>
+                        <button type="submit" class="primary-button">Save Settings</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="admin-section crm-panel" id="admin-panel-payments">
+                <h2>Payments</h2>
+                <p class="subtitle">How clients can pay invoices online</p>
+
+                <div class="admin-card">
+                    <h3>Credit Card Surcharge</h3>
+                    <form id="payment-settings-form">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="ps-cardFeeEnabled">
+                                <span class="checkbox-text">Add a processing fee to credit card payments</span>
+                            </label>
+                            <small class="form-help">The fee is added as its own line item in checkout ("Card processing fee") so clients see exactly what they're paying. It is never applied to bank (ACH) payments — card networks require that, and it encourages clients to pick the cheaper option.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="ps-cardFeePercent">Fee Percentage</label>
+                            <input type="number" id="ps-cardFeePercent" min="0" max="10" step="0.1" value="3" style="max-width:120px">
+                            <small class="form-help">3% roughly covers Stripe's card fee (2.9% + 30¢). Some states restrict surcharging above ~3% — check your local rules.</small>
+                        </div>
+
+                        <h3 style="margin-top:24px">Bank Transfers (ACH)</h3>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="ps-achEnabled">
+                                <span class="checkbox-text">Accept ACH bank transfers</span>
+                            </label>
+                            <small class="form-help">Clients connect their bank account through Stripe at checkout. ACH costs far less than cards (0.8%, capped at $5), but funds take a few business days to clear — invoices are marked paid automatically once the transfer settles (requires the Stripe webhook to include the <code>checkout.session.async_payment_succeeded</code> event).</small>
+                        </div>
+
+                        <button type="submit" class="primary-button">Save Payment Settings</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="admin-section crm-panel" id="admin-panel-users">
                 <h2>User Management</h2>
                 <p class="subtitle">Users are managed through LumDash</p>
                 
@@ -159,6 +277,8 @@
     <script src="a11y.js"></script>
     <script src="modals.js"></script>
     <script src="shell.js"></script>
+    <script src="crm-common.js"></script>
     <script src="admin.js"></script>
+    <script src="admin-crm.js"></script>
 </body>
 </html> 

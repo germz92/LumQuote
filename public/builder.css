@@ -188,6 +188,31 @@ body[data-app-page="quote"] .quote-section {
   display: inline-flex;
 }
 
+.builder-project-chip {
+  align-items: center;
+  gap: 5px;
+  color: var(--color-primary);
+  border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+  text-decoration: none;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.builder-project-chip:hover {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg));
+  border-color: var(--color-primary);
+}
+
+.builder-project-chip svg { flex-shrink: 0; }
+
+.builder-project-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .builder-save-status {
   display: inline-flex;
   align-items: center;

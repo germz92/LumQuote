@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clients - LumQuote</title>
+    <link rel="stylesheet" href="design-tokens.css">
+    <link rel="stylesheet" href="components.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="phase2.css">
+    <link rel="stylesheet" href="phase5.css">
+    <link rel="stylesheet" href="crm.css">
+    <link rel="stylesheet" href="page-controls.css">
+    <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
+</head>
+<body data-app-page="clients" data-app-title="Clients" data-app-subtitle="People and companies across your projects">
+    <div class="container">
+        <main class="main-content">
+            <div class="quotes-page-section">
+                <div class="page-controls-sticky">
+                <div class="page-controls">
+                    <div class="pc-search">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text"
+                               id="searchClients"
+                               placeholder="Search clients or companies..."
+                               oninput="clientsManager.debouncedSearch()">
+                    </div>
+
+                    <div class="pc-actions">
+                        <button type="button" class="pc-btn is-active" id="viewPeopleBtn" onclick="clientsManager.setView('people')" title="View by person">
+                            People
+                        </button>
+                        <button type="button" class="pc-btn" id="viewCompaniesBtn" onclick="clientsManager.setView('companies')" title="View by company">
+                            Companies
+                        </button>
+                    </div>
+                </div>
+                </div>
+
+                <div id="clientsDataArea" class="quotes-data-area">
+                    <div id="clientsSkeleton" class="quotes-skeleton" aria-hidden="true"></div>
+
+                    <div class="quotes-list-scroll">
+                    <div id="clientsListView" class="quotes-list-view">
+                        <table class="quotes-table clients-table">
+                            <thead id="clientsTableHead">
+                                <!-- Columns switch with People / Companies view -->
+                            </thead>
+                            <tbody id="clientsTableBody">
+                                <!-- Rows load here -->
+                            </tbody>
+                        </table>
+                        <div id="clientsEmpty" class="crm-empty" style="display: none;">
+                            <h3>No clients yet</h3>
+                            <p>Clients are created automatically when you save a quote or create a project.</p>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="toasts.js"></script>
+    <script src="a11y.js"></script>
+    <script src="modals.js"></script>
+    <script src="shell.js"></script>
+    <script src="crm-common.js"></script>
+    <script src="clients.js"></script>
+</body>
+</html>

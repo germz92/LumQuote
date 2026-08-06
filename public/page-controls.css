@@ -1,0 +1,204 @@
+/**
+ * Page controls bar — shared search/filter/actions header for list pages
+ * (Quotes, Projects, Clients). Replaces the legacy quotes-controls-header.
+ */
+
+.page-controls-sticky {
+  position: sticky;
+  top: calc(var(--app-topbar-height, 56px) + 8px);
+  z-index: 150;
+  margin-bottom: var(--space-4);
+}
+
+.page-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Search ---------- */
+
+.pc-search {
+  position: relative;
+  flex: 0 1 320px;
+  min-width: 200px;
+}
+
+.pc-search svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.pc-search input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px 0 34px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.pc-search input::placeholder { color: var(--color-text-secondary); }
+
+.pc-search input:focus {
+  outline: none;
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+/* ---------- Filters ---------- */
+
+.pc-select {
+  height: 38px;
+  padding: 0 30px 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23697386' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color var(--transition-fast);
+}
+
+/* Native date inputs keep their own indicator */
+input.pc-select {
+  background-image: none;
+  padding-right: 12px;
+  cursor: text;
+}
+
+.pc-select:hover { border-color: var(--color-text-secondary); }
+
+.pc-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-muted);
+}
+
+.pc-clear {
+  height: 38px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.pc-clear:hover { background: var(--color-primary-muted); }
+
+/* ---------- Right-aligned actions ---------- */
+
+.pc-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* Segmented People / Companies toggle on the clients page */
+body[data-app-page="clients"] .pc-actions .pc-btn + .pc-btn {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+body[data-app-page="clients"] .pc-actions .pc-btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+body[data-app-page="clients"] .pc-actions .pc-btn.is-active {
+  position: relative;
+  z-index: 1;
+}
+
+.pc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.pc-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-secondary);
+}
+
+.pc-btn.is-active {
+  background: var(--color-primary-muted);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.pc-btn svg { flex-shrink: 0; }
+
+/* Primary CTA inside the bar aligns with control height */
+.pc-actions .btn { height: 38px; }
+
+/* ---------- Data area below the bar keeps its own full card ---------- */
+
+/* Decouple data cards from the old fused sticky-chrome borders */
+.page-controls-sticky ~ .quotes-data-area .quotes-list-scroll {
+  border: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.page-controls-sticky ~ .quotes-data-area > .quotes-grid {
+  border: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 760px) {
+  .page-controls-sticky { position: static; }
+
+  .pc-search {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .pc-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .pc-actions .btn { flex: 1; }
+  .pc-actions .pc-btn { flex: 1; justify-content: center; }
+}

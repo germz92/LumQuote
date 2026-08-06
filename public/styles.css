@@ -3091,6 +3091,8 @@ body {
     align-items: flex-start;
     gap: 16px;
     margin-bottom: 24px;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .alert-icon,
@@ -3134,6 +3136,24 @@ body {
     line-height: 1.5;
     color: #374151;
     font-size: 16px;
+    min-width: 0;
+    flex: 1;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.alert-content code,
+.confirm-content code {
+    display: block;
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: #f3f4f6;
+    font-size: 13px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    white-space: pre-wrap;
 }
 
 /* Auto-close animation for success alerts */

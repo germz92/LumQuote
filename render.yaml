@@ -17,3 +17,8 @@ services:
         value: "true"
       - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
         value: "true"
+      # Stripe invoice payments — set values in the Render dashboard
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false

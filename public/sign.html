@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Contract</title>
+    <link rel="stylesheet" href="/design-tokens.css">
+    <link rel="stylesheet" href="/crm.css">
+    <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
+</head>
+<body class="public-doc-page">
+    <div class="public-doc" id="docContainer">
+        <div class="crm-loading" id="loadingState">Loading contract…</div>
+
+        <div id="errorState" style="display:none; text-align:center; padding:40px 0;">
+            <h2>Contract Unavailable</h2>
+            <p id="errorMessage" style="color:#697386">This contract link is invalid or no longer active.</p>
+        </div>
+
+        <div id="contractContent" style="display:none;">
+            <div class="public-doc-brand" id="companyBrand"></div>
+            <div class="public-doc-header">
+                <div>
+                    <h1 id="contractTitle"></h1>
+                    <div id="contractSubtitle" style="color:#697386; font-size:14px"></div>
+                </div>
+                <div class="public-doc-meta">
+                    <div id="projectDates"></div>
+                    <div id="investment" style="font-weight:600"></div>
+                </div>
+            </div>
+
+            <div class="public-doc-body" id="contractBody"></div>
+            <iframe id="contractPdfFrame" class="contract-pdf-frame" style="display:none" title="Contract document"></iframe>
+
+            <!-- Both parties' signatures — shown whether or not each has signed yet -->
+            <div class="public-sig-area" id="signaturesArea">
+                <h2 style="font-size:16px; text-transform:uppercase; letter-spacing:0.04em; color:#697386">Signatures</h2>
+                <div class="public-sig-grid" id="signaturesGrid"></div>
+            </div>
+
+            <!-- Signing area -->
+            <div class="sign-section" id="signSection">
+                <h2 style="margin-top:0">Sign This Agreement</h2>
+                <div class="form-group" style="margin-bottom:16px">
+                    <label for="signerName" style="display:block; font-size:14px; font-weight:600; margin-bottom:6px">Full Legal Name *</label>
+                    <input type="text" id="signerName" placeholder="Type your full legal name"
+                           style="width:100%; padding:10px 12px; border:1px solid #c7d2e0; border-radius:6px; font-size:15px"
+                           oninput="signPage.updateTypedPreview()">
+                </div>
+
+                <div class="sign-method-toggle">
+                    <button type="button" id="methodTyped" class="is-active" onclick="signPage.setMethod('typed')">Type Signature</button>
+                    <button type="button" id="methodDrawn" onclick="signPage.setMethod('drawn')">Draw Signature</button>
+                </div>
+
+                <div id="typedArea">
+                    <div class="typed-signature-preview" id="typedPreview">&nbsp;</div>
+                </div>
+
+                <div id="drawnArea" style="display:none">
+                    <div class="signature-pad-wrap">
+                        <canvas id="signaturePad" height="160"></canvas>
+                        <div class="signature-pad-hint" id="padHint">Draw your signature here</div>
+                    </div>
+                    <button type="button" class="crm-btn-sm" style="margin-top:8px" onclick="signPage.clearPad()">Clear</button>
+                </div>
+
+                <p class="sign-legal">
+                    By clicking "Agree &amp; Sign," I agree that my electronic signature is the legal equivalent of my
+                    handwritten signature on this agreement, and I consent to be legally bound by its terms.
+                    My name, signature, IP address, and a timestamp will be recorded for verification.
+                </p>
+
+                <button class="pay-button" id="signButton" onclick="signPage.submitSignature()">Agree &amp; Sign</button>
+                <div id="signError" style="color:#df1b41; font-size:14px; margin-top:10px; display:none"></div>
+            </div>
+
+            <!-- Signed confirmation -->
+            <div class="signed-confirmation" id="signedConfirmation" style="display:none">
+                <div class="check">✓</div>
+                <h2 style="margin:0 0 6px">Agreement Signed</h2>
+                <p id="signedDetails" style="color:#697386"></p>
+                <div class="public-doc-download">
+                    <a id="signedPdfLink" href="#">Download signed copy (PDF)</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/sign.js"></script>
+</body>
+</html>

@@ -11,6 +11,7 @@ class QuoteCalculator {
         this.currentBooked = false;
         this.currentArchived = false;
         this.currentCreatedBy = null;
+        this.currentProjectId = null;
         this.currentQuoteTitle = "Conference Services Quote";
         this.activeCalendar = null;
         this.autoSaveKey = 'quote_calculator_draft';
@@ -82,6 +83,7 @@ class QuoteCalculator {
                 this.currentBooked = draftData.currentBooked || false;
                 this.currentArchived = draftData.currentArchived || false;
                 this.currentCreatedBy = draftData.currentCreatedBy || null;
+                this.currentProjectId = draftData.currentProjectId || null;
                 this.perEventDiscountEnabled = draftData.perEventDiscountEnabled || false;
                 
                 console.log('📄 Restoring from localStorage:', {
@@ -142,6 +144,7 @@ class QuoteCalculator {
                 currentBooked: this.currentBooked,
                 currentArchived: this.currentArchived,
                 currentCreatedBy: this.currentCreatedBy,
+                currentProjectId: this.currentProjectId,
                 perEventDiscountEnabled: this.perEventDiscountEnabled,
                 lastSaved: new Date().toISOString()
             };
@@ -174,6 +177,7 @@ class QuoteCalculator {
         this.currentBooked = false;
         this.currentArchived = false;
         this.currentCreatedBy = null;
+        this.currentProjectId = null;
         this.currentQuoteTitle = 'Conference Services Quote';
         this.currentLocation = null;
         this.currentLeadSource = null;
@@ -1351,6 +1355,9 @@ class QuoteCalculator {
         // Load previous clients for the dropdown
         await this.loadClients();
         
+        // Load projects for the project picker
+        await this.loadProjectsForSaveModal();
+        
         // Move dropdown to body if it's not already there
         this.ensureDropdownInBody();
         
@@ -1381,6 +1388,80 @@ class QuoteCalculator {
         } catch (error) {
             console.error('Error loading clients:', error);
         }
+    }
+
+    async loadProjectsForSaveModal() {
+        const select = document.getElementById('saveQuoteProject');
+        if (!select) return;
+        try {
+            const response = await fetch('/api/projects?limit=200');
+            const data = await response.json();
+            const projects = data.projects || [];
+            const options = ['<option value="">No project</option>',
+                '<option value="__new__">+ Create new project from this quote</option>'];
+            projects.forEach((project) => {
+                const clientSuffix = project.client?.name ? ` — ${project.client.name}` : '';
+                const label = `${project.name}${clientSuffix}`.replace(/</g, '&lt;');
+                options.push(`<option value="${project._id}">${label}</option>`);
+            });
+            select.innerHTML = options.join('');
+            if (this.currentProjectId && projects.some((p) => p._id === this.currentProjectId)) {
+                select.value = this.currentProjectId;
+            }
+        } catch (error) {
+            console.warn('Could not load projects for save modal:', error);
+        }
+    }
+
+    // Prefills client and title from a CRM project (arriving via "New Quote" on a project page)
+    async applyProjectContext(projectId) {
+        try {
+            const response = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
+            if (!response.ok) return;
+            const { project } = await response.json();
+            if (!project) return;
+
+            this.currentProjectId = project._id;
+            if (project.client?.name) {
+                this.currentClientName = project.client.name;
+                this.updateClientDisplay();
+            }
+            // Only replace default/auto-generated titles — never a title the user chose
+            const title = this.currentQuoteTitle || '';
+            if (!title || title === 'Conference Services Quote' || title.startsWith('Untitled')) {
+                this.currentQuoteTitle = project.name;
+                this.updateQuoteTitleDisplay();
+            }
+            this.updateQuoteActionsMenu();
+            this.saveDraftToLocalStorage(true);
+            console.log('📁 Applied project context:', project.name);
+        } catch (error) {
+            console.warn('Could not apply project context:', error);
+        }
+    }
+
+    // Resolves the project select value; creates a new project when "__new__" is chosen.
+    async resolveSelectedProjectId(quoteTitle, clientName) {
+        const select = document.getElementById('saveQuoteProject');
+        if (!select) return this.currentProjectId ?? null;
+        const value = select.value;
+        if (!value) return null;
+        if (value !== '__new__') return value;
+
+        const response = await fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: quoteTitle,
+                status: 'quoted',
+                client: clientName ? { name: clientName } : undefined
+            })
+        });
+        const project = await response.json();
+        if (!response.ok) {
+            throw new Error(project.error || 'Failed to create project');
+        }
+        return project._id;
     }
 
     displayClients(clients) {
@@ -1613,6 +1694,8 @@ class QuoteCalculator {
         const isRenaming = oldQuoteName && oldQuoteName !== title;
 
         try {
+            const projectId = await this.resolveSelectedProjectId(title, clientName);
+
             const response = await fetch('/api/save-quote', {
                 method: 'POST',
                 headers: {
@@ -1624,7 +1707,8 @@ class QuoteCalculator {
                     clientName: clientName || null,
                     location: location || null,
                     leadSource: leadSource || null,
-                    booked: booked
+                    booked: booked,
+                    projectId: projectId
                 })
             });
 
@@ -1639,7 +1723,7 @@ class QuoteCalculator {
                     'Cancel'
                 );
                 if (overwrite) {
-                    await this.overwriteQuote(title, quoteData, clientName, location, leadSource, booked, wasPreviouslyBooked);
+                    await this.overwriteQuote(title, quoteData, clientName, location, leadSource, booked, wasPreviouslyBooked, projectId);
                     // If we're renaming, delete the old quote after successful overwrite
                     if (isRenaming) {
                         await this.deleteOldQuote(oldQuoteName);
@@ -1657,6 +1741,7 @@ class QuoteCalculator {
                 this.currentLocation = location || null;
                 this.currentLeadSource = leadSource || null;
                 this.currentBooked = booked;
+                this.currentProjectId = projectId || null;
                 this.currentQuoteTitle = title; // Update the main page title
                 this.lastSavedTime = new Date();
                 
@@ -1664,10 +1749,11 @@ class QuoteCalculator {
                 this.updateQuoteTitleDisplay();
                 this.updateClientDisplay();
                 this.updateLocationDisplay();
+                this.updateQuoteActionsMenu();
                 this.syncPersistedSnapshot();
                 this.updateSaveStatus('saved');
                 this.saveDraftToLocalStorage(true);
-                
+
                 this.closeSaveModal();
 
                 if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
@@ -1811,7 +1897,9 @@ class QuoteCalculator {
                     clientName: this.currentClientName || null,
                     location: this.currentLocation || null,
                     leadSource: this.currentLeadSource || null,
-                    booked: this.currentBooked || false
+                    booked: this.currentBooked || false,
+                    // undefined is dropped by JSON.stringify → server leaves project link untouched
+                    projectId: this.currentProjectId || undefined
                 })
             });
             
@@ -1831,7 +1919,8 @@ class QuoteCalculator {
                         clientName: this.currentClientName || null,
                         location: this.currentLocation || null,
                         leadSource: this.currentLeadSource || null,
-                        booked: this.currentBooked || false
+                        booked: this.currentBooked || false,
+                        projectId: this.currentProjectId || undefined
                     })
                 });
                 
@@ -1851,7 +1940,8 @@ class QuoteCalculator {
                             clientName: this.currentClientName || null,
                             location: this.currentLocation || null,
                             leadSource: this.currentLeadSource || null,
-                            booked: this.currentBooked || false
+                            booked: this.currentBooked || false,
+                            projectId: this.currentProjectId || undefined
                         })
                     });
                     result = await response.json().catch(() => ({}));
@@ -1880,6 +1970,7 @@ class QuoteCalculator {
         const menuBtn = document.getElementById('calculatorQuoteMenuBtn');
         const bookedBtn = document.getElementById('calculatorToggleBookedBtn');
         const archiveBtn = document.getElementById('calculatorArchiveBtn');
+        const projectBtn = document.getElementById('calculatorGoToProjectBtn');
 
         if (!menuBtn) return;
 
@@ -1891,6 +1982,40 @@ class QuoteCalculator {
         if (archiveBtn) {
             archiveBtn.textContent = this.currentArchived ? 'Unarchive' : 'Archive';
         }
+        if (projectBtn) {
+            projectBtn.style.display = this.currentProjectId ? '' : 'none';
+        }
+        this.updateProjectChip();
+    }
+
+    // Visible "back to project" chip in the builder header
+    updateProjectChip() {
+        const chip = document.getElementById('builder-project-link');
+        if (!chip) return;
+        const id = this.currentProjectId;
+        chip.classList.toggle('is-visible', !!id);
+        if (!id) {
+            this._projectChipId = null;
+            return;
+        }
+        chip.href = `/projects/${id}`;
+        if (this._projectChipId === id) return;
+        this._projectChipId = id;
+        const label = document.getElementById('builder-project-link-label');
+        if (label) label.textContent = 'View Project';
+        fetch(`/api/projects/${id}`, { credentials: 'include' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+                if (data?.project?.name && this.currentProjectId === id && label) {
+                    label.textContent = data.project.name;
+                }
+            })
+            .catch(() => {});
+    }
+
+    goToProject() {
+        if (!this.currentProjectId) return;
+        window.location.href = `/projects/${this.currentProjectId}`;
     }
 
     closeQuoteActionsMenu() {
@@ -2132,23 +2257,27 @@ class QuoteCalculator {
         }
     }
 
-    async overwriteQuote(name, quoteData, clientName, location, leadSource, booked, wasPreviouslyBooked = null) {
+    async overwriteQuote(name, quoteData, clientName, location, leadSource, booked, wasPreviouslyBooked = null, projectId = undefined) {
         const prevBooked = wasPreviouslyBooked ?? this.currentBooked ?? false;
 
         try {
+            const payload = { 
+                name, 
+                quoteData,
+                clientName: clientName || null,
+                location: location || null,
+                leadSource: leadSource || null,
+                booked: booked
+            };
+            if (projectId !== undefined) {
+                payload.projectId = projectId;
+            }
             const response = await fetch('/api/overwrite-quote', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ 
-                    name, 
-                    quoteData,
-                    clientName: clientName || null,
-                    location: location || null,
-                    leadSource: leadSource || null,
-                    booked: booked
-                })
+                body: JSON.stringify(payload)
             });
 
             const result = await response.json();
@@ -2160,6 +2289,9 @@ class QuoteCalculator {
                 this.currentLocation = location || null;
                 this.currentLeadSource = leadSource || null;
                 this.currentBooked = booked;
+                if (projectId !== undefined) {
+                    this.currentProjectId = projectId || null;
+                }
                 this.currentQuoteTitle = name; // Update the main page title
                 this.lastSavedTime = new Date();
                 this.updateSaveStatus('saved');
@@ -2168,6 +2300,7 @@ class QuoteCalculator {
                 this.updateQuoteTitleDisplay();
                 this.updateClientDisplay();
                 this.updateLocationDisplay();
+                this.updateQuoteActionsMenu();
                 
                 this.closeSaveModal();
 
@@ -2276,6 +2409,7 @@ class QuoteCalculator {
             this.currentBooked = quote.booked || false;
             this.currentArchived = quote.archived || false;
             this.currentCreatedBy = quote.createdBy?._id || null;
+            this.currentProjectId = quote.project || null;
             this.currentQuoteTitle = quote.quoteData?.quoteTitle || quote.name;
             this.updateQuoteTitleDisplay();
             this.updateQuoteActionsMenu();
@@ -2490,6 +2624,7 @@ class QuoteCalculator {
             this.currentBooked = quote.booked || false;
             this.currentArchived = quote.archived || false;
             this.currentCreatedBy = quote.createdBy?._id || null;
+            this.currentProjectId = quote.project || null;
             this.currentQuoteTitle = quote.quoteData?.quoteTitle || quote.name;
             this.updateQuoteTitleDisplay();
             this.updateQuoteActionsMenu();
@@ -4295,6 +4430,13 @@ document.addEventListener('DOMContentLoaded', () => {
         calculator.beginUntitledAutoSave();
     }
 
+    // Arriving from a project's "New Quote" button — prefill client/title from the project
+    const projectParam = new URLSearchParams(window.location.search).get('project');
+    if (projectParam) {
+        history.replaceState(null, '', window.location.pathname);
+        calculator.applyProjectContext(projectParam);
+    }
+
     calculator.updateQuoteActionsMenu();
     if (!calculator.currentQuoteName) {
         calculator.updateSaveStatus('saved');
@@ -4356,6 +4498,8 @@ async function saveAsCopy() {
     };
 
     try {
+        const projectId = await calculator.resolveSelectedProjectId(copyTitle, clientName);
+
         const response = await fetch('/api/save-quote', {
             method: 'POST',
             headers: {
@@ -4367,7 +4511,8 @@ async function saveAsCopy() {
                 clientName: clientName || null,
                 location: location || null,
                 leadSource: leadSource || null,
-                booked: booked
+                booked: booked,
+                projectId: projectId
             })
         });
 
@@ -4390,7 +4535,8 @@ async function saveAsCopy() {
                         clientName: clientName || null,
                         location: location || null,
                         leadSource: leadSource || null,
-                        booked: booked
+                        booked: booked,
+                        projectId: projectId
                     })
                 });
                 

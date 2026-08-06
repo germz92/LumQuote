@@ -1,0 +1,118 @@
+/**
+ * Shared CRM helpers — formatting, status chips, fetch wrapper.
+ */
+
+const CRM = {
+    PROJECT_STATUS_LABELS: {
+        lead: 'Lead',
+        quoted: 'Quoted',
+        booked: 'Booked',
+        contract_signed: 'Contract Signed',
+        invoiced: 'Invoiced',
+        paid: 'Paid',
+        complete: 'Complete'
+    },
+
+    CONTRACT_STATUS_LABELS: {
+        none: 'None',
+        draft: 'Draft',
+        sent: 'Sent',
+        signed: 'Signed'
+    },
+
+    INVOICE_STATUS_LABELS: {
+        draft: 'Draft',
+        sent: 'Sent',
+        paid: 'Paid',
+        void: 'Void'
+    },
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text ?? '';
+        return div.innerHTML;
+    },
+
+    escapeJs(text) {
+        return String(text ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+    },
+
+    money(amount, { cents = true } = {}) {
+        const n = Number(amount || 0);
+        return `$${n.toLocaleString('en-US', {
+            minimumFractionDigits: cents ? 2 : 0,
+            maximumFractionDigits: cents ? 2 : 0
+        })}`;
+    },
+
+    parseYmd(value) {
+        if (!value || typeof value !== 'string') return null;
+        const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+        if (!m) return null;
+        return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    },
+
+    formatDate(value, opts = { month: 'short', day: 'numeric', year: 'numeric' }) {
+        const d = this.parseYmd(value) || (value ? new Date(value) : null);
+        if (!d || isNaN(d)) return '';
+        return d.toLocaleDateString('en-US', opts);
+    },
+
+    formatDateRange(start, end) {
+        const s = this.formatDate(start);
+        const e = this.formatDate(end);
+        if (s && e && s !== e) return `${s} – ${e}`;
+        return s || e || '—';
+    },
+
+    projectStatusChip(status) {
+        const label = this.PROJECT_STATUS_LABELS[status] || status || 'Lead';
+        return `<span class="crm-chip crm-chip--${this.escapeHtml(status || 'lead')}">${this.escapeHtml(label)}</span>`;
+    },
+
+    contractStatusChip(status) {
+        const label = this.CONTRACT_STATUS_LABELS[status] || status || 'None';
+        return `<span class="crm-chip crm-chip--${this.escapeHtml(status || 'none')}">${this.escapeHtml(label)}</span>`;
+    },
+
+    invoiceStatusChip(status) {
+        const label = this.INVOICE_STATUS_LABELS[status] || status;
+        return `<span class="crm-chip crm-chip--${this.escapeHtml(status)}">${this.escapeHtml(label)}</span>`;
+    },
+
+    async api(url, options = {}) {
+        const response = await fetch(url, {
+            credentials: 'include',
+            headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+            ...options,
+            body: options.body ? JSON.stringify(options.body) : undefined
+        });
+        let data = null;
+        try {
+            data = await response.json();
+        } catch {
+            // non-JSON response
+        }
+        if (!response.ok) {
+            throw new Error(data?.error || `Request failed (${response.status})`);
+        }
+        return data;
+    },
+
+    async copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch {
+            const input = document.createElement('textarea');
+            input.value = text;
+            document.body.appendChild(input);
+            input.select();
+            const ok = document.execCommand('copy');
+            input.remove();
+            return ok;
+        }
+    }
+};
+
+window.CRM = CRM;

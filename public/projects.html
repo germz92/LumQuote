@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projects - LumQuote</title>
+    <link rel="stylesheet" href="design-tokens.css">
+    <link rel="stylesheet" href="components.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="phase2.css">
+    <link rel="stylesheet" href="phase5.css">
+    <link rel="stylesheet" href="crm.css">
+    <link rel="stylesheet" href="page-controls.css">
+    <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
+</head>
+<body data-app-page="projects" data-app-title="Projects" data-app-subtitle="Clients, quotes, contracts, and invoices in one place">
+    <div class="container">
+        <main class="main-content">
+            <div class="quotes-page-section">
+                <div class="page-controls-sticky">
+                <div class="page-controls">
+                    <div class="pc-search">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text"
+                               id="searchProjects"
+                               placeholder="Search projects..."
+                               oninput="projectsManager.debouncedSearch()">
+                    </div>
+
+                    <select id="statusFilter" class="pc-select" onchange="projectsManager.applyFilters()">
+                        <option value="">All Statuses</option>
+                        <option value="lead">Lead</option>
+                        <option value="quoted">Quoted</option>
+                        <option value="booked">Booked</option>
+                        <option value="contract_signed">Contract Signed</option>
+                        <option value="invoiced">Invoiced</option>
+                        <option value="paid">Paid</option>
+                        <option value="complete">Complete</option>
+                    </select>
+
+                    <button class="pc-clear" id="clearFiltersBtn" onclick="projectsManager.clearFilters()" style="display: none;">
+                        Clear
+                    </button>
+
+                    <div class="pc-actions">
+                        <button type="button" class="pc-btn" id="archiveToggleBtn" onclick="projectsManager.toggleArchiveView()" title="View archived projects">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path d="M21 8v13H3V8"></path>
+                                <path d="M1 3h22v5H1z"></path>
+                                <path d="M10 12h4"></path>
+                            </svg>
+                            <span id="archiveToggleText">View Archived</span>
+                        </button>
+                        <button type="button" class="btn btn-primary btn-md" onclick="projectsManager.openCreateModal()">
+                            + New Project
+                        </button>
+                    </div>
+                </div>
+                </div>
+
+                <div id="projectsDataArea" class="quotes-data-area">
+                    <div id="projectsSkeleton" class="quotes-skeleton" aria-hidden="true"></div>
+
+                    <div class="quotes-list-scroll">
+                    <div id="projectsListView" class="quotes-list-view">
+                        <table class="quotes-table projects-table">
+                            <thead>
+                                <tr>
+                                    <th>Project</th>
+                                    <th>Client</th>
+                                    <th>Dates</th>
+                                    <th>Status</th>
+                                    <th>Contract</th>
+                                    <th>Invoices</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="projectsTableBody">
+                                <!-- Project rows load here -->
+                            </tbody>
+                        </table>
+                        <div id="projectsEmpty" class="crm-empty" style="display: none;">
+                            <h3>No projects yet</h3>
+                            <p>Create a project or save a quote — every quote automatically belongs to a project.</p>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                <div id="paginationContainer" class="pagination-container"></div>
+            </div>
+        </main>
+    </div>
+
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Create Project Modal -->
+    <div id="createProjectModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>New Project</h2>
+                <span class="close" onclick="projectsManager.closeCreateModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="createProjectForm" onsubmit="projectsManager.createProject(event)">
+                    <div class="form-group">
+                        <label for="newProjectName">Project Name *</label>
+                        <input type="text" id="newProjectName" required placeholder="e.g., Acme Annual Conference 2026">
+                    </div>
+                    <div class="form-group">
+                        <label for="newProjectClientName">Client Name</label>
+                        <input type="text" id="newProjectClientName" list="clientNameOptions" placeholder="Client full name" autocomplete="off">
+                        <datalist id="clientNameOptions"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="newProjectClientEmail">Client Email</label>
+                        <input type="email" id="newProjectClientEmail" placeholder="client@company.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="newProjectClientCompany">Client Company</label>
+                        <input type="text" id="newProjectClientCompany" placeholder="Company name">
+                    </div>
+                    <div class="crm-form-grid">
+                        <div class="form-group">
+                            <label for="newProjectStart">Start Date</label>
+                            <input type="date" id="newProjectStart">
+                        </div>
+                        <div class="form-group">
+                            <label for="newProjectEnd">End Date</label>
+                            <input type="date" id="newProjectEnd">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label for="newProjectStatus">Status</label>
+                        <select id="newProjectStatus">
+                            <option value="lead" selected>Lead</option>
+                            <option value="quoted">Quoted</option>
+                            <option value="booked">Booked</option>
+                        </select>
+                    </div>
+                    <div class="modal-buttons">
+                        <button type="button" class="secondary-button" onclick="projectsManager.closeCreateModal()">Cancel</button>
+                        <button type="submit" class="primary-button">Create Project</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="toasts.js"></script>
+    <script src="a11y.js"></script>
+    <script src="modals.js"></script>
+    <script src="shell.js"></script>
+    <script src="crm-common.js"></script>
+    <script src="projects.js"></script>
+</body>
+</html>

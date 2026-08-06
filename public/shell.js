@@ -2,6 +2,8 @@
  * Shared app shell — nav, page header, profile menu, logout (Phase 1)
  */
 const APP_NAV = [
+    { id: 'projects', label: 'Projects', href: '/projects' },
+    { id: 'clients', label: 'Clients', href: '/clients' },
     { id: 'quotes', label: 'Quotes', href: '/quotes' },
     { id: 'calendar', label: 'Calendar', href: '/calendar' }
 ];
@@ -38,15 +40,17 @@ const AppShell = {
             }
         }
 
-        const quotesChrome = document.querySelector('.quotes-sticky-chrome');
-        if (quotesChrome) {
-            document.documentElement.style.setProperty('--quotes-controls-height', `${quotesChrome.offsetHeight}px`);
+        const pageControls = document.querySelector('.page-controls-sticky') || document.querySelector('.quotes-sticky-chrome');
+        if (pageControls) {
+            document.documentElement.style.setProperty('--quotes-controls-height', `${pageControls.offsetHeight}px`);
         }
     },
 
     detectPage() {
         const path = window.location.pathname.replace(/\/$/, '') || '/';
         if (path === '/quotes' || path === '/') return 'quotes';
+        if (path === '/projects' || path.startsWith('/projects/')) return 'projects';
+        if (path === '/clients') return 'clients';
         if (path === '/builder' || path === '/calculator' || path.startsWith('/quote')) return 'quote';
         if (path === '/calendar') return 'calendar';
         if (path === '/reports') return 'reports';
@@ -398,7 +402,7 @@ const AppShell = {
     }
 };
 
-function clearQuoteData(event) {
+function clearQuoteData(event, redirectUrl = null) {
     if (event) event.preventDefault();
 
     localStorage.removeItem('quote_calculator_draft');
@@ -417,7 +421,7 @@ function clearQuoteData(event) {
         return;
     }
 
-    window.location.href = '/quote';
+    window.location.href = redirectUrl || '/quote';
 }
 
 async function logout() {

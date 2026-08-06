@@ -1,0 +1,1119 @@
+/**
+ * Project detail page — overview, quotes, contract, invoices.
+ */
+
+class ProjectPage {
+    constructor() {
+        this.projectId = window.location.pathname.split('/')[2];
+        this.data = null;
+        this.editingInvoice = null;
+        this.linkQuoteDebounce = null;
+        this.init();
+    }
+
+    async init() {
+        try {
+            await this.load();
+        } catch (error) {
+            showAlertModal('Could not load this project.', 'error');
+            return;
+        }
+        this.renderAll();
+        const hash = (window.location.hash || '').replace('#', '');
+        if (['overview', 'quotes', 'contract', 'invoices'].includes(hash)) {
+            this.showTab(hash);
+        }
+    }
+
+    async load() {
+        this.data = await CRM.api(`/api/projects/${this.projectId}`);
+    }
+
+    async reload() {
+        await this.load();
+        this.renderAll();
+    }
+
+    // ---------- Tabs ----------
+
+    showTab(tab) {
+        document.querySelectorAll('.crm-tab').forEach((el) => {
+            el.classList.toggle('is-active', el.dataset.tab === tab);
+        });
+        document.querySelectorAll('.crm-panel').forEach((el) => {
+            el.classList.toggle('is-active', el.id === `panel-${tab}`);
+        });
+        if (history.replaceState) {
+            history.replaceState(null, '', `#${tab}`);
+        }
+    }
+
+    // ---------- Render ----------
+
+    renderAll() {
+        const { project, quotes, invoices } = this.data;
+
+        document.title = `${project.name} - LumQuote`;
+        const titleEl = document.querySelector('.app-page-title');
+        if (titleEl) titleEl.textContent = project.name;
+
+        const meta = document.getElementById('projectHeroMeta');
+        meta.innerHTML = `
+            ${CRM.projectStatusChip(project.status)}
+            <span>${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</span>
+            ${project.client ? `<span>· ${CRM.escapeHtml(project.client.name)}</span>` : ''}
+        `;
+        document.getElementById('projectStatusChip').innerHTML = CRM.projectStatusChip(project.status);
+
+        document.getElementById('quotesTabBadge').textContent = quotes.length;
+        document.getElementById('invoicesTabBadge').textContent = invoices.length;
+
+        this.fillOverviewForms();
+        this.renderQuotes();
+        this.renderContract();
+        this.renderInvoices();
+    }
+
+    fillOverviewForms() {
+        const { project } = this.data;
+        document.getElementById('projName').value = project.name || '';
+        document.getElementById('projStatus').value = project.status || 'lead';
+        document.getElementById('projStart').value = project.startDate || '';
+        document.getElementById('projEnd').value = project.endDate || '';
+        document.getElementById('projNotes').value = project.notes || '';
+
+        const client = project.client || {};
+        const address = client.address || {};
+        document.getElementById('clientName').value = client.name || '';
+        document.getElementById('clientCompany').value = client.company || '';
+        document.getElementById('clientEmail').value = client.email || '';
+        document.getElementById('clientPhone').value = client.phone || '';
+        document.getElementById('clientStreet').value = address.street || '';
+        document.getElementById('clientCity').value = address.city || '';
+        document.getElementById('clientState').value = address.state || '';
+        document.getElementById('clientZip').value = address.zip || '';
+    }
+
+    // ---------- Overview actions ----------
+
+    async saveProject() {
+        try {
+            await CRM.api(`/api/projects/${this.projectId}`, {
+                method: 'PUT',
+                body: {
+                    name: document.getElementById('projName').value.trim(),
+                    status: document.getElementById('projStatus').value,
+                    startDate: document.getElementById('projStart').value || null,
+                    endDate: document.getElementById('projEnd').value || null,
+                    notes: document.getElementById('projNotes').value
+                }
+            });
+            showAlertModal('Project saved.', 'success', null, true);
+            await this.reload();
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    async saveClient() {
+        const name = document.getElementById('clientName').value.trim();
+        if (!name) {
+            showAlertModal('Client name is required.', 'error');
+            return;
+        }
+        const body = {
+            name,
+            company: document.getElementById('clientCompany').value.trim(),
+            email: document.getElementById('clientEmail').value.trim(),
+            phone: document.getElementById('clientPhone').value.trim(),
+            address: {
+                street: document.getElementById('clientStreet').value.trim(),
+                city: document.getElementById('clientCity').value.trim(),
+                state: document.getElementById('clientState').value.trim(),
+                zip: document.getElementById('clientZip').value.trim()
+            }
+        };
+        try {
+            const existing = this.data.project.client;
+            if (existing) {
+                await CRM.api(`/api/crm/clients/${existing._id}`, { method: 'PUT', body });
+            } else {
+                const client = await CRM.api('/api/crm/clients', { method: 'POST', body });
+                await CRM.api(`/api/projects/${this.projectId}`, { method: 'PUT', body: { clientId: client._id } });
+            }
+            showAlertModal('Client saved.', 'success', null, true);
+            await this.reload();
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    // ---------- Quotes tab ----------
+
+    quoteTitle(quote) {
+        return quote.quoteData?.quoteTitle || quote.name;
+    }
+
+    quoteServiceDate(quote) {
+        const dates = (quote.quoteData?.days || []).map((d) => d.date).filter(Boolean).sort();
+        if (dates.length === 0) return '—';
+        return CRM.formatDateRange(dates[0], dates[dates.length - 1]);
+    }
+
+    renderQuotes() {
+        const area = document.getElementById('quotesListArea');
+        const { quotes } = this.data;
+        if (quotes.length === 0) {
+            area.innerHTML = `<div class="crm-empty"><p>No quotes linked to this project yet.</p></div>`;
+            return;
+        }
+        area.innerHTML = `
+            <table class="crm-table">
+                <thead><tr>
+                    <th>Quote</th><th>Location</th><th>Service Date</th><th class="num">Total</th><th></th>
+                </tr></thead>
+                <tbody>
+                    ${quotes.map((q) => `
+                        <tr>
+                            <td>
+                                <strong>${CRM.escapeHtml(this.quoteTitle(q))}</strong>
+                                ${q.booked ? ' <span class="crm-chip crm-chip--booked">Booked</span>' : ''}
+                            </td>
+                            <td>${CRM.escapeHtml(q.location || '—')}</td>
+                            <td>${CRM.escapeHtml(this.quoteServiceDate(q))}</td>
+                            <td class="num">${CRM.money(q.quoteData?.total || 0, { cents: false })}</td>
+                            <td>
+                                <div class="crm-row-actions">
+                                    <button class="crm-btn-sm primary" onclick="projectPage.openQuote('${CRM.escapeJs(q.name)}')">Open</button>
+                                    <button class="crm-btn-sm" onclick="projectPage.invoiceFromQuote('${CRM.escapeJs(q.name)}')">Create Invoice</button>
+                                    <button class="crm-btn-sm danger" onclick="projectPage.unlinkQuote('${CRM.escapeJs(q.name)}')">Unlink</button>
+                                </div>
+                            </td>
+                        </tr>`).join('')}
+                </tbody>
+            </table>`;
+    }
+
+    async openQuote(quoteName) {
+        try {
+            const quoteData = await CRM.api(`/api/load-quote/${encodeURIComponent(quoteName)}`);
+            sessionStorage.setItem('loadQuoteData', JSON.stringify(quoteData));
+            window.location.href = '/quote';
+        } catch (error) {
+            showAlertModal('Failed to open quote.', 'error');
+        }
+    }
+
+    async unlinkQuote(quoteName) {
+        const confirmed = await showConfirmModal(`Remove "${quoteName}" from this project? The quote itself is kept.`, 'Unlink Quote', 'Unlink');
+        if (!confirmed) return;
+        try {
+            await CRM.api(`/api/projects/${this.projectId}/unlink-quote`, { method: 'POST', body: { quoteName } });
+            await this.reload();
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    openLinkQuoteModal() {
+        document.getElementById('linkQuoteModal').style.display = 'flex';
+        document.getElementById('linkQuoteSearch').value = '';
+        this.searchLinkableQuotes();
+    }
+
+    closeLinkQuoteModal() {
+        document.getElementById('linkQuoteModal').style.display = 'none';
+    }
+
+    searchLinkableQuotes() {
+        clearTimeout(this.linkQuoteDebounce);
+        this.linkQuoteDebounce = setTimeout(async () => {
+            const container = document.getElementById('linkQuoteResults');
+            container.innerHTML = '<div class="crm-loading">Searching…</div>';
+            try {
+                const search = document.getElementById('linkQuoteSearch').value;
+                const params = new URLSearchParams({ page: 1, limit: 20, archived: false });
+                if (search) params.append('search', search);
+                const data = await CRM.api(`/api/saved-quotes?${params}`);
+                const linkedNames = new Set(this.data.quotes.map((q) => q.name));
+                const candidates = (data.quotes || []).filter((q) => !linkedNames.has(q.name));
+                if (candidates.length === 0) {
+                    container.innerHTML = '<div class="crm-empty"><p>No matching quotes found.</p></div>';
+                    return;
+                }
+                container.innerHTML = candidates.map((q) => `
+                    <div class="template-list-item">
+                        <div>
+                            <strong>${CRM.escapeHtml(this.quoteTitle(q))}</strong>
+                            <div class="template-meta">${CRM.escapeHtml(q.clientName || '')} · ${CRM.money(q.quoteData?.total || 0, { cents: false })}${q.project ? ' · linked to another project' : ''}</div>
+                        </div>
+                        <button class="crm-btn-sm primary" onclick="projectPage.linkQuote('${CRM.escapeJs(q.name)}')">Link</button>
+                    </div>`).join('');
+            } catch (error) {
+                container.innerHTML = `<div class="crm-empty"><p>${CRM.escapeHtml(error.message)}</p></div>`;
+            }
+        }, 250);
+    }
+
+    async linkQuote(quoteName) {
+        try {
+            await CRM.api(`/api/projects/${this.projectId}/link-quote`, { method: 'POST', body: { quoteName } });
+            this.closeLinkQuoteModal();
+            showAlertModal('Quote linked to project.', 'success', null, true);
+            await this.reload();
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    // ---------- Contract tab ----------
+
+    renderContract() {
+        const area = document.getElementById('contractArea');
+        const contract = this.data.contract;
+
+        if (!contract) {
+            area.innerHTML = `
+                <div class="crm-card">
+                    <h3>Create a Contract</h3>
+                    <p class="crm-inline-note" style="margin-bottom:16px">
+                        Generate a contract from a quote's services using your template library, or upload an existing contract PDF.
+                    </p>
+                    <div class="crm-actions-row">
+                        <button class="primary-button" onclick="projectPage.openGenerateContractModal()">Generate from Quote</button>
+                        <button class="secondary-button" onclick="document.getElementById('contractFileInput').click()">Upload Contract PDF</button>
+                        <input type="file" id="contractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadContract(this.files[0])">
+                    </div>
+                </div>`;
+            return;
+        }
+
+        const isSigned = contract.status === 'signed';
+        const sig = contract.signature || {};
+
+        const statusRow = `
+            <div class="crm-card-header">
+                <h3>${CRM.escapeHtml(contract.title || 'Contract')}</h3>
+                ${CRM.contractStatusChip(contract.status)}
+            </div>`;
+
+        const linkRow = contract.publicToken ? `
+            <div class="invoice-share-link" style="margin-bottom:16px">
+                <span id="contractLinkText">${CRM.escapeHtml(`${window.location.origin}/sign/${contract.publicToken}`)}</span>
+                <button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/sign/${contract.publicToken}`)}', this)">Copy</button>
+            </div>` : '';
+
+        const signedBlock = isSigned ? `
+            <div class="crm-card" style="border-color: var(--color-success);">
+                <h3>Signed</h3>
+                <p class="crm-inline-note">
+                    Signed by <strong>${CRM.escapeHtml(sig.name || '')}</strong> (${sig.method === 'drawn' ? 'drawn' : 'typed'} signature)
+                    on ${sig.signedAt ? new Date(sig.signedAt).toLocaleString('en-US') : ''}<br>
+                    IP: ${CRM.escapeHtml(sig.ip || 'n/a')}<br>
+                    Document SHA-256: <code style="font-size:11px">${CRM.escapeHtml(sig.documentHash || 'n/a')}</code>
+                </p>
+                ${sig.method === 'drawn' && sig.imageData ? `<img src="${sig.imageData}" alt="Signature" style="max-height:70px;border-bottom:1px solid #333">` : ''}
+            </div>` : '';
+
+        const counterBlock = this.countersignBlock(contract);
+
+        if (contract.source === 'uploaded') {
+            area.innerHTML = `
+                <div class="crm-card">
+                    ${statusRow}
+                    ${linkRow}
+                    <div class="contract-file-box">
+                        <span>📄 ${CRM.escapeHtml(contract.uploadedFile?.filename || 'contract.pdf')}</span>
+                        <a class="crm-btn-sm" href="/api/contracts/${contract._id}/file" target="_blank">View</a>
+                    </div>
+                    <div class="crm-actions-row">
+                        ${!isSigned ? `
+                            <button class="primary-button" onclick="projectPage.sendContract()">${contract.status === 'sent' ? 'Refresh Signing Link' : 'Send for Signature'}</button>
+                            <button class="secondary-button" onclick="document.getElementById('contractFileInput').click()">Replace PDF</button>
+                            <input type="file" id="contractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadContract(this.files[0])">
+                            <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
+                        ` : `
+                            <a class="primary-button" style="text-decoration:none" href="/api/contracts/${contract._id}/pdf">Download Signature Certificate</a>
+                        `}
+                    </div>
+                </div>
+                ${counterBlock}
+                ${signedBlock}`;
+            return;
+        }
+
+        // Generated contract
+        area.innerHTML = `
+            <div class="crm-card">
+                ${statusRow}
+                ${linkRow}
+                ${!isSigned ? `
+                <div class="form-group">
+                    <label for="contractTitle">Contract Title</label>
+                    <input type="text" id="contractTitle" value="${CRM.escapeHtml(contract.title || '')}">
+                </div>
+                <div class="contract-editor-toolbar">
+                    <button type="button" onclick="projectPage.execCmd('bold')" title="Bold"><strong>B</strong></button>
+                    <button type="button" onclick="projectPage.execCmd('italic')" title="Italic"><em>I</em></button>
+                    <button type="button" onclick="projectPage.execCmd('underline')" title="Underline"><u>U</u></button>
+                    <button type="button" onclick="projectPage.execCmd('formatBlock', 'h3')" title="Heading">H</button>
+                    <button type="button" onclick="projectPage.execCmd('formatBlock', 'p')" title="Paragraph">¶</button>
+                    <button type="button" onclick="projectPage.execCmd('insertUnorderedList')" title="Bullet list">• List</button>
+                    <button type="button" onclick="projectPage.execCmd('undo')" title="Undo">↩</button>
+                </div>
+                <div class="contract-editor" id="contractEditor" contenteditable="true">${contract.contentHtml || ''}</div>
+                <div class="crm-actions-row">
+                    <button class="primary-button" onclick="projectPage.saveContract()">Save Contract</button>
+                    <button class="secondary-button" onclick="projectPage.sendContract()">${contract.status === 'sent' ? 'Update &amp; Resend Link' : 'Send for Signature'}</button>
+                    <a class="crm-btn-sm" href="/api/contracts/${contract._id}/pdf">Preview PDF</a>
+                    <button class="crm-btn-sm" onclick="projectPage.openGenerateContractModal()">Regenerate from Quote</button>
+                    <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
+                </div>
+                ` : `
+                <div class="contract-editor" style="background:#fafbfc">${contract.contentHtml || ''}</div>
+                <div class="crm-actions-row">
+                    <a class="primary-button" style="text-decoration:none" href="/api/contracts/${contract._id}/pdf">Download Signed PDF</a>
+                </div>
+                `}
+            </div>
+            ${counterBlock}
+            ${signedBlock}`;
+    }
+
+    countersignBlock(contract) {
+        const cs = contract.countersignature || {};
+
+        if (cs.signedAt) {
+            return `
+                <div class="crm-card" style="border-color: var(--color-success);">
+                    <h3>Countersigned</h3>
+                    <p class="crm-inline-note">
+                        Countersigned by <strong>${CRM.escapeHtml(cs.name || '')}</strong>${cs.title ? `, ${CRM.escapeHtml(cs.title)}` : ''}
+                        (${cs.method === 'drawn' ? 'drawn' : 'typed'} signature)
+                        on ${new Date(cs.signedAt).toLocaleString('en-US')}
+                    </p>
+                    ${cs.method === 'drawn' && cs.imageData
+                        ? `<img src="${cs.imageData}" alt="Countersignature" style="max-height:70px;border-bottom:1px solid #333">`
+                        : `<div style="font-family:'Brush Script MT','Segoe Script',cursive;font-size:26px;border-bottom:1px solid #333;display:inline-block;padding:0 20px 2px">${CRM.escapeHtml(cs.name || '')}</div>`}
+                </div>`;
+        }
+
+        return `
+            <div class="crm-card">
+                <h3>Countersignature</h3>
+                <p class="crm-inline-note" style="margin-bottom:14px">
+                    Sign on behalf of your company. The countersignature appears on the client's signing page
+                    and in the contract PDF — whether or not the client has signed yet.
+                </p>
+                <div class="crm-form-grid">
+                    <div class="form-group">
+                        <label for="csName">Full Name</label>
+                        <input type="text" id="csName" placeholder="Your full legal name"
+                               oninput="document.getElementById('csPreview').textContent = this.value.trim() || '\u00a0'">
+                    </div>
+                    <div class="form-group">
+                        <label for="csTitle">Title</label>
+                        <input type="text" id="csTitle" placeholder="e.g., Owner, Managing Director">
+                    </div>
+                </div>
+                <div class="typed-signature-preview" id="csPreview" style="margin:10px 0 14px">&nbsp;</div>
+                <div class="crm-actions-row">
+                    <button class="primary-button" onclick="projectPage.countersign()">Countersign</button>
+                    <span class="crm-inline-note">Recorded with timestamp and IP for the audit trail</span>
+                </div>
+            </div>`;
+    }
+
+    async countersign() {
+        const contract = this.data.contract;
+        if (!contract) return;
+        const name = document.getElementById('csName').value.trim();
+        if (!name) {
+            showAlertModal('Please enter your full legal name.', 'error');
+            return;
+        }
+        try {
+            await CRM.api(`/api/contracts/${contract._id}/countersign`, {
+                method: 'POST',
+                body: {
+                    name,
+                    title: document.getElementById('csTitle').value.trim(),
+                    method: 'typed'
+                }
+            });
+            showToast?.('Contract countersigned', 'success');
+            await this.load();
+            this.showTab('contract');
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    execCmd(command, value = null) {
+        document.getElementById('contractEditor')?.focus();
+        document.execCommand(command, false, value);
+    }
+
+    populateQuoteSelect(selectId, { includeBlank = false } = {}) {
+        const select = document.getElementById(selectId);
+        const options = this.data.quotes.map((q) =>
+            `<option value="${CRM.escapeHtml(q.name)}">${CRM.escapeHtml(this.quoteTitle(q))} — ${CRM.money(q.quoteData?.total || 0, { cents: false })}</option>`);
+        select.innerHTML = (includeBlank ? '<option value="">Blank invoice</option>' : '') + options.join('');
+    }
+
+    openGenerateContractModal() {
+        if (this.data.quotes.length === 0) {
+            showAlertModal('Link a quote to this project first — the contract is generated from the quote\'s services.', 'info');
+            return;
+        }
+        this.populateQuoteSelect('generateContractQuote');
+        document.getElementById('generateContractModal').style.display = 'flex';
+    }
+
+    closeGenerateContractModal() {
+        document.getElementById('generateContractModal').style.display = 'none';
+    }
+
+    async generateContract() {
+        const quoteName = document.getElementById('generateContractQuote').value;
+        if (!quoteName) return;
+        if (this.data.contract && this.data.contract.contentHtml) {
+            const confirmed = await showConfirmModal(
+                'Regenerating replaces the current contract text (your edits will be lost). Continue?',
+                'Regenerate Contract', 'Regenerate'
+            );
+            if (!confirmed) return;
+        }
+        try {
+            await CRM.api(`/api/projects/${this.projectId}/contract/generate`, { method: 'POST', body: { quoteName } });
+            this.closeGenerateContractModal();
+            showAlertModal('Contract generated from quote.', 'success', null, true);
+            await this.reload();
+            this.showTab('contract');
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    async saveContract({ silent = false } = {}) {
+        const contract = this.data.contract;
+        if (!contract) return;
+        try {
+            await CRM.api(`/api/contracts/${contract._id}`, {
+                method: 'PUT',
+                body: {
+                    title: document.getElementById('contractTitle')?.value ?? contract.title,
+                    contentHtml: document.getElementById('contractEditor')?.innerHTML ?? contract.contentHtml
+                }
+            });
+            if (!silent) showAlertModal('Contract saved.', 'success', null, true);
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+            throw error;
+        }
+    }
+
+    async sendContract() {
+        const contract = this.data.contract;
+        if (!contract) return;
+        try {
+            if (contract.source === 'generated') {
+                await this.saveContract({ silent: true });
+            }
+            const result = await CRM.api(`/api/contracts/${contract._id}/send`, { method: 'POST' });
+            await this.reload();
+            this.showTab('contract');
+            const copied = await CRM.copyToClipboard(result.link);
+            showAlertModal(
+                `Signing link ready${copied ? ' (copied to clipboard)' : ''}:<br><code>${CRM.escapeHtml(result.link)}</code><br><br>Share this link with your client to collect their signature.`,
+                'success', 'Contract Ready to Sign', false, true
+            );
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    async deleteContract() {
+        const confirmed = await showConfirmModal('Delete this contract? This cannot be undone.', 'Delete Contract', 'Delete');
+        if (!confirmed) return;
+        try {
+            await CRM.api(`/api/contracts/${this.data.contract._id}`, { method: 'DELETE' });
+            await this.reload();
+            this.showTab('contract');
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    uploadContract(file) {
+        if (!file) return;
+        if (file.type !== 'application/pdf') {
+            showAlertModal('Please choose a PDF file.', 'error');
+            return;
+        }
+        if (file.size > 15 * 1024 * 1024) {
+            showAlertModal('Contract PDF must be 15 MB or smaller.', 'error');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = async () => {
+            try {
+                await CRM.api(`/api/projects/${this.projectId}/contract/upload`, {
+                    method: 'POST',
+                    body: { fileData: reader.result, filename: file.name }
+                });
+                showAlertModal('Contract uploaded.', 'success', null, true);
+                await this.reload();
+                this.showTab('contract');
+            } catch (error) {
+                showAlertModal(error.message, 'error');
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    copyLink(link, buttonEl) {
+        CRM.copyToClipboard(link).then((ok) => {
+            if (ok && buttonEl) {
+                const original = buttonEl.textContent;
+                buttonEl.textContent = 'Copied!';
+                setTimeout(() => { buttonEl.textContent = original; }, 1600);
+            }
+        });
+    }
+
+    // ---------- Invoices tab ----------
+
+    renderInvoices() {
+        const area = document.getElementById('invoicesListArea');
+        const { invoices } = this.data;
+        if (invoices.length === 0) {
+            area.innerHTML = `<div class="crm-empty"><p>No invoices yet. Create one from a quote or start blank.</p></div>`;
+            return;
+        }
+        area.innerHTML = `
+            <table class="crm-table">
+                <thead><tr>
+                    <th>Invoice #</th><th>Status</th><th>Issued</th><th>Due</th><th class="num">Total</th><th></th>
+                </tr></thead>
+                <tbody>
+                    ${invoices.map((inv) => `
+                        <tr>
+                            <td><strong>${CRM.escapeHtml(inv.invoiceNumber)}</strong>${inv.subtitle ? `<br><span class="crm-inline-note">${CRM.escapeHtml(inv.subtitle)}</span>` : ''}</td>
+                            <td>${CRM.invoiceStatusChip(inv.status)}</td>
+                            <td>${CRM.escapeHtml(CRM.formatDate(inv.issueDate) || '—')}</td>
+                            <td>${CRM.escapeHtml(CRM.formatDate(inv.dueDate) || '—')}</td>
+                            <td class="num">${CRM.money(inv.total)}</td>
+                            <td>
+                                <div class="crm-row-actions">
+                                    ${(inv.status === 'draft' || inv.status === 'sent') ? `<button class="crm-btn-sm primary" onclick="projectPage.editInvoice('${inv._id}')">Edit</button>` : ''}
+                                    ${inv.publicToken && inv.status !== 'void' ? `<button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Copy Link</button>` : ''}
+                                    ${inv.status === 'sent' ? `<button class="crm-btn-sm" onclick="projectPage.markInvoicePaid('${inv._id}')">Mark Paid</button>` : ''}
+                                    <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">PDF</a>
+                                    ${(inv.status === 'draft' || inv.status === 'sent') ? `<button class="crm-btn-sm danger" onclick="projectPage.voidOrDeleteInvoice('${inv._id}', '${inv.status}')">${inv.status === 'draft' ? 'Delete' : 'Void'}</button>` : ''}
+                                </div>
+                            </td>
+                        </tr>`).join('')}
+                </tbody>
+            </table>`;
+    }
+
+    openCreateInvoiceModal() {
+        this.populateQuoteSelect('createInvoiceQuote', { includeBlank: true });
+        document.getElementById('createInvoiceModal').style.display = 'flex';
+    }
+
+    closeCreateInvoiceModal() {
+        document.getElementById('createInvoiceModal').style.display = 'none';
+    }
+
+    async createInvoice() {
+        const quoteName = document.getElementById('createInvoiceQuote').value;
+        try {
+            const invoice = await CRM.api(`/api/projects/${this.projectId}/invoices`, {
+                method: 'POST',
+                body: quoteName ? { quoteName } : {}
+            });
+            this.closeCreateInvoiceModal();
+            await this.reload();
+            this.showTab('invoices');
+            this.editInvoice(invoice._id);
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    async invoiceFromQuote(quoteName) {
+        try {
+            const invoice = await CRM.api(`/api/projects/${this.projectId}/invoices`, {
+                method: 'POST',
+                body: { quoteName }
+            });
+            await this.reload();
+            this.showTab('invoices');
+            this.editInvoice(invoice._id);
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    async editInvoice(invoiceId) {
+        try {
+            this.editingInvoice = await CRM.api(`/api/invoices/${invoiceId}`);
+            this.renderInvoiceEditor();
+            document.getElementById('invoiceEditorArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    closeInvoiceEditor() {
+        this.editingInvoice = null;
+        document.getElementById('invoiceEditorArea').innerHTML = '';
+    }
+
+    partyFields(prefix, party) {
+        return `
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="${prefix}Name" value="${CRM.escapeHtml(party.name || '')}">
+            </div>
+            <div class="form-group">
+                <label>Company</label>
+                <input type="text" id="${prefix}Company" value="${CRM.escapeHtml(party.company || '')}">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="${prefix}Email" value="${CRM.escapeHtml(party.email || '')}">
+            </div>
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="tel" id="${prefix}Phone" value="${CRM.escapeHtml(party.phone || '')}">
+            </div>
+            <div class="form-group form-group--full">
+                <label>Address</label>
+                <textarea id="${prefix}Address" rows="2">${CRM.escapeHtml(party.address || '')}</textarea>
+            </div>`;
+    }
+
+    renderInvoiceEditor() {
+        const inv = this.editingInvoice;
+        const area = document.getElementById('invoiceEditorArea');
+        if (!inv) { area.innerHTML = ''; return; }
+
+        area.innerHTML = `
+            <div class="crm-card" id="invoiceEditorCard">
+                <div class="crm-card-header">
+                    <h3>Edit ${CRM.escapeHtml(inv.invoiceNumber)}</h3>
+                    <div class="crm-actions-row" style="margin-top:0">
+                        ${CRM.invoiceStatusChip(inv.status)}
+                        <button class="crm-btn-sm" onclick="projectPage.closeInvoiceEditor()">Close</button>
+                    </div>
+                </div>
+
+                <div class="crm-form-grid">
+                    <div class="form-group">
+                        <label>Text under invoice number</label>
+                        <input type="text" id="invSubtitle" value="${CRM.escapeHtml(inv.subtitle || '')}" placeholder="e.g., ${CRM.escapeHtml(this.data.project.name)}">
+                    </div>
+                    <div class="form-group">
+                        <label>Issue Date</label>
+                        <input type="date" id="invIssueDate" value="${CRM.escapeHtml(inv.issueDate || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label>Due Date</label>
+                        <input type="date" id="invDueDate" value="${CRM.escapeHtml(inv.dueDate || '')}">
+                    </div>
+                    <div class="form-group form-group--full">
+                        <label>Note at top of invoice</label>
+                        <textarea id="invHeaderNote" rows="2" placeholder="Optional message shown above the line items">${CRM.escapeHtml(inv.headerNote || '')}</textarea>
+                    </div>
+                </div>
+
+                <div class="crm-form-grid" style="margin-top:20px">
+                    <div>
+                        <h3 style="font-size:14px">Bill To</h3>
+                        <div class="crm-form-grid">${this.partyFields('invTo', inv.to || {})}</div>
+                    </div>
+                    <div>
+                        <h3 style="font-size:14px">From</h3>
+                        <div class="crm-form-grid">${this.partyFields('invFrom', inv.from || {})}</div>
+                    </div>
+                </div>
+
+                <h3 style="font-size:14px;margin-top:24px">Line Items</h3>
+                <table class="crm-table invoice-items-table">
+                    <thead><tr>
+                        <th class="col-day">Day</th>
+                        <th>Description</th><th>Detail</th>
+                        <th class="col-qty num">Qty</th><th class="col-price num">Unit Price</th>
+                        <th class="col-amount num">Amount</th><th class="col-remove"></th>
+                    </tr></thead>
+                    <tbody id="invoiceItemsBody"></tbody>
+                </table>
+                <button class="crm-btn-sm" style="margin-top:8px" onclick="projectPage.addInvoiceLine()">+ Add Line</button>
+
+                <div class="invoice-totals">
+                    <div class="row"><span>Subtotal</span><span id="invSubtotalDisplay">$0.00</span></div>
+                    <div class="row">
+                        <span>Discount</span>
+                        <span>-$<input type="number" id="invDiscount" min="0" step="0.01" value="${inv.discountAmount || 0}"
+                            style="width:90px;text-align:right;border:1px solid var(--color-border);border-radius:4px;padding:2px 6px"
+                            oninput="projectPage.recalcInvoiceTotals()"></span>
+                    </div>
+                    <div class="row grand"><span>Total</span><span id="invTotalDisplay">$0.00</span></div>
+                </div>
+
+                <h3 style="font-size:14px;margin-top:24px">Payment Plan</h3>
+                <div id="ppBox"></div>
+
+                <div class="form-group" style="margin-top:20px">
+                    <label>Note at bottom of invoice</label>
+                    <textarea id="invFooterNote" rows="2" placeholder="e.g., payment terms, thank-you message">${CRM.escapeHtml(inv.footerNote || '')}</textarea>
+                </div>
+
+                ${inv.publicToken ? `
+                <div class="invoice-share-link" style="margin-top:14px">
+                    <span>${CRM.escapeHtml(`${window.location.origin}/invoice/${inv.publicToken}`)}</span>
+                    <button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Copy</button>
+                </div>` : ''}
+
+                <div class="crm-actions-row">
+                    <button class="primary-button" onclick="projectPage.saveInvoice()">Save Invoice</button>
+                    <button class="secondary-button" onclick="projectPage.sendInvoice()">${inv.status === 'draft' ? 'Send (Get Shareable Link)' : 'Save &amp; Refresh Link'}</button>
+                    <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">Download PDF</a>
+                </div>
+            </div>`;
+
+        this.renderInvoiceLines();
+        this.renderPaymentPlan();
+    }
+
+    // ---------- Payment plan editor ----------
+
+    getEditorTotal() {
+        const items = this.editingInvoice?.lineItems || [];
+        const subtotal = items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0);
+        const discount = Number(document.getElementById('invDiscount')?.value) || 0;
+        return Math.max(0, subtotal - discount);
+    }
+
+    planLocked() {
+        return (this.editingInvoice?.paymentPlan?.installments || []).some((i) => i.status === 'paid');
+    }
+
+    renderPaymentPlan() {
+        const box = document.getElementById('ppBox');
+        if (!box) return;
+        const plan = this.editingInvoice.paymentPlan || { enabled: false, installments: [] };
+        this.editingInvoice.paymentPlan = plan;
+
+        if (this.planLocked()) {
+            box.innerHTML = `
+                <p class="crm-inline-note">A payment has already been made — the plan is locked.</p>
+                ${plan.installments.map((inst, i) => `
+                    <div class="pp-row-static">
+                        <strong>${CRM.escapeHtml(inst.label || `Payment ${i + 1}`)}</strong> — ${inst.percent}% (${CRM.money(inst.amount)})
+                        ${inst.status === 'paid' ? '<span class="crm-chip crm-chip--paid" style="margin-left:6px">Paid</span>' : ''}
+                    </div>`).join('')}`;
+            return;
+        }
+
+        let html = `
+            <label class="checkbox-label" style="margin:0 0 10px">
+                <input type="checkbox" id="ppEnabled" ${plan.enabled ? 'checked' : ''} onchange="projectPage.togglePaymentPlan(this.checked)">
+                <span class="checkbox-text">Split this invoice into scheduled payments</span>
+            </label>`;
+
+        if (plan.enabled) {
+            const total = this.getEditorTotal();
+            const percentSum = plan.installments.reduce((sum, inst) => sum + (Number(inst.percent) || 0), 0);
+            const sumOk = Math.abs(percentSum - 100) <= 0.01;
+
+            html += plan.installments.map((inst, i) => this.installmentRowHtml(inst, i, total)).join('');
+            html += `
+                <div class="crm-actions-row" style="margin-top:10px">
+                    <button type="button" class="crm-btn-sm" onclick="projectPage.addInstallment()">+ Add Payment</button>
+                    <button type="button" class="crm-btn-sm" onclick="projectPage.applyPreset5050()">Preset: 50% now / 50% at project start</button>
+                    <span class="crm-inline-note" style="color:${sumOk ? 'var(--color-success, #16794c)' : '#b3261e'}">
+                        ${Math.round(percentSum * 100) / 100}% of 100% allocated
+                    </span>
+                </div>`;
+        }
+        box.innerHTML = html;
+    }
+
+    installmentRowHtml(inst, i, total) {
+        const amount = total * ((Number(inst.percent) || 0) / 100);
+        const offsetAbs = Math.abs(Number(inst.offsetDays) || 0);
+        const direction = (Number(inst.offsetDays) || 0) >= 0 ? 'after' : 'before';
+        const anchors = [
+            ['project_start', 'project start'],
+            ['project_end', 'project end'],
+            ['contract_signed', 'contract signed'],
+            ['issue_date', 'invoice issue date']
+        ];
+        return `
+            <div class="pp-row" data-idx="${i}">
+                <input type="text" class="pp-label" placeholder="e.g., Deposit" value="${CRM.escapeHtml(inst.label || '')}"
+                    oninput="projectPage.updateInstallment(${i}, 'label', this.value)">
+                <span class="pp-percent">
+                    <input type="number" min="0" max="100" step="0.01" value="${inst.percent ?? ''}"
+                        oninput="projectPage.updateInstallment(${i}, 'percent', this.value)">%
+                </span>
+                <span class="pp-amount" id="ppAmount-${i}">${CRM.money(amount)}</span>
+                <select onchange="projectPage.updateInstallment(${i}, 'dueType', this.value)">
+                    <option value="immediate" ${inst.dueType === 'immediate' ? 'selected' : ''}>Due immediately</option>
+                    <option value="fixed" ${inst.dueType === 'fixed' ? 'selected' : ''}>Fixed date</option>
+                    <option value="relative" ${inst.dueType === 'relative' ? 'selected' : ''}>Relative to…</option>
+                </select>
+                ${inst.dueType === 'fixed' ? `
+                    <input type="date" value="${CRM.escapeHtml(inst.dueDate || '')}"
+                        onchange="projectPage.updateInstallment(${i}, 'dueDate', this.value)">` : ''}
+                ${inst.dueType === 'relative' ? `
+                    <span class="pp-relative">
+                        <input type="number" min="0" step="1" value="${offsetAbs}"
+                            oninput="projectPage.updateInstallment(${i}, 'offsetAbs', this.value)">
+                        <select onchange="projectPage.updateInstallment(${i}, 'direction', this.value)">
+                            <option value="before" ${direction === 'before' ? 'selected' : ''}>days before</option>
+                            <option value="after" ${direction === 'after' ? 'selected' : ''}>days after</option>
+                        </select>
+                        <select onchange="projectPage.updateInstallment(${i}, 'anchor', this.value)">
+                            ${anchors.map(([value, label]) => `<option value="${value}" ${inst.anchor === value ? 'selected' : ''}>${label}</option>`).join('')}
+                        </select>
+                    </span>` : ''}
+                <button type="button" class="crm-btn-sm danger" onclick="projectPage.removeInstallment(${i})" title="Remove">×</button>
+            </div>`;
+    }
+
+    togglePaymentPlan(enabled) {
+        const plan = this.editingInvoice.paymentPlan;
+        plan.enabled = enabled;
+        if (enabled && plan.installments.length === 0) {
+            this.applyPreset5050();
+            return;
+        }
+        this.renderPaymentPlan();
+    }
+
+    applyPreset5050() {
+        this.editingInvoice.paymentPlan = {
+            enabled: true,
+            installments: [
+                { label: 'Deposit', percent: 50, dueType: 'immediate', dueDate: null, anchor: 'project_start', offsetDays: 0 },
+                { label: 'Final Payment', percent: 50, dueType: 'relative', dueDate: null, anchor: 'project_start', offsetDays: 0 }
+            ]
+        };
+        this.renderPaymentPlan();
+    }
+
+    addInstallment() {
+        this.editingInvoice.paymentPlan.installments.push({
+            label: '', percent: 0, dueType: 'immediate', dueDate: null, anchor: 'project_start', offsetDays: 0
+        });
+        this.renderPaymentPlan();
+    }
+
+    removeInstallment(i) {
+        this.editingInvoice.paymentPlan.installments.splice(i, 1);
+        this.renderPaymentPlan();
+    }
+
+    updateInstallment(i, field, value) {
+        const inst = this.editingInvoice.paymentPlan.installments[i];
+        if (!inst) return;
+        if (field === 'percent') {
+            inst.percent = Number(value) || 0;
+            this.renderPaymentPlanAmounts();
+            return;
+        }
+        if (field === 'offsetAbs') {
+            const sign = (inst.offsetDays || 0) < 0 ? -1 : 1;
+            inst.offsetDays = sign * Math.abs(Number(value) || 0);
+            return;
+        }
+        if (field === 'direction') {
+            inst.offsetDays = (value === 'before' ? -1 : 1) * Math.abs(inst.offsetDays || 0);
+            return;
+        }
+        inst[field] = value;
+        if (field === 'dueType') this.renderPaymentPlan();
+    }
+
+    /** Refresh the derived $ amounts and the percent-sum note without a full re-render. */
+    renderPaymentPlanAmounts() {
+        const plan = this.editingInvoice.paymentPlan;
+        const total = this.getEditorTotal();
+        plan.installments.forEach((inst, i) => {
+            const cell = document.getElementById(`ppAmount-${i}`);
+            if (cell) cell.textContent = CRM.money(total * ((Number(inst.percent) || 0) / 100));
+        });
+        const note = document.querySelector('#ppBox .crm-inline-note');
+        if (note) {
+            const percentSum = plan.installments.reduce((sum, inst) => sum + (Number(inst.percent) || 0), 0);
+            const sumOk = Math.abs(percentSum - 100) <= 0.01;
+            note.style.color = sumOk ? 'var(--color-success, #16794c)' : '#b3261e';
+            note.textContent = `${Math.round(percentSum * 100) / 100}% of 100% allocated`;
+        }
+    }
+
+    renderInvoiceLines() {
+        const tbody = document.getElementById('invoiceItemsBody');
+        const items = this.editingInvoice.lineItems || [];
+        tbody.innerHTML = items.map((item, i) => `
+            <tr>
+                <td><textarea class="inv-line-text" rows="1" data-line="${i}" data-field="day" placeholder="e.g., Fri, Nov 5" oninput="projectPage.updateInvoiceLine(this)">${CRM.escapeHtml(item.day || '')}</textarea></td>
+                <td><textarea class="inv-line-text" rows="1" data-line="${i}" data-field="description" oninput="projectPage.updateInvoiceLine(this)">${CRM.escapeHtml(item.description || '')}</textarea></td>
+                <td><textarea class="inv-line-text" rows="1" data-line="${i}" data-field="detail" oninput="projectPage.updateInvoiceLine(this)">${CRM.escapeHtml(item.detail || '')}</textarea></td>
+                <td class="num"><input type="number" min="0" step="1" data-line="${i}" data-field="quantity" value="${item.quantity ?? 1}" oninput="projectPage.updateInvoiceLine(this)" style="text-align:right"></td>
+                <td class="num"><input type="number" min="0" step="0.01" data-line="${i}" data-field="unitPrice" value="${item.unitPrice ?? 0}" oninput="projectPage.updateInvoiceLine(this)" style="text-align:right"></td>
+                <td class="num" id="lineAmount-${i}">${CRM.money((item.quantity || 1) * (item.unitPrice || 0))}</td>
+                <td><button class="crm-btn-sm danger" onclick="projectPage.removeInvoiceLine(${i})" title="Remove line">×</button></td>
+            </tr>`).join('');
+        tbody.querySelectorAll('textarea.inv-line-text').forEach((el) => this.autosizeInvoiceField(el));
+        this.recalcInvoiceTotals();
+    }
+
+    autosizeInvoiceField(el) {
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = `${Math.max(34, el.scrollHeight)}px`;
+    }
+
+    updateInvoiceLine(input) {
+        const i = Number(input.dataset.line);
+        const field = input.dataset.field;
+        const item = this.editingInvoice.lineItems[i];
+        if (!item) return;
+        if (input.tagName === 'TEXTAREA') this.autosizeInvoiceField(input);
+        if (field === 'quantity' || field === 'unitPrice') {
+            item[field] = Number(input.value) || 0;
+            const amountCell = document.getElementById(`lineAmount-${i}`);
+            if (amountCell) amountCell.textContent = CRM.money((item.quantity || 0) * (item.unitPrice || 0));
+            this.recalcInvoiceTotals();
+        } else {
+            item[field] = input.value;
+        }
+    }
+
+    addInvoiceLine() {
+        this.editingInvoice.lineItems.push({ day: '', description: '', detail: '', quantity: 1, unitPrice: 0, amount: 0 });
+        this.renderInvoiceLines();
+    }
+
+    removeInvoiceLine(index) {
+        this.editingInvoice.lineItems.splice(index, 1);
+        this.renderInvoiceLines();
+    }
+
+    recalcInvoiceTotals() {
+        const items = this.editingInvoice?.lineItems || [];
+        const subtotal = items.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0);
+        const discount = Number(document.getElementById('invDiscount')?.value) || 0;
+        document.getElementById('invSubtotalDisplay').textContent = CRM.money(subtotal);
+        document.getElementById('invTotalDisplay').textContent = CRM.money(Math.max(0, subtotal - discount));
+        if (this.editingInvoice?.paymentPlan?.enabled && !this.planLocked()) {
+            this.renderPaymentPlanAmounts();
+        }
+    }
+
+    collectInvoiceBody() {
+        const party = (prefix) => ({
+            name: document.getElementById(`${prefix}Name`).value,
+            company: document.getElementById(`${prefix}Company`).value,
+            email: document.getElementById(`${prefix}Email`).value,
+            phone: document.getElementById(`${prefix}Phone`).value,
+            address: document.getElementById(`${prefix}Address`).value
+        });
+        const body = {
+            subtitle: document.getElementById('invSubtitle').value,
+            headerNote: document.getElementById('invHeaderNote').value,
+            footerNote: document.getElementById('invFooterNote').value,
+            issueDate: document.getElementById('invIssueDate').value || null,
+            dueDate: document.getElementById('invDueDate').value || null,
+            from: party('invFrom'),
+            to: party('invTo'),
+            lineItems: this.editingInvoice.lineItems,
+            discountAmount: Number(document.getElementById('invDiscount').value) || 0
+        };
+        // The server rejects plan changes after a payment — don't send the plan once locked
+        if (!this.planLocked()) {
+            body.paymentPlan = this.editingInvoice.paymentPlan || { enabled: false, installments: [] };
+        }
+        return body;
+    }
+
+    async saveInvoice({ silent = false } = {}) {
+        try {
+            this.editingInvoice = await CRM.api(`/api/invoices/${this.editingInvoice._id}`, {
+                method: 'PUT',
+                body: this.collectInvoiceBody()
+            });
+            if (!silent) showAlertModal('Invoice saved.', 'success', null, true);
+            await this.load();
+            this.renderInvoices();
+            document.getElementById('invoicesTabBadge').textContent = this.data.invoices.length;
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+            throw error;
+        }
+    }
+
+    async sendInvoice() {
+        try {
+            await this.saveInvoice({ silent: true });
+            const result = await CRM.api(`/api/invoices/${this.editingInvoice._id}/send`, { method: 'POST' });
+            this.editingInvoice = result.invoice;
+            await this.load();
+            this.renderInvoices();
+            this.renderInvoiceEditor();
+            const copied = await CRM.copyToClipboard(result.link);
+            showAlertModal(
+                `Invoice link ready${copied ? ' (copied to clipboard)' : ''}:<br><code>${CRM.escapeHtml(result.link)}</code><br><br>This is the formal invoice your client can view and pay online.`,
+                'success', 'Invoice Sent', false, true
+            );
+        } catch (error) {
+            if (error.message) showAlertModal(error.message, 'error');
+        }
+    }
+
+    async markInvoicePaid(invoiceId) {
+        const confirmed = await showConfirmModal('Mark this invoice as paid? Use this for payments received outside Stripe.', 'Mark Paid', 'Mark Paid');
+        if (!confirmed) return;
+        try {
+            await CRM.api(`/api/invoices/${invoiceId}/mark-paid`, { method: 'POST' });
+            showAlertModal('Invoice marked as paid.', 'success', null, true);
+            await this.reload();
+            this.showTab('invoices');
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    async voidOrDeleteInvoice(invoiceId, status) {
+        const isDraft = status === 'draft';
+        const confirmed = await showConfirmModal(
+            isDraft ? 'Delete this draft invoice?' : 'Void this invoice? The shareable link will stop working.',
+            isDraft ? 'Delete Invoice' : 'Void Invoice',
+            isDraft ? 'Delete' : 'Void'
+        );
+        if (!confirmed) return;
+        try {
+            if (isDraft) {
+                await CRM.api(`/api/invoices/${invoiceId}`, { method: 'DELETE' });
+            } else {
+                await CRM.api(`/api/invoices/${invoiceId}/void`, { method: 'POST' });
+            }
+            if (this.editingInvoice && this.editingInvoice._id === invoiceId) {
+                this.closeInvoiceEditor();
+            }
+            await this.reload();
+            this.showTab('invoices');
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+}
+
+const projectPage = new ProjectPage();
+window.projectPage = projectPage;

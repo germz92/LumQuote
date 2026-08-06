@@ -552,6 +552,12 @@ class QuotesManager {
                     ${canEdit ? `
                         <button class="overflow-menu-item" onclick="quotesManager.openEditModal('${this.escapeJs(quote.name)}')">Edit</button>
                     ` : ''}
+                    ${quote.project ? `
+                        <button class="overflow-menu-item" onclick="window.location.href='/projects/${this.escapeJs(String(quote.project))}'">View Project</button>
+                    ` : ''}
+                    ${canEdit ? `
+                        <button class="overflow-menu-item" onclick="quotesManager.convertToInvoice('${this.escapeJs(quote.name)}')">Convert to Invoice</button>
+                    ` : ''}
                     ${isArchived ? `
                         <button class="overflow-menu-item" onclick="quotesManager.unarchiveQuote('${this.escapeJs(quote.name)}')">Unarchive</button>
                     ` : canEdit ? `
@@ -663,6 +669,12 @@ class QuotesManager {
                                     <button class="overflow-menu-item" onclick="quotesManager.toggleBookedStatus('${this.escapeJs(quote.name)}', ${!isBooked})">
                                         ${isBooked ? 'Mark as Not Booked' : 'Mark as Booked'}
                                     </button>
+                                ` : ''}
+                                ${quote.project ? `
+                                    <button class="overflow-menu-item" onclick="window.location.href='/projects/${this.escapeJs(String(quote.project))}'">View Project</button>
+                                ` : ''}
+                                ${quote.accessLevel !== 'read' ? `
+                                    <button class="overflow-menu-item" onclick="quotesManager.convertToInvoice('${this.escapeJs(quote.name)}')">Convert to Invoice</button>
                                 ` : ''}
                                 ${quote.isOwner || this.isCurrentUserAdmin() ? `
                                     <button class="overflow-menu-item danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')">
@@ -911,8 +923,8 @@ class QuotesManager {
             gridContainer.style.display = 'none';
             listContainer.style.display = 'block';
             if (sortDropdown) sortDropdown.style.display = 'none';
-            toggleText.textContent = 'Grid View';
-            toggleIcon.innerHTML = `
+            if (toggleText) toggleText.textContent = 'Grid View';
+            if (toggleIcon) toggleIcon.innerHTML = `
                 <rect x="3" y="3" width="7" height="7"></rect>
                 <rect x="14" y="3" width="7" height="7"></rect>
                 <rect x="3" y="14" width="7" height="7"></rect>
@@ -921,9 +933,9 @@ class QuotesManager {
         } else {
             gridContainer.style.display = 'grid';
             listContainer.style.display = 'none';
-            if (sortDropdown) sortDropdown.style.display = 'block';
-            toggleText.textContent = 'List View';
-            toggleIcon.innerHTML = `
+            if (sortDropdown) sortDropdown.style.display = '';
+            if (toggleText) toggleText.textContent = 'List View';
+            if (toggleIcon) toggleIcon.innerHTML = `
                 <line x1="8" y1="6" x2="21" y2="6"></line>
                 <line x1="8" y1="12" x2="21" y2="12"></line>
                 <line x1="8" y1="18" x2="21" y2="18"></line>
@@ -1004,6 +1016,34 @@ class QuotesManager {
             // Clear before navigation so bfcache restore does not keep the skeleton visible
             this.showLoading(false);
             this.setQuotesRefreshing(false);
+        }
+    }
+
+    async convertToInvoice(quoteName) {
+        const confirmed = await showConfirmModal(
+            `Create an invoice from "${quoteName}"? The quote's services and totals become invoice line items. A project is created automatically if the quote doesn't have one.`,
+            'Convert to Invoice',
+            'Create Invoice',
+            'Cancel'
+        );
+        if (!confirmed) return;
+
+        try {
+            this.showLoading(true);
+            const response = await fetch(`/api/quotes/${encodeURIComponent(quoteName)}/convert-to-invoice`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to convert quote to invoice');
+            }
+            window.location.href = `/projects/${data.projectId}#invoices`;
+        } catch (error) {
+            console.error('Error converting quote to invoice:', error);
+            showAlertModal(error.message || 'Failed to convert quote to invoice.', 'error');
+        } finally {
+            this.showLoading(false);
         }
     }
 
