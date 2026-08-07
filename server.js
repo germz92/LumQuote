@@ -2533,7 +2533,56 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
     const skip = (page - 1) * limit;
     
     // Filter and sort parameters from query string
-    const { archived, search, createdBy: createdByFilter, booked, dateFilter, sortBy, sortDirection } = req.query;
+    const { archived, search, createdBy: createdByFilter, booked, dateFilter, sortBy, sortDirection, when } = req.query;
+
+    const todayYmd = () => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    // Past = last service day before today. Upcoming = last day today/future, or undated.
+    const quoteWhenClause = (whenFilter) => {
+      if (whenFilter !== 'past' && whenFilter !== 'upcoming') return null;
+      const today = todayYmd();
+      const lastDay = {
+        $max: {
+          $map: {
+            input: {
+              $filter: {
+                input: { $ifNull: ['$quoteData.days', []] },
+                as: 'd',
+                cond: {
+                  $and: [
+                    { $ne: ['$$d.date', null] },
+                    { $ne: ['$$d.date', ''] }
+                  ]
+                }
+              }
+            },
+            as: 'd',
+            in: '$$d.date'
+          }
+        }
+      };
+      if (whenFilter === 'past') {
+        return {
+          $expr: {
+            $and: [
+              { $ne: [lastDay, null] },
+              { $lt: [lastDay, today] }
+            ]
+          }
+        };
+      }
+      return {
+        $expr: {
+          $or: [
+            { $eq: [lastDay, null] },
+            { $gte: [lastDay, today] }
+          ]
+        }
+      };
+    };
     
     let query = {};
     
@@ -2612,6 +2661,11 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
       } else {
         query.$or = searchConditions;
       }
+    }
+
+    const whenClause = quoteWhenClause(when);
+    if (whenClause) {
+      query.$and = (query.$and || []).concat([whenClause]);
     }
     
     // Get total count for pagination

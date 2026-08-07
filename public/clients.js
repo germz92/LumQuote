@@ -8,6 +8,8 @@ class ClientsManager {
         this.expanded = new Set();
         this.searchTimer = null;
         this.viewMode = localStorage.getItem('clientsViewMode') === 'companies' ? 'companies' : 'people';
+        this.sortColumn = localStorage.getItem('clientsSortColumn') || 'name';
+        this.sortDirection = localStorage.getItem('clientsSortDirection') || 'asc';
         this.load();
     }
 
@@ -22,8 +24,92 @@ class ClientsManager {
         this.viewMode = mode;
         localStorage.setItem('clientsViewMode', mode);
         this.expanded.clear();
+        // Reset to a column that exists in both views when switching
+        if (mode === 'companies' && !['name', 'contacts', 'projects', 'total'].includes(this.sortColumn)) {
+            this.sortColumn = 'name';
+        } else if (mode === 'people' && !['name', 'company', 'contact', 'projects', 'total'].includes(this.sortColumn)) {
+            this.sortColumn = 'name';
+        }
         this.syncViewToggle();
         this.render();
+    }
+
+    sortByColumn(column) {
+        if (this.sortColumn === column) {
+            this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.sortColumn = column;
+            this.sortDirection = 'asc';
+        }
+        localStorage.setItem('clientsSortColumn', this.sortColumn);
+        localStorage.setItem('clientsSortDirection', this.sortDirection);
+        this.render();
+    }
+
+    sortHeader(label, column, extraClass = '') {
+        const arrow = this.sortColumn === column
+            ? (this.sortDirection === 'asc' ? ' ▲' : ' ▼')
+            : '';
+        return `<th class="sortable ${extraClass}" onclick="event.stopPropagation(); clientsManager.sortByColumn('${column}')">${label} <span class="sort-indicator">${arrow}</span></th>`;
+    }
+
+    compareValues(a, b) {
+        if (typeof a === 'string' || typeof b === 'string') {
+            return String(a || '').localeCompare(String(b || ''), undefined, { sensitivity: 'base' });
+        }
+        return (Number(a) || 0) - (Number(b) || 0);
+    }
+
+    sortedClients() {
+        const dir = this.sortDirection === 'desc' ? -1 : 1;
+        return [...this.clients].sort((a, b) => {
+            let cmp = 0;
+            switch (this.sortColumn) {
+                case 'company':
+                    cmp = this.compareValues(a.company, b.company);
+                    break;
+                case 'contact':
+                    cmp = this.compareValues(a.email || a.phone, b.email || b.phone);
+                    break;
+                case 'projects':
+                    cmp = this.compareValues(a.projectCount, b.projectCount);
+                    break;
+                case 'total':
+                    cmp = this.compareValues(a.totalValue, b.totalValue);
+                    break;
+                case 'name':
+                default:
+                    cmp = this.compareValues(a.name, b.name);
+                    break;
+            }
+            return cmp !== 0 ? cmp * dir : this.compareValues(a.name, b.name);
+        });
+    }
+
+    sortedCompanies() {
+        const dir = this.sortDirection === 'desc' ? -1 : 1;
+        return this.groupByCompany().sort((a, b) => {
+            // Keep "No company" at the bottom unless sorting by name desc wants it first — still pin it last
+            if (a.key === '__none__' && b.key !== '__none__') return 1;
+            if (b.key === '__none__' && a.key !== '__none__') return -1;
+            let cmp = 0;
+            switch (this.sortColumn) {
+                case 'contacts':
+                    cmp = this.compareValues(a.contactCount, b.contactCount);
+                    break;
+                case 'projects':
+                    cmp = this.compareValues(a.projectCount, b.projectCount);
+                    break;
+                case 'total':
+                    cmp = this.compareValues(a.totalValue, b.totalValue);
+                    break;
+                case 'name':
+                default:
+                    cmp = this.compareValues(a.name, b.name);
+                    break;
+            }
+            return cmp !== 0 ? cmp * dir : this.compareValues(a.name, b.name);
+        });
     }
 
     syncViewToggle() {
@@ -35,8 +121,10 @@ class ClientsManager {
         const skeleton = document.getElementById('clientsSkeleton');
         try {
             const search = document.getElementById('searchClients').value.trim();
-            const params = search ? `?search=${encodeURIComponent(search)}` : '';
-            const data = await CRM.api(`/api/clients${params}`);
+            const params = new URLSearchParams();
+            if (search) params.set('search', search);
+            const qs = params.toString();
+            const data = await CRM.api(`/api/clients${qs ? `?${qs}` : ''}`);
             this.clients = data.clients || [];
             this.syncViewToggle();
             this.render();
@@ -116,11 +204,11 @@ class ClientsManager {
         head.innerHTML = `
             <tr>
                 <th style="width:28px"></th>
-                <th>Client</th>
-                <th class="col-hide-sm">Company</th>
-                <th class="col-hide-sm">Contact</th>
-                <th>Projects</th>
-                <th class="col-hide-sm">Total Value</th>
+                ${this.sortHeader('Client', 'name')}
+                ${this.sortHeader('Company', 'company', 'col-hide-sm')}
+                ${this.sortHeader('Contact', 'contact', 'col-hide-sm')}
+                ${this.sortHeader('Projects', 'projects')}
+                ${this.sortHeader('Total Value', 'total', 'col-hide-sm')}
             </tr>`;
 
         if (this.clients.length === 0) {
@@ -132,7 +220,7 @@ class ClientsManager {
         }
         empty.style.display = 'none';
 
-        body.innerHTML = this.clients.map((client) => {
+        body.innerHTML = this.sortedClients().map((client) => {
             const id = String(client._id);
             const isOpen = this.expanded.has(id);
             const contact = [client.email, client.phone].filter(Boolean)
@@ -164,15 +252,15 @@ class ClientsManager {
         const head = document.getElementById('clientsTableHead');
         const body = document.getElementById('clientsTableBody');
         const empty = document.getElementById('clientsEmpty');
-        const groups = this.groupByCompany();
+        const groups = this.sortedCompanies();
 
         head.innerHTML = `
             <tr>
                 <th style="width:28px"></th>
-                <th>Company</th>
-                <th>Contacts</th>
-                <th>Projects</th>
-                <th class="col-hide-sm">Total Value</th>
+                ${this.sortHeader('Company', 'name')}
+                ${this.sortHeader('Contacts', 'contacts')}
+                ${this.sortHeader('Projects', 'projects')}
+                ${this.sortHeader('Total Value', 'total', 'col-hide-sm')}
             </tr>`;
 
         if (groups.length === 0) {

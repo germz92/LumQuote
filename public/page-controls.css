@@ -117,19 +117,37 @@ input.pc-select {
   margin-left: auto;
 }
 
-/* Segmented People / Companies toggle on the clients page */
-body[data-app-page="clients"] .pc-actions .pc-btn + .pc-btn {
+/* Segmented toggles (All/Upcoming/Past, People/Companies) */
+.pc-when-toggle,
+.pc-view-toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pc-when-toggle .pc-btn,
+.pc-view-toggle .pc-btn {
+  border-radius: 0;
+}
+
+.pc-when-toggle .pc-btn + .pc-btn,
+.pc-view-toggle .pc-btn + .pc-btn {
   margin-left: -1px;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
 }
 
-body[data-app-page="clients"] .pc-actions .pc-btn:first-child {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
+.pc-when-toggle .pc-btn:first-child,
+.pc-view-toggle .pc-btn:first-child {
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
 }
 
-body[data-app-page="clients"] .pc-actions .pc-btn.is-active {
+.pc-when-toggle .pc-btn:last-child,
+.pc-view-toggle .pc-btn:last-child {
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.pc-when-toggle .pc-btn.is-active,
+.pc-view-toggle .pc-btn.is-active {
   position: relative;
   z-index: 1;
 }
@@ -182,6 +200,30 @@ body[data-app-page="clients"] .pc-actions .pc-btn.is-active {
   border-top: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
+}
+
+/* In-container list scroll — horizontal scrollbar stays under the rows,
+   and the table header sticks while rows scroll inside the box */
+body[data-app-page="projects"] .quotes-list-scroll,
+body[data-app-page="quotes"] .quotes-list-scroll,
+body[data-app-page="clients"] .quotes-list-scroll {
+  overflow: auto;
+  max-height: max(360px, calc(100vh - 310px));
+}
+
+body[data-app-page="quotes"] .quotes-data-area > .quotes-grid {
+  overflow: auto;
+  max-height: max(360px, calc(100vh - 310px));
+}
+
+body[data-app-page="projects"] .quotes-list-scroll .quotes-table thead th,
+body[data-app-page="quotes"] .quotes-list-scroll .quotes-table thead th,
+body[data-app-page="clients"] .quotes-list-scroll .quotes-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-bg);
+  box-shadow: inset 0 -1px 0 var(--color-border);
 }
 
 /* ---------- Responsive ---------- */

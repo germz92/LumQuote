@@ -61,6 +61,11 @@
                     </button>
 
                     <div class="pc-actions">
+                        <div class="pc-when-toggle" role="group" aria-label="Quote timing">
+                            <button type="button" class="pc-btn" data-when="all" onclick="quotesManager.setWhen('all')">All</button>
+                            <button type="button" class="pc-btn" data-when="upcoming" onclick="quotesManager.setWhen('upcoming')">Upcoming</button>
+                            <button type="button" class="pc-btn" data-when="past" onclick="quotesManager.setWhen('past')">Past</button>
+                        </div>
                         <button type="button" class="pc-btn" id="viewToggleBtn" onclick="quotesManager.toggleView()" title="Toggle grid and list view">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="viewToggleIcon" aria-hidden="true">
                                 <line x1="8" y1="6" x2="21" y2="6"></line>
@@ -79,6 +84,9 @@
                                 <path d="M10 12h4"></path>
                             </svg>
                             <span id="archiveToggleText">View Archived</span>
+                        </button>
+                        <button type="button" class="btn btn-primary btn-md" onclick="clearQuoteData(event)">
+                            + New Quote
                         </button>
                     </div>
                 </div>

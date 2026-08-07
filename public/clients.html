@@ -31,12 +31,14 @@
                     </div>
 
                     <div class="pc-actions">
-                        <button type="button" class="pc-btn is-active" id="viewPeopleBtn" onclick="clientsManager.setView('people')" title="View by person">
-                            People
-                        </button>
-                        <button type="button" class="pc-btn" id="viewCompaniesBtn" onclick="clientsManager.setView('companies')" title="View by company">
-                            Companies
-                        </button>
+                        <div class="pc-view-toggle" role="group" aria-label="Client view">
+                            <button type="button" class="pc-btn is-active" id="viewPeopleBtn" onclick="clientsManager.setView('people')" title="View by person">
+                                People
+                            </button>
+                            <button type="button" class="pc-btn" id="viewCompaniesBtn" onclick="clientsManager.setView('companies')" title="View by company">
+                                Companies
+                            </button>
+                        </div>
                     </div>
                 </div>
                 </div>

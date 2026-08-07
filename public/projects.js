@@ -11,12 +11,60 @@ class ProjectsManager {
         this.totalProjects = 0;
         this.totalPages = 0;
         this.searchDebounceTimer = null;
+        this.sortColumn = localStorage.getItem('projectsSortColumn') || '';
+        this.sortDirection = localStorage.getItem('projectsSortDirection') || 'asc';
+        const savedWhen = localStorage.getItem('projectsWhen');
+        this.when = ['all', 'upcoming', 'past'].includes(savedWhen) ? savedWhen : 'upcoming';
         this.init();
     }
 
     async init() {
+        this.syncWhenToggle();
         await this.loadProjects();
         this.render();
+        this.updateSortIndicators();
+    }
+
+    setWhen(when) {
+        if (!['all', 'upcoming', 'past'].includes(when) || this.when === when) return;
+        this.when = when;
+        localStorage.setItem('projectsWhen', when);
+        this.syncWhenToggle();
+        this.currentPage = 1;
+        this.loadProjects().then(() => {
+            this.render();
+            this.updateSortIndicators();
+        });
+    }
+
+    syncWhenToggle() {
+        document.querySelectorAll('.pc-when-toggle [data-when]').forEach((btn) => {
+            btn.classList.toggle('is-active', btn.dataset.when === this.when);
+        });
+    }
+
+    sortByColumn(column) {
+        if (this.sortColumn === column) {
+            this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.sortColumn = column;
+            this.sortDirection = 'asc';
+        }
+        localStorage.setItem('projectsSortColumn', this.sortColumn);
+        localStorage.setItem('projectsSortDirection', this.sortDirection);
+        this.currentPage = 1;
+        this.loadProjects().then(() => {
+            this.render();
+            this.updateSortIndicators();
+        });
+    }
+
+    updateSortIndicators() {
+        document.querySelectorAll('.projects-table .sort-indicator').forEach((el) => {
+            el.textContent = el.dataset.sort === this.sortColumn
+                ? (this.sortDirection === 'asc' ? ' ▲' : ' ▼')
+                : '';
+        });
     }
 
     debouncedSearch() {
@@ -26,19 +74,24 @@ class ProjectsManager {
 
     applyFilters() {
         this.currentPage = 1;
-        this.loadProjects().then(() => this.render());
+        this.loadProjects().then(() => {
+            this.render();
+            this.updateSortIndicators();
+        });
         this.updateClearButton();
     }
 
     clearFilters() {
         document.getElementById('searchProjects').value = '';
         document.getElementById('statusFilter').value = '';
+        document.getElementById('dateFilter').value = '';
         this.applyFilters();
     }
 
     updateClearButton() {
         const hasFilters = document.getElementById('searchProjects').value ||
-            document.getElementById('statusFilter').value;
+            document.getElementById('statusFilter').value ||
+            document.getElementById('dateFilter').value;
         document.getElementById('clearFiltersBtn').style.display = hasFilters ? '' : 'none';
     }
 
@@ -62,8 +115,16 @@ class ProjectsManager {
             });
             const search = document.getElementById('searchProjects')?.value || '';
             const status = document.getElementById('statusFilter')?.value || '';
+            const date = document.getElementById('dateFilter')?.value || '';
             if (search) params.append('search', search);
             if (status) params.append('status', status);
+            if (date) params.append('date', date);
+            if (this.when && this.when !== 'all') params.append('when', this.when);
+            const sortable = ['name', 'client', 'dates', 'status', 'contract', 'invoices'];
+            if (sortable.includes(this.sortColumn)) {
+                params.append('sortBy', this.sortColumn);
+                params.append('sortDir', this.sortDirection === 'desc' ? 'desc' : 'asc');
+            }
 
             const data = await CRM.api(`/api/projects?${params}`);
             this.projects = data.projects || [];

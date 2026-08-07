@@ -93,7 +93,7 @@ const AppShell = {
                     <div class="app-brand">
                         <img src="/assets/logo.png" alt="Lumetry Media" class="app-brand-logo" onclick="window.location.href='/quotes'">
                     </div>
-                    <nav class="app-nav" aria-label="Main">${navHtml}${this.renderNewQuoteNavCta()}</nav>
+                    <nav class="app-nav" aria-label="Main">${navHtml}</nav>
                     <div class="app-shell-util">
                         <div class="app-profile-menu" id="appProfileMenu">
                             <button
@@ -134,7 +134,6 @@ const AppShell = {
                     </div>
                 </div>
             </header>
-            ${this.renderMobileNewQuoteFab()}
             <div class="app-shell-body">
                 <div class="app-shell-inner">
                     <div class="app-page-header">
@@ -153,26 +152,6 @@ const AppShell = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
-    },
-
-    renderNewQuoteNavCta() {
-        return `<a href="/quote" class="app-nav-cta" onclick="clearQuoteData(event)">
-            <svg class="app-nav-cta__icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            <span class="app-nav-cta__label">New Quote</span>
-        </a>`;
-    },
-
-    renderMobileNewQuoteFab() {
-        return `<a href="/quote" class="app-mobile-new-quote-fab" onclick="clearQuoteData(event)" aria-label="New Quote">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            <span class="app-mobile-new-quote-fab__label">New Quote</span>
-        </a>`;
     },
 
     getStoredUser() {

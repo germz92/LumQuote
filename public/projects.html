@@ -41,11 +41,22 @@
                         <option value="complete">Complete</option>
                     </select>
 
+                    <input type="date"
+                           id="dateFilter"
+                           class="pc-select"
+                           title="Filter by project date"
+                           onchange="projectsManager.applyFilters()">
+
                     <button class="pc-clear" id="clearFiltersBtn" onclick="projectsManager.clearFilters()" style="display: none;">
                         Clear
                     </button>
 
                     <div class="pc-actions">
+                        <div class="pc-when-toggle" role="group" aria-label="Project timing">
+                            <button type="button" class="pc-btn" data-when="all" onclick="projectsManager.setWhen('all')">All</button>
+                            <button type="button" class="pc-btn" data-when="upcoming" onclick="projectsManager.setWhen('upcoming')">Upcoming</button>
+                            <button type="button" class="pc-btn" data-when="past" onclick="projectsManager.setWhen('past')">Past</button>
+                        </div>
                         <button type="button" class="pc-btn" id="archiveToggleBtn" onclick="projectsManager.toggleArchiveView()" title="View archived projects">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                 <path d="M21 8v13H3V8"></path>
@@ -69,12 +80,24 @@
                         <table class="quotes-table projects-table">
                             <thead>
                                 <tr>
-                                    <th>Project</th>
-                                    <th>Client</th>
-                                    <th>Dates</th>
-                                    <th>Status</th>
-                                    <th>Contract</th>
-                                    <th>Invoices</th>
+                                    <th class="sortable" onclick="projectsManager.sortByColumn('name')">
+                                        Project <span class="sort-indicator" data-sort="name"></span>
+                                    </th>
+                                    <th class="sortable" onclick="projectsManager.sortByColumn('client')">
+                                        Client <span class="sort-indicator" data-sort="client"></span>
+                                    </th>
+                                    <th class="sortable" onclick="projectsManager.sortByColumn('dates')">
+                                        Dates <span class="sort-indicator" data-sort="dates"></span>
+                                    </th>
+                                    <th class="sortable" onclick="projectsManager.sortByColumn('status')">
+                                        Status <span class="sort-indicator" data-sort="status"></span>
+                                    </th>
+                                    <th class="sortable" onclick="projectsManager.sortByColumn('contract')">
+                                        Contract <span class="sort-indicator" data-sort="contract"></span>
+                                    </th>
+                                    <th class="sortable" onclick="projectsManager.sortByColumn('invoices')">
+                                        Invoices <span class="sort-indicator" data-sort="invoices"></span>
+                                    </th>
                                     <th></th>
                                 </tr>
                             </thead>

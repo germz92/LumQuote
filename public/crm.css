@@ -746,21 +746,6 @@
 
 /* ---------- Projects table ---------- */
 
-/* The list scrolls both ways inside its own viewport-capped box, so the horizontal
-   scrollbar is always visible under the rows instead of below the whole page */
-body[data-app-page="projects"] .quotes-list-scroll {
-  overflow: auto;
-  max-height: max(360px, calc(100vh - 310px));
-}
-
-body[data-app-page="projects"] .projects-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--color-surface);
-  box-shadow: inset 0 -1px 0 var(--color-border);
-}
-
 .projects-table th,
 .projects-table td { white-space: nowrap; }
 

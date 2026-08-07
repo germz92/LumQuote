@@ -7,6 +7,8 @@ class QuotesManager {
         this.viewMode = localStorage.getItem('quotesViewMode') || 'list';
         this.sortColumn = localStorage.getItem('quotesSortColumn') || 'created-newest';
         this.sortDirection = localStorage.getItem('quotesSortDirection') || 'desc';
+        const savedWhen = localStorage.getItem('quotesWhen');
+        this.when = ['all', 'upcoming', 'past'].includes(savedWhen) ? savedWhen : 'upcoming';
         
         // Pagination state
         this.currentPage = 1;
@@ -18,6 +20,21 @@ class QuotesManager {
         this.searchDebounceTimer = null;
         
         this.init();
+    }
+
+    setWhen(when) {
+        if (!['all', 'upcoming', 'past'].includes(when) || this.when === when) return;
+        this.when = when;
+        localStorage.setItem('quotesWhen', when);
+        this.syncWhenToggle();
+        this.currentPage = 1;
+        this.filterAndSort();
+    }
+
+    syncWhenToggle() {
+        document.querySelectorAll('.pc-when-toggle [data-when]').forEach((btn) => {
+            btn.classList.toggle('is-active', btn.dataset.when === this.when);
+        });
     }
     
     // Debounced search - waits 300ms after user stops typing
@@ -34,6 +51,7 @@ class QuotesManager {
     }
 
     async init() {
+        this.syncWhenToggle();
         await this.loadUsers();
         await this.loadQuotes();
         this.applyViewMode(); // Apply saved view mode
@@ -87,6 +105,7 @@ class QuotesManager {
             if (searchTerm) params.append('search', searchTerm);
             if (userFilter) params.append('createdBy', userFilter);
             if (bookedFilter) params.append('booked', bookedFilter);
+            if (this.when && this.when !== 'all') params.append('when', this.when);
             
             // Add sort parameters for server-side sorting
             const sortDropdown = document.getElementById('sortQuotes')?.value || '';
@@ -400,6 +419,12 @@ class QuotesManager {
         if (this.showingArchived) {
             return 'archived';
         }
+        if (this.when === 'past') {
+            return 'past';
+        }
+        if (this.when === 'upcoming') {
+            return 'upcoming';
+        }
         return 'default';
     }
 
@@ -410,6 +435,18 @@ class QuotesManager {
                 title: 'No quotes yet',
                 message: 'Create your first quote to get started. You can save, share, and book quotes from here.',
                 primaryAction: `<button type="button" class="btn btn-primary btn-md primary-button" onclick="clearQuoteData(event)">New Quote</button>`
+            },
+            upcoming: {
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>`,
+                title: 'No upcoming quotes',
+                message: 'Quotes with a service date today or later will show here. Switch to All or Past to see other quotes.',
+                primaryAction: `<button type="button" class="btn btn-secondary btn-md secondary-button" onclick="quotesManager.setWhen('all')">Show all quotes</button>`
+            },
+            past: {
+                icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>`,
+                title: 'No past quotes',
+                message: 'Quotes whose last service day has already passed will show here.',
+                primaryAction: `<button type="button" class="btn btn-secondary btn-md secondary-button" onclick="quotesManager.setWhen('all')">Show all quotes</button>`
             },
             filtered: {
                 icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
