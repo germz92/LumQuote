@@ -22,7 +22,7 @@ A modern, responsive web application for generating photography service quotes w
 
 New environment variables for invoicing (see `.env.example`): `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` (webhook endpoint: `POST /api/stripe/webhook`), and optional `APP_BASE_URL` for share links.
 
-On first startup after upgrading, existing quotes are automatically migrated: one client per distinct client name and one project per quote (also runnable manually via `node scripts/migrate-crm.js`).
+Quotes stay unlinked from projects unless you create them from a project, choose a project when saving, or use Link Existing Quote. On startup, client names from quotes are ensured in the CRM, and empty auto-wrapper projects (from an older one-project-per-quote migration) are cleaned up (`node scripts/migrate-crm.js` runs the same).
 
 ## Tech Stack
 

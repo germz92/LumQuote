@@ -1,9 +1,9 @@
 /**
- * One-off CRM backfill: creates a Client per distinct quote clientName and wraps
- * every quote without a project into its own project.
+ * CRM maintenance script:
+ * - Ensures clients exist for quote client names
+ * - Unlinks quotes from empty auto-wrapper projects (1 quote, no contracts/invoices)
  *
- * The same migration also runs automatically (idempotently) at server startup,
- * so this script is only needed to run it manually: node scripts/migrate-crm.js
+ * Also runs at server startup. Manual: node scripts/migrate-crm.js
  */
 
 const mongoose = require('mongoose');
@@ -26,10 +26,14 @@ async function main() {
   }, { timestamps: true, strict: false });
   const SavedQuote = mongoose.model('SavedQuote', savedQuoteSchema, 'savedQuotes');
 
-  const { runCrmMigration, seedContractTemplates } = require('../lib/crm-models');
+  const {
+    runCrmMigration,
+    unlinkAutoWrappedProjects,
+    seedContractTemplates
+  } = require('../lib/crm-models');
   await seedContractTemplates();
-  const result = await runCrmMigration(SavedQuote);
-  console.log('Done:', result);
+  console.log('Clients:', await runCrmMigration(SavedQuote));
+  console.log('Unlink wrappers:', await unlinkAutoWrappedProjects(SavedQuote));
 
   await mongoose.disconnect();
 }

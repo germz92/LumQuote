@@ -1350,8 +1350,6 @@ class QuoteCalculator {
         } else {
             document.getElementById('leadSource').value = this.currentLeadSource || '';
         }
-        document.getElementById('bookedCheckbox').checked = this.currentBooked || false;
-        
         // Load previous clients for the dropdown
         await this.loadClients();
         
@@ -1607,8 +1605,7 @@ class QuoteCalculator {
                     body: JSON.stringify({
                         newName: newTitle,
                         clientName: this.currentClientName || null,
-                        location: this.currentLocation || null,
-                        booked: this.currentBooked || false
+                        location: this.currentLocation || null
                     })
                 });
 
@@ -1656,9 +1653,6 @@ class QuoteCalculator {
         const leadSource = window.LeadSources
             ? LeadSources.getLeadSourceFromForm()
             : document.getElementById('leadSource').value.trim();
-        const booked = document.getElementById('bookedCheckbox').checked;
-        const wasPreviouslyBooked = this.currentBooked || false;
-        
         if (!title) {
             showAlertModal('Please enter a quote title.', 'error');
             return;
@@ -1707,7 +1701,6 @@ class QuoteCalculator {
                     clientName: clientName || null,
                     location: location || null,
                     leadSource: leadSource || null,
-                    booked: booked,
                     projectId: projectId
                 })
             });
@@ -1723,7 +1716,7 @@ class QuoteCalculator {
                     'Cancel'
                 );
                 if (overwrite) {
-                    await this.overwriteQuote(title, quoteData, clientName, location, leadSource, booked, wasPreviouslyBooked, projectId);
+                    await this.overwriteQuote(title, quoteData, clientName, location, leadSource, projectId);
                     // If we're renaming, delete the old quote after successful overwrite
                     if (isRenaming) {
                         await this.deleteOldQuote(oldQuoteName);
@@ -1740,7 +1733,6 @@ class QuoteCalculator {
                 this.currentClientName = clientName || null;
                 this.currentLocation = location || null;
                 this.currentLeadSource = leadSource || null;
-                this.currentBooked = booked;
                 this.currentProjectId = projectId || null;
                 this.currentQuoteTitle = title; // Update the main page title
                 this.lastSavedTime = new Date();
@@ -1755,10 +1747,6 @@ class QuoteCalculator {
                 this.saveDraftToLocalStorage(true);
 
                 this.closeSaveModal();
-
-                if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
-                    await window.LumDashIntegration.onQuoteMarkedAsBooked(title, wasPreviouslyBooked);
-                }
 
                 showAlertModal('Quote saved successfully!', 'success', null, true);
             } else {
@@ -1897,7 +1885,6 @@ class QuoteCalculator {
                     clientName: this.currentClientName || null,
                     location: this.currentLocation || null,
                     leadSource: this.currentLeadSource || null,
-                    booked: this.currentBooked || false,
                     // undefined is dropped by JSON.stringify → server leaves project link untouched
                     projectId: this.currentProjectId || undefined
                 })
@@ -1919,7 +1906,6 @@ class QuoteCalculator {
                         clientName: this.currentClientName || null,
                         location: this.currentLocation || null,
                         leadSource: this.currentLeadSource || null,
-                        booked: this.currentBooked || false,
                         projectId: this.currentProjectId || undefined
                     })
                 });
@@ -1940,7 +1926,6 @@ class QuoteCalculator {
                             clientName: this.currentClientName || null,
                             location: this.currentLocation || null,
                             leadSource: this.currentLeadSource || null,
-                            booked: this.currentBooked || false,
                             projectId: this.currentProjectId || undefined
                         })
                     });
@@ -1968,22 +1953,26 @@ class QuoteCalculator {
 
     updateQuoteActionsMenu() {
         const menuBtn = document.getElementById('calculatorQuoteMenuBtn');
-        const bookedBtn = document.getElementById('calculatorToggleBookedBtn');
         const archiveBtn = document.getElementById('calculatorArchiveBtn');
         const projectBtn = document.getElementById('calculatorGoToProjectBtn');
+        const convertBtn = document.getElementById('calculatorConvertToProjectBtn');
+        const transferBtn = document.getElementById('calculatorTransferLumDashBtn');
 
         if (!menuBtn) return;
 
         menuBtn.disabled = !this.currentQuoteName;
 
-        if (bookedBtn) {
-            bookedBtn.textContent = this.currentBooked ? 'Mark as Not Booked' : 'Mark as Booked';
-        }
         if (archiveBtn) {
             archiveBtn.textContent = this.currentArchived ? 'Unarchive' : 'Archive';
         }
         if (projectBtn) {
             projectBtn.style.display = this.currentProjectId ? '' : 'none';
+        }
+        if (convertBtn) {
+            convertBtn.style.display = this.currentQuoteName && !this.currentProjectId ? '' : 'none';
+        }
+        if (transferBtn) {
+            transferBtn.style.display = this.currentProjectId ? '' : 'none';
         }
         this.updateProjectChip();
     }
@@ -2072,40 +2061,39 @@ class QuoteCalculator {
         return this.currentQuoteName;
     }
 
-    async handleToggleBooked() {
+    async handleConvertToProject() {
         this.closeQuoteActionsMenu();
 
         try {
             const quoteName = await this.ensureQuoteSavedForAction();
-            const wasPreviouslyBooked = this.currentBooked;
-            const newBookedStatus = !this.currentBooked;
+            if (this.currentProjectId) {
+                window.location.href = `/projects/${this.currentProjectId}`;
+                return;
+            }
 
-            const response = await fetch(`/api/update-quote-metadata/${encodeURIComponent(quoteName)}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    newName: quoteName,
-                    booked: newBookedStatus
-                })
+            const confirmed = await showConfirmModal(
+                `Create a project from "${quoteName}"? You can book it and transfer to LumDash from the project.`,
+                'Convert to Project',
+                'Create Project',
+                'Cancel'
+            );
+            if (!confirmed) return;
+
+            const response = await fetch(`/api/quotes/${encodeURIComponent(quoteName)}/convert-to-project`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
             });
-
             const result = await response.json();
             if (!response.ok) {
-                throw new Error(result.error || 'Failed to update booked status');
+                throw new Error(result.error || 'Failed to convert quote to project');
             }
 
-            this.currentBooked = newBookedStatus;
-            this.saveDraftToLocalStorage(true);
+            this.currentProjectId = result.projectId;
             this.updateQuoteActionsMenu();
-
-            if (newBookedStatus && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
-                await window.LumDashIntegration.onQuoteMarkedAsBooked(quoteName, wasPreviouslyBooked);
-            }
-
-            showAlertModal(`Quote marked as ${newBookedStatus ? 'booked' : 'not booked'}!`, 'success', null, true);
+            window.location.href = `/projects/${result.projectId}`;
         } catch (error) {
-            console.error('Error updating booked status:', error);
-            showAlertModal('Failed to update booked status. Please try again.', 'error');
+            console.error('Error converting quote to project:', error);
+            showAlertModal(error.message || 'Failed to convert quote to project.', 'error');
         }
     }
 
@@ -2113,25 +2101,19 @@ class QuoteCalculator {
         this.closeQuoteActionsMenu();
 
         try {
-            const quoteName = await this.ensureQuoteSavedForAction();
-            const response = await fetch(`/api/load-quote/${encodeURIComponent(quoteName)}`);
-            if (!response.ok) {
-                throw new Error('Failed to load quote data');
+            await this.ensureQuoteSavedForAction();
+            if (!this.currentProjectId) {
+                showAlertModal('Convert this quote to a project first, then transfer from the project.', 'error');
+                return;
             }
-
-            const fullQuote = await response.json();
-            if (fullQuote.error) {
-                throw new Error(fullQuote.error);
-            }
-
-            if (window.LumDashIntegration) {
-                await window.LumDashIntegration.transferToLumDash(fullQuote);
-            } else {
+            if (!window.LumDashIntegration?.transferProjectToLumDash) {
                 showAlertModal('LumDash integration not loaded.', 'error');
+                return;
             }
+            await window.LumDashIntegration.transferProjectToLumDash(this.currentProjectId);
         } catch (error) {
             console.error('Error transferring to LumDash:', error);
-            showAlertModal('Failed to transfer quote to LumDash.', 'error');
+            showAlertModal('Failed to transfer project to LumDash.', 'error');
         }
     }
 
@@ -2257,17 +2239,14 @@ class QuoteCalculator {
         }
     }
 
-    async overwriteQuote(name, quoteData, clientName, location, leadSource, booked, wasPreviouslyBooked = null, projectId = undefined) {
-        const prevBooked = wasPreviouslyBooked ?? this.currentBooked ?? false;
-
+    async overwriteQuote(name, quoteData, clientName, location, leadSource, projectId = undefined) {
         try {
             const payload = { 
                 name, 
                 quoteData,
                 clientName: clientName || null,
                 location: location || null,
-                leadSource: leadSource || null,
-                booked: booked
+                leadSource: leadSource || null
             };
             if (projectId !== undefined) {
                 payload.projectId = projectId;
@@ -2288,7 +2267,6 @@ class QuoteCalculator {
                 this.currentClientName = clientName || null;
                 this.currentLocation = location || null;
                 this.currentLeadSource = leadSource || null;
-                this.currentBooked = booked;
                 if (projectId !== undefined) {
                     this.currentProjectId = projectId || null;
                 }
@@ -2303,10 +2281,6 @@ class QuoteCalculator {
                 this.updateQuoteActionsMenu();
                 
                 this.closeSaveModal();
-
-                if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
-                    await window.LumDashIntegration.onQuoteMarkedAsBooked(name, prevBooked);
-                }
 
                 showAlertModal('Quote updated successfully!', 'success', null, true);
             } else {
@@ -4463,7 +4437,6 @@ async function saveAsCopy() {
     const leadSource = window.LeadSources
         ? LeadSources.getLeadSourceFromForm()
         : document.getElementById('leadSource').value.trim();
-    const booked = document.getElementById('bookedCheckbox').checked;
     
     if (!title) {
         showAlertModal('Please enter a quote title.', 'error');
@@ -4511,7 +4484,6 @@ async function saveAsCopy() {
                 clientName: clientName || null,
                 location: location || null,
                 leadSource: leadSource || null,
-                booked: booked,
                 projectId: projectId
             })
         });
@@ -4535,7 +4507,6 @@ async function saveAsCopy() {
                         clientName: clientName || null,
                         location: location || null,
                         leadSource: leadSource || null,
-                        booked: booked,
                         projectId: projectId
                     })
                 });
@@ -4547,16 +4518,13 @@ async function saveAsCopy() {
                     calculator.currentClientName = clientName || null;
                     calculator.currentLeadSource = leadSource || null;
                     calculator.currentQuoteTitle = uniqueTitle;
-                    calculator.currentBooked = booked;
+                    calculator.currentProjectId = projectId || null;
                     
                     // Update displays
                     calculator.updateQuoteTitleDisplay();
                     calculator.updateClientDisplay();
+                    calculator.updateQuoteActionsMenu();
                     calculator.closeSaveModal();
-
-                    if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
-                        await window.LumDashIntegration.onQuoteMarkedAsBooked(uniqueTitle, false);
-                    }
 
                     showAlertModal(`Quote saved as "${uniqueTitle}"!`, 'success', null, true);
                     break;
@@ -4572,16 +4540,13 @@ async function saveAsCopy() {
             calculator.currentClientName = clientName || null;
             calculator.currentLeadSource = leadSource || null;
             calculator.currentQuoteTitle = copyTitle;
-            calculator.currentBooked = booked;
+            calculator.currentProjectId = projectId || null;
             
             // Update displays
             calculator.updateQuoteTitleDisplay();
             calculator.updateClientDisplay();
+            calculator.updateQuoteActionsMenu();
             calculator.closeSaveModal();
-
-            if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
-                await window.LumDashIntegration.onQuoteMarkedAsBooked(copyTitle, false);
-            }
 
             showAlertModal(`Quote saved as "${copyTitle}"!`, 'success', null, true);
         } else {

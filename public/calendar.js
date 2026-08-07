@@ -35,23 +35,26 @@ class CalendarView {
             }
         });
 
-        // Open quote button
-        document.getElementById('openQuoteBtn').addEventListener('click', () => {
-            if (this.currentEventData) {
-                this.loadQuote(this.currentEventData.extendedProps.quoteName);
+        document.getElementById('openPrimaryBtn').addEventListener('click', () => {
+            if (!this.currentEventData) return;
+            const props = this.currentEventData.extendedProps || {};
+            if (props.type === 'project' && props.projectId) {
+                window.location.href = `/projects/${props.projectId}`;
+                return;
+            }
+            if (props.quoteName) {
+                this.loadQuote(props.quoteName);
             }
         });
 
-        // Toggle booked button
-        document.getElementById('toggleBookedBtn').addEventListener('click', () => {
-            if (this.currentEventData) {
-                this.toggleBookedStatus(this.currentEventData);
+        document.getElementById('convertToProjectBtn').addEventListener('click', () => {
+            if (this.currentEventData?.extendedProps?.type === 'quote') {
+                this.convertQuoteToProject(this.currentEventData);
             }
         });
 
-        // Toggle archive button
         document.getElementById('toggleArchiveBtn').addEventListener('click', () => {
-            if (this.currentEventData) {
+            if (this.currentEventData?.extendedProps?.type === 'quote') {
                 this.toggleArchiveStatus(this.currentEventData);
             }
         });
@@ -210,10 +213,13 @@ class CalendarView {
     }
 
     applyEventStyles(eventElement, event) {
-        const isBooked = event.extendedProps?.booked || false;
+        const props = event.extendedProps || {};
         eventElement.classList.add('calendar-event');
-        if (isBooked) {
-            eventElement.classList.add('calendar-event--booked');
+        if (props.type === 'project') {
+            eventElement.classList.add('calendar-event--project');
+            if (props.confirmed) {
+                eventElement.classList.add('calendar-event--project-confirmed');
+            }
         }
     }
 
@@ -223,7 +229,7 @@ class CalendarView {
 
         if (!this.events || this.events.length === 0) {
             banner.style.display = 'block';
-            banner.textContent = 'No scheduled quote events yet. Add service dates on a quote to see events on the calendar.';
+            banner.textContent = 'No scheduled projects or unlinked quotes yet. Set project dates (or quote service dates) to see events here.';
         } else {
             banner.style.display = 'none';
             banner.textContent = '';
@@ -532,36 +538,70 @@ class CalendarView {
     }
 
     showEventTooltip(event, targetElement) {
-        this.hideTooltip(); // Hide any existing tooltip
+        this.hideTooltip();
         
         this.currentEventData = event;
         const tooltip = document.getElementById('eventTooltip');
-        
-        // Populate tooltip content
+        const props = event.extendedProps || {};
+        const isProject = props.type === 'project';
+
         document.getElementById('tooltipTitle').textContent = event.title;
-        document.getElementById('tooltipClient').textContent = event.extendedProps.clientName || 'No client specified';
-        document.getElementById('tooltipTotal').textContent = this.formatCurrency(event.extendedProps.total);
-        document.getElementById('tooltipServices').textContent = event.extendedProps.totalServices;
-        document.getElementById('tooltipDays').textContent = event.extendedProps.dayCount;
+        document.getElementById('tooltipClient').textContent = props.clientName || 'No client specified';
 
-        // Update toggle booked button text based on current status
-        const isBooked = event.extendedProps.booked || false;
-        const toggleBookedBtn = document.getElementById('toggleBookedBtn');
-        toggleBookedBtn.textContent = isBooked ? 'Mark as Not Booked' : 'Mark as Booked';
+        const setRow = (rowId, visible) => {
+            const row = document.getElementById(rowId);
+            if (row) row.style.display = visible ? '' : 'none';
+        };
 
-        // Show tooltip first to get accurate dimensions
+        setRow('tooltipStatusRow', isProject);
+        setRow('tooltipQuotesRow', isProject);
+        setRow('tooltipInvoicesRow', isProject);
+        setRow('tooltipTotalRow', !isProject);
+        setRow('tooltipServicesRow', !isProject);
+        setRow('tooltipDaysRow', !isProject);
+
+        if (isProject) {
+            const statusLabels = {
+                lead: 'Lead',
+                quoted: 'Quoted',
+                booked: 'Booked',
+                contract_signed: 'Contract Signed',
+                invoiced: 'Invoiced',
+                paid: 'Paid',
+                complete: 'Complete'
+            };
+            document.getElementById('tooltipStatus').textContent = statusLabels[props.status] || props.status || 'Lead';
+            document.getElementById('tooltipQuotes').textContent = String(props.quoteCount || 0);
+            const invCount = props.invoiceCount || 0;
+            const paid = this.formatCurrency(props.totalPaid || 0);
+            const invoiced = this.formatCurrency(props.totalInvoiced || 0);
+            document.getElementById('tooltipInvoices').textContent = invCount
+                ? `${invCount} · ${paid} paid of ${invoiced}`
+                : 'None';
+        } else {
+            document.getElementById('tooltipTotal').textContent = this.formatCurrency(props.total);
+            document.getElementById('tooltipServices').textContent = props.totalServices ?? 0;
+            document.getElementById('tooltipDays').textContent = props.dayCount ?? 0;
+        }
+
+        const openBtn = document.getElementById('openPrimaryBtn');
+        openBtn.textContent = isProject ? 'Open Project' : 'Open Quote';
+
+        const convertBtn = document.getElementById('convertToProjectBtn');
+        const toggleArchiveBtn = document.getElementById('toggleArchiveBtn');
+        convertBtn.style.display = isProject ? 'none' : '';
+        toggleArchiveBtn.style.display = isProject ? 'none' : '';
+
         tooltip.style.display = 'block';
         tooltip.style.left = '0px';
         tooltip.style.top = '0px';
         
-        // Position tooltip after it's visible
         const rect = targetElement.getBoundingClientRect();
         const tooltipRect = tooltip.getBoundingClientRect();
         
         let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
         let top = rect.bottom + 10;
         
-        // Adjust position if tooltip goes off screen
         const padding = 10;
         if (left < padding) {
             left = padding;
@@ -591,14 +631,17 @@ class CalendarView {
     }
 
     showAllEventsForDay(date, events) {
-        // Create a simple modal or expanded view showing all events for the day
-        const eventsList = events.map(event => 
-            `<div class="day-event-item">
+        const eventsList = events.map((event) => {
+            const props = event.extendedProps || {};
+            const detail = props.type === 'project'
+                ? `${props.quoteCount || 0} quote(s)`
+                : `Total: ${this.formatCurrency(props.total)}`;
+            return `<div class="day-event-item">
                 <strong>${event.title}</strong>
-                ${event.extendedProps.clientName ? `<br>Client: ${event.extendedProps.clientName}` : ''}
-                <br>Total: ${this.formatCurrency(event.extendedProps.total)}
-            </div>`
-        ).join('');
+                ${props.clientName ? `<br>Client: ${props.clientName}` : ''}
+                <br>${detail}
+            </div>`;
+        }).join('');
 
         const dateStr = date.toLocaleDateString('en-US', { 
             weekday: 'long', 
@@ -639,46 +682,35 @@ class CalendarView {
         }
     }
 
-    async toggleBookedStatus(event) {
+    async convertQuoteToProject(event) {
         const quoteName = event.extendedProps.quoteName;
-        const currentBooked = event.extendedProps.booked || false;
-        const newBookedStatus = !currentBooked;
+        if (!quoteName) return;
+
+        const confirmed = await showConfirmModal(
+            `Create a project from "${quoteName}"? You can book it and transfer to LumDash from the project.`,
+            'Convert to Project',
+            'Create Project',
+            'Cancel'
+        );
+        if (!confirmed) return;
 
         try {
             this.showLoading(true);
             this.hideTooltip();
 
-            const response = await fetch(`/api/update-quote-metadata/${encodeURIComponent(quoteName)}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    newName: quoteName,
-                    booked: newBookedStatus
-                })
+            const response = await fetch(`/api/quotes/${encodeURIComponent(quoteName)}/convert-to-project`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
             });
-
             const result = await response.json();
-
             if (!response.ok) {
-                throw new Error(result.error || 'Failed to update booked status');
+                throw new Error(result.error || 'Failed to convert quote to project');
             }
 
-            if (newBookedStatus && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
-                await window.LumDashIntegration.onQuoteMarkedAsBooked(quoteName, currentBooked);
-            }
-
-            await this.loadEvents({ silent: true });
-            this.renderCalendar();
-
-            const statusText = newBookedStatus ? 'booked' : 'not booked';
-            this.showAlert(`Quote "${quoteName}" marked as ${statusText}!`, 'success');
-
+            window.location.href = `/projects/${result.projectId}`;
         } catch (error) {
-            console.error('Error updating booked status:', error);
-            this.showAlert('Failed to update booked status. Please try again.', 'error');
-        } finally {
+            console.error('Error converting quote to project:', error);
+            this.showAlert(error.message || 'Failed to convert quote to project.', 'error');
             this.showLoading(false);
         }
     }

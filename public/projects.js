@@ -120,7 +120,7 @@ class ProjectsManager {
             if (status) params.append('status', status);
             if (date) params.append('date', date);
             if (this.when && this.when !== 'all') params.append('when', this.when);
-            const sortable = ['name', 'client', 'dates', 'status', 'contract', 'invoices'];
+            const sortable = ['name', 'client', 'dates', 'status', 'contract', 'invoices', 'owner', 'created'];
             if (sortable.includes(this.sortColumn)) {
                 params.append('sortBy', this.sortColumn);
                 params.append('sortDir', this.sortDirection === 'desc' ? 'desc' : 'asc');
@@ -203,27 +203,45 @@ class ProjectsManager {
                 </div>
             </div>`;
 
+        const isBookedPlus = CRM.isBookedPlus(project.status);
+        const bookedBadge = isBookedPlus
+            ? '<span class="crm-chip crm-chip--booked crm-booked-badge" title="Booked or later">Booked</span>'
+            : '';
+
         return `
-            <tr class="quote-row is-clickable" onclick="window.location.href='/projects/${project._id}'">
+            <tr class="quote-row is-clickable${isBookedPlus ? ' project-row--booked' : ''}" onclick="window.location.href='/projects/${project._id}'">
                 <td class="quote-title-cell">
-                    <span class="crm-project-name">${CRM.escapeHtml(project.name)}</span>
+                    <span class="crm-project-name-wrap">
+                        <span class="crm-project-name">${CRM.escapeHtml(project.name)}</span>
+                        ${bookedBadge}
+                    </span>
                 </td>
                 <td>${clientLabel}</td>
                 <td>${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</td>
                 <td onclick="event.stopPropagation()">${statusSelect}</td>
                 <td>${CRM.contractStatusChip(project.contractStatus)}</td>
                 <td>${invoiceCell}</td>
+                <td class="col-hide-sm">${project.createdBy?.name
+                    ? CRM.escapeHtml(project.createdBy.name)
+                    : '<span class="crm-inline-note">—</span>'}</td>
+                <td class="col-hide-sm">${project.createdAt
+                    ? CRM.escapeHtml(CRM.formatDate(project.createdAt))
+                    : '<span class="crm-inline-note">—</span>'}</td>
                 <td class="actions-cell" onclick="event.stopPropagation()">${menu}</td>
             </tr>`;
     }
 
     async changeStatus(id, status) {
+        const project = this.projects.find((p) => String(p._id) === String(id));
+        const previousStatus = project?.status || 'lead';
         try {
             await CRM.api(`/api/projects/${id}`, { method: 'PUT', body: { status } });
-            const project = this.projects.find((p) => String(p._id) === String(id));
             if (project) project.status = status;
             this.render();
             showToast?.('Status updated', 'success');
+            if (status === 'booked' && window.LumDashIntegration?.onProjectMarkedAsBooked) {
+                await window.LumDashIntegration.onProjectMarkedAsBooked(id, previousStatus);
+            }
         } catch (error) {
             showAlertModal(error.message, 'error');
             this.render();

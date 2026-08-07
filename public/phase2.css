@@ -765,12 +765,20 @@ body[data-app-page="quotes"] .app-page-subtitle {
   filter: brightness(0.95);
 }
 
-.calendar-event--booked {
-  background: #dc2626 !important;
+.calendar-event--project {
+  background: #0f766e !important;
 }
 
-.calendar-event--booked:hover {
-  filter: brightness(0.92);
+.calendar-event--project:hover {
+  filter: brightness(0.95);
+}
+
+.calendar-event--project-confirmed {
+  background: #b45309 !important;
+}
+
+.calendar-event--project-confirmed:hover {
+  filter: brightness(0.95);
 }
 
 .calendar-legend {
@@ -782,12 +790,16 @@ body[data-app-page="quotes"] .app-page-subtitle {
   padding: var(--space-4) var(--space-5);
 }
 
-.legend-color.quote-event {
-  background: var(--color-primary);
+.legend-color.project-event {
+  background: #0f766e;
 }
 
-.legend-color.booked-event {
-  background: #dc2626;
+.legend-color.project-confirmed-event {
+  background: #b45309;
+}
+
+.legend-color.quote-event {
+  background: var(--color-primary);
 }
 
 .calendar-empty-banner {

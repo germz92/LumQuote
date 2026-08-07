@@ -40,6 +40,21 @@
   color: var(--color-text);
 }
 
+.projects-table .crm-project-name-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.projects-table .crm-booked-badge {
+  flex-shrink: 0;
+}
+
+.projects-table tr.project-row--booked td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-primary);
+}
+
 .projects-table td { vertical-align: middle; }
 
 .crm-empty {
@@ -791,6 +806,114 @@
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Invoices list ---------- */
+
+.invoice-row { cursor: pointer; }
+.invoice-row:hover td { background: #f8fafc; }
+
+.invoice-caret .caret {
+  display: inline-block;
+  color: var(--color-text-secondary);
+  transition: transform var(--transition-fast);
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.invoice-caret .caret.open { transform: rotate(90deg); }
+
+.invoice-number { font-weight: var(--font-weight-semibold); color: var(--color-text); }
+
+.invoice-project-link {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+}
+
+.invoice-project-link:hover { text-decoration: underline; }
+
+.invoice-plan-summary {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* Expanded schedule: full-width inset panel under the parent row */
+.invoice-row.is-open td {
+  border-bottom-color: transparent;
+  background: #f8fafc;
+}
+
+.invoice-plan-row > td {
+  background: #f8fafc;
+  padding: 0 16px 14px 40px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.invoice-plan-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px 6px;
+  box-shadow: var(--shadow-sm);
+}
+
+.invoice-plan-panel-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin: 0 0 6px 2px;
+}
+
+.invoice-plan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  table-layout: fixed;
+}
+
+.invoice-plan-table th {
+  text-align: left;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+  background: transparent;
+}
+
+.invoice-plan-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  white-space: normal;
+  vertical-align: middle;
+}
+
+.invoice-plan-table tbody tr:last-child td { border-bottom: none; }
+
+.invoice-plan-col-payment { width: 22%; color: var(--color-text); font-weight: var(--font-weight-medium); }
+.invoice-plan-col-due { width: 46%; }
+.invoice-plan-col-amount { width: 16%; }
+.invoice-plan-col-status { width: 16%; }
+
+.invoice-plan-table .num,
+.invoice-plan-col-amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.invoice-plan-col-status { text-align: right; }
+
+.invoices-table th,
+.invoices-table td { white-space: nowrap; vertical-align: middle; }
+
+.invoices-table td:nth-child(2) { white-space: normal; min-width: 120px; }
 
 /* ---------- Clients page ---------- */
 

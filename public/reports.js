@@ -1,11 +1,19 @@
 class ReportsManager {
     constructor() {
         this.reportData = null;
+        this.cardIds = [
+            'pipelineByStatus',
+            'cashSummary',
+            'topClientsByPaid',
+            'topClientsByProjects',
+            'topCities',
+            'topSources',
+            'topCategories'
+        ];
         this.init();
     }
 
     async init() {
-        // Set default date range to current month
         this.setCurrentMonthDates();
         await this.loadReports();
     }
@@ -14,7 +22,7 @@ class ReportsManager {
         const now = new Date();
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        
+
         document.getElementById('startDate').value = this.formatDateForInput(firstDay);
         document.getElementById('endDate').value = this.formatDateForInput(lastDay);
     }
@@ -34,10 +42,9 @@ class ReportsManager {
 
         if (preset === 'custom') {
             customRange.classList.add('visible');
-            return; // Don't reload, wait for user to set dates
-        } else {
-            customRange.classList.remove('visible');
+            return;
         }
+        customRange.classList.remove('visible');
 
         switch (preset) {
             case 'current-month':
@@ -48,11 +55,12 @@ class ReportsManager {
                 startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
                 endDate = new Date(now.getFullYear(), now.getMonth(), 0);
                 break;
-            case 'current-quarter':
+            case 'current-quarter': {
                 const currentQuarter = Math.floor(now.getMonth() / 3);
                 startDate = new Date(now.getFullYear(), currentQuarter * 3, 1);
                 endDate = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
                 break;
+            }
             case 'current-year':
                 startDate = new Date(now.getFullYear(), 0, 1);
                 endDate = new Date(now.getFullYear(), 11, 31);
@@ -70,39 +78,22 @@ class ReportsManager {
                 endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         }
 
-        if (startDate) {
-            document.getElementById('startDate').value = this.formatDateForInput(startDate);
-        } else {
-            document.getElementById('startDate').value = '';
-        }
-        
-        if (endDate) {
-            document.getElementById('endDate').value = this.formatDateForInput(endDate);
-        } else {
-            document.getElementById('endDate').value = '';
-        }
-
+        document.getElementById('startDate').value = startDate ? this.formatDateForInput(startDate) : '';
+        document.getElementById('endDate').value = endDate ? this.formatDateForInput(endDate) : '';
         this.loadReports();
     }
 
     async loadReports() {
         try {
-            // Show loading spinners
             this.showLoading();
 
-            // Build query params
             const params = new URLSearchParams();
-            
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
-            const booked = document.getElementById('bookedFilter').value;
-
             if (startDate) params.append('startDate', startDate);
             if (endDate) params.append('endDate', endDate);
-            if (booked && booked !== 'all') params.append('booked', booked);
 
             const response = await fetch(`/api/reports?${params.toString()}`);
-            
             if (!response.ok) {
                 throw new Error('Failed to load reports');
             }
@@ -116,28 +107,26 @@ class ReportsManager {
     }
 
     showLoading() {
-        const containers = ['topClientsByAmount', 'topClientsByCount', 'topCities', 'topSources', 'topCategories'];
-        containers.forEach(id => {
-            document.getElementById(id).innerHTML = '<div class="loading-spinner"></div>';
+        this.cardIds.forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = '<div class="loading-spinner"></div>';
         });
     }
 
     showError() {
-        const containers = ['topClientsByAmount', 'topClientsByCount', 'topCities', 'topSources', 'topCategories'];
-        containers.forEach(id => {
-            document.getElementById(id).innerHTML = this.getNoDataHTML('Error loading data', 'alert');
+        this.cardIds.forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = this.getNoDataHTML('Error loading data', 'alert');
         });
     }
 
     renderReports() {
         if (!this.reportData) return;
-
-        // Update summary cards
         this.renderSummary();
-
-        // Render each report section
-        this.renderTopClientsByAmount();
-        this.renderTopClientsByCount();
+        this.renderPipelineByStatus();
+        this.renderCashSummary();
+        this.renderTopClientsByPaid();
+        this.renderTopClientsByProjects();
         this.renderTopCities();
         this.renderTopSources();
         this.renderTopCategories();
@@ -145,32 +134,67 @@ class ReportsManager {
 
     renderSummary() {
         const { summary } = this.reportData;
-        
-        document.getElementById('totalQuotes').textContent = summary.totalQuotes.toLocaleString();
-        document.getElementById('totalInvoice').textContent = this.formatCurrency(summary.totalInvoiceAmount);
-        document.getElementById('bookedCount').textContent = summary.bookedCount.toLocaleString();
-        document.getElementById('notBookedCount').textContent = summary.notBookedCount.toLocaleString();
-        document.getElementById('conversionRate').textContent = `${summary.conversionRate}% conversion`;
+        document.getElementById('totalProjects').textContent = (summary.totalProjects || 0).toLocaleString();
+        document.getElementById('bookedPlusCount').textContent = (summary.bookedPlusCount || 0).toLocaleString();
+        document.getElementById('conversionRate').textContent = `${summary.conversionRate || 0}% conversion`;
+        document.getElementById('quotedTotal').textContent = this.formatCurrency(summary.quotedTotal);
+        document.getElementById('invoicedTotal').textContent = this.formatCurrency(summary.invoicedTotal);
+        document.getElementById('paidTotal').textContent = this.formatCurrency(summary.paidTotal);
+        document.getElementById('outstandingTotal').textContent = this.formatCurrency(summary.outstandingTotal);
     }
 
-    renderTopClientsByAmount() {
-        const container = document.getElementById('topClientsByAmount');
-        const data = this.reportData.topClientsByAmount;
+    renderPipelineByStatus() {
+        const container = document.getElementById('pipelineByStatus');
+        const data = this.reportData.pipelineByStatus || [];
+        const withActivity = data.filter((row) => row.count > 0);
 
-        if (!data || data.length === 0) {
-            container.innerHTML = this.getNoDataHTML('No client data available');
+        if (withActivity.length === 0) {
+            container.innerHTML = this.getNoDataHTML('No projects in this period');
             return;
         }
 
-        const maxTotal = data[0]?.total || 1;
+        const maxCount = Math.max(...withActivity.map((row) => row.count), 1);
         container.innerHTML = `
             <ul class="report-list">
-                ${data.map((item, index) => `
+                ${withActivity.map((item) => `
                     <li class="report-list-item">
-                        <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
                         <div class="info">
-                            <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${item.count} event${item.count !== 1 ? 's' : ''}</div>
+                            <div class="name">${this.escapeHtml(item.label)}</div>
+                            <div class="details">${this.formatCurrency(item.quotedTotal)} quoted</div>
+                        </div>
+                        <div class="stats">
+                            <div class="primary-stat">${item.count} project${item.count !== 1 ? 's' : ''}</div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" style="width: ${(item.count / maxCount) * 100}%"></div>
+                            </div>
+                        </div>
+                    </li>
+                `).join('')}
+            </ul>
+        `;
+    }
+
+    renderCashSummary() {
+        const container = document.getElementById('cashSummary');
+        const cash = this.reportData.cash || {};
+        const rows = [
+            { label: 'Invoiced', total: cash.invoicedTotal || 0 },
+            { label: 'Paid', total: cash.paidTotal || 0 },
+            { label: 'Outstanding', total: cash.outstandingTotal || 0 }
+        ];
+        const maxTotal = Math.max(...rows.map((r) => r.total), 1);
+
+        if (rows.every((r) => r.total === 0)) {
+            container.innerHTML = this.getNoDataHTML('No invoice activity in this period');
+            return;
+        }
+
+        container.innerHTML = `
+            <ul class="report-list reports-cash-list">
+                ${rows.map((item) => `
+                    <li class="report-list-item">
+                        <div class="info">
+                            <div class="name">${this.escapeHtml(item.label)}</div>
                         </div>
                         <div class="stats">
                             <div class="primary-stat">${this.formatCurrency(item.total)}</div>
@@ -184,12 +208,43 @@ class ReportsManager {
         `;
     }
 
-    renderTopClientsByCount() {
-        const container = document.getElementById('topClientsByCount');
-        const data = this.reportData.topClientsByCount;
+    renderTopClientsByPaid() {
+        const container = document.getElementById('topClientsByPaid');
+        const data = this.reportData.topClientsByPaid;
 
         if (!data || data.length === 0) {
-            container.innerHTML = this.getNoDataHTML('No client data available');
+            container.innerHTML = this.getNoDataHTML('No paid invoice data available');
+            return;
+        }
+
+        const maxTotal = data[0]?.total || 1;
+        container.innerHTML = `
+            <ul class="report-list">
+                ${data.map((item, index) => `
+                    <li class="report-list-item">
+                        <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
+                        <div class="info">
+                            <div class="name">${this.escapeHtml(item.name)}</div>
+                            <div class="details">${item.count} invoice${item.count !== 1 ? 's' : ''}</div>
+                        </div>
+                        <div class="stats">
+                            <div class="primary-stat">${this.formatCurrency(item.total)}</div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" style="width: ${(item.total / maxTotal) * 100}%"></div>
+                            </div>
+                        </div>
+                    </li>
+                `).join('')}
+            </ul>
+        `;
+    }
+
+    renderTopClientsByProjects() {
+        const container = document.getElementById('topClientsByProjects');
+        const data = this.reportData.topClientsByProjects;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = this.getNoDataHTML('No project data available');
             return;
         }
 
@@ -201,10 +256,10 @@ class ReportsManager {
                         <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
                         <div class="info">
                             <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${this.formatCurrency(item.total)} total</div>
+                            <div class="details">${this.formatCurrency(item.quotedTotal)} quoted</div>
                         </div>
                         <div class="stats">
-                            <div class="primary-stat">${item.count} event${item.count !== 1 ? 's' : ''}</div>
+                            <div class="primary-stat">${item.count} project${item.count !== 1 ? 's' : ''}</div>
                             <div class="progress-bar-container">
                                 <div class="progress-bar" style="width: ${(item.count / maxCount) * 100}%"></div>
                             </div>
@@ -232,10 +287,10 @@ class ReportsManager {
                         <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
                         <div class="info">
                             <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${this.formatCurrency(item.total)} total</div>
+                            <div class="details">${this.formatCurrency(item.total)} quoted</div>
                         </div>
                         <div class="stats">
-                            <div class="primary-stat">${item.count} event${item.count !== 1 ? 's' : ''}</div>
+                            <div class="primary-stat">${item.count} project${item.count !== 1 ? 's' : ''}</div>
                             <div class="progress-bar-container">
                                 <div class="progress-bar" style="width: ${(item.count / maxCount) * 100}%"></div>
                             </div>
@@ -263,10 +318,10 @@ class ReportsManager {
                         <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
                         <div class="info">
                             <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${this.formatCurrency(item.total)} total</div>
+                            <div class="details">${this.formatCurrency(item.total)} quoted</div>
                         </div>
                         <div class="stats">
-                            <div class="primary-stat">${item.count} event${item.count !== 1 ? 's' : ''}</div>
+                            <div class="primary-stat">${item.count} quote${item.count !== 1 ? 's' : ''}</div>
                             <div class="progress-bar-container">
                                 <div class="progress-bar" style="width: ${(item.count / maxCount) * 100}%"></div>
                             </div>
@@ -335,7 +390,6 @@ class ReportsManager {
     }
 }
 
-// Initialize the reports manager
 let reportsManager;
 document.addEventListener('DOMContentLoaded', () => {
     reportsManager = new ReportsManager();

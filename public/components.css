@@ -542,16 +542,6 @@ body.app-has-shell .header {
     border-bottom: none;
   }
 
-  body.app-has-shell[data-app-page="reports"] .main-content {
-    padding-top: 0;
-  }
-
-  body.app-has-shell[data-app-page="reports"] .app-page-header {
-    padding-top: var(--space-3);
-    padding-bottom: var(--space-2);
-    border-bottom: none;
-  }
-
   .app-page-header {
     flex-wrap: wrap;
   }

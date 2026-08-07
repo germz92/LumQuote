@@ -4,16 +4,6 @@
 
 /* ── Reports ─────────────────────────────────────────────────── */
 
-body[data-app-page="reports"] .main-content {
-  padding-top: var(--space-4);
-  padding-bottom: var(--space-8);
-  background: var(--color-bg);
-}
-
-body[data-app-page="reports"] .app-page-header {
-  padding-bottom: var(--space-3);
-}
-
 .reports-page {
   margin-top: 0;
   display: flex;
@@ -21,104 +11,20 @@ body[data-app-page="reports"] .app-page-header {
   gap: var(--space-4);
 }
 
-.reports-sticky-filters {
-  position: sticky;
-  top: var(--app-topbar-height, 56px);
-  z-index: 5;
-  margin: 0 calc(-1 * var(--space-6));
-  padding: var(--space-3) var(--space-6);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  flex-shrink: 0;
-}
-
-/* Small bleed mask when sticky — 100vh caused a white gap over the page header on mobile */
-.reports-sticky-filters::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  height: var(--space-6);
-  background: var(--color-surface);
-  z-index: -1;
-  pointer-events: none;
-}
-
-.reports-filters-bar,
-.reports-sticky-filters .filters-bar {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.reports-filters-bar .filter-group,
-.reports-sticky-filters .filters-bar .filter-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.reports-filters-bar .filter-group label,
-.reports-sticky-filters .filters-bar .filter-group label {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-  font-weight: var(--font-weight-medium);
-}
-
-.reports-filters-bar .filter-group select,
-.reports-filters-bar .filter-group input[type="date"],
-.reports-sticky-filters .filters-bar .filter-group select,
-.reports-sticky-filters .filters-bar .filter-group input[type="date"] {
-  padding: 8px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
-}
-
-.reports-filters-bar .filter-group select:focus,
-.reports-filters-bar .filter-group input[type="date"]:focus,
-.reports-sticky-filters .filters-bar .filter-group select:focus,
-.reports-sticky-filters .filters-bar .filter-group input[type="date"]:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-focus);
-}
-
-.reports-filters-bar .date-range-inputs,
-.reports-sticky-filters .filters-bar .date-range-inputs {
-  display: none;
-  gap: var(--space-2);
-  align-items: center;
-}
-
-.reports-filters-bar .date-range-inputs.visible,
-.reports-sticky-filters .filters-bar .date-range-inputs.visible {
-  display: flex;
-}
-
-.reports-filters-bar .date-range-inputs span,
-.reports-sticky-filters .filters-bar .date-range-inputs span {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
 /* Summary metrics strip (Stripe-style) */
 .reports-summary-strip,
 .reports-summary-cards,
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-6);
   flex-shrink: 0;
   position: relative;
+}
+
+.reports-cash-list .report-list-item .rank {
+  display: none;
 }
 
 .reports-metric-card {
@@ -378,10 +284,6 @@ body[data-app-page="reports"] .app-page-header {
   display: none;
 }
 
-body[data-app-page="reports"] .app-page-subtitle {
-  color: var(--color-text-secondary);
-}
-
 .reports-page .loading-spinner {
   display: flex;
   align-items: center;
@@ -583,30 +485,8 @@ body[data-app-page="calendar"] .app-page-header {
 /* ── Responsive ─────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  body[data-app-page="reports"] .app-page-header {
-    padding: var(--space-3) 0 var(--space-2);
-    border-bottom: none;
-  }
-
-  body[data-app-page="reports"] .main-content {
-    padding-top: 0;
-  }
-
   .reports-page {
     gap: var(--space-3);
-  }
-
-  .reports-sticky-filters {
-    position: static;
-    top: auto;
-    z-index: auto;
-    margin-left: calc(-1 * var(--space-4));
-    margin-right: calc(-1 * var(--space-4));
-    padding: var(--space-3) var(--space-4);
-  }
-
-  .reports-sticky-filters::before {
-    display: none;
   }
 
   .reports-summary-strip,
@@ -619,24 +499,6 @@ body[data-app-page="calendar"] .app-page-header {
 
   .reports-grid {
     grid-template-columns: 1fr;
-  }
-
-  .reports-filters-bar,
-  .reports-sticky-filters .filters-bar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-2);
-  }
-
-  .reports-filters-bar .filter-group,
-  .reports-sticky-filters .filters-bar .filter-group {
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-  }
-
-  .reports-sticky-filters .filters-bar .filter-group select {
-    width: 100%;
   }
 
   .admin-lumdash-card {

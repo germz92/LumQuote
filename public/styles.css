@@ -3573,12 +3573,16 @@ textarea:focus {
     border-radius: 3px;
 }
 
-.legend-color.quote-event {
-    background: #4f46e5;
+.legend-color.project-event {
+    background: #0f766e;
 }
 
-.legend-color.booked-event {
-    background: #dc2626;
+.legend-color.project-confirmed-event {
+    background: #b45309;
+}
+
+.legend-color.quote-event {
+    background: #4f46e5;
 }
 
 .legend-note {

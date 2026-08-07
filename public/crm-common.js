@@ -13,6 +13,12 @@ const CRM = {
         complete: 'Complete'
     },
 
+    BOOKED_PLUS_STATUSES: ['booked', 'contract_signed', 'invoiced', 'paid', 'complete'],
+
+    isBookedPlus(status) {
+        return this.BOOKED_PLUS_STATUSES.includes(status);
+    },
+
     CONTRACT_STATUS_LABELS: {
         none: 'None',
         draft: 'Draft',

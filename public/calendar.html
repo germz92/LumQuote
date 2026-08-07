@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="phase5.css">
     <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
 </head>
-<body data-app-page="calendar" data-app-title="Calendar" data-app-subtitle="Visual schedule of all saved quotes" data-app-show-back="true">
+<body data-app-page="calendar" data-app-title="Calendar" data-app-subtitle="Projects and unlinked quotes on one schedule" data-app-show-back="true">
     <div class="container">
         <main class="main-content">
             <div class="calendar-section">
@@ -53,14 +53,18 @@
 
                 <div class="calendar-legend">
                     <div class="legend-item">
-                        <div class="legend-color quote-event"></div>
-                        <span>Quote Events</span>
+                        <div class="legend-color project-event"></div>
+                        <span>Projects</span>
                     </div>
                     <div class="legend-item">
-                        <div class="legend-color booked-event"></div>
-                        <span>Booked Events</span>
+                        <div class="legend-color project-confirmed-event"></div>
+                        <span>Booked+ projects</span>
                     </div>
-                    <p class="legend-note">Click on any event to view quote details</p>
+                    <div class="legend-item">
+                        <div class="legend-color quote-event"></div>
+                        <span>Unlinked quotes</span>
+                    </div>
+                    <p class="legend-note">Quotes attached to a project appear under that project — not as separate bars. Invoices are not shown.</p>
                 </div>
                 </div>
             </div>
@@ -87,22 +91,34 @@
                     <span class="info-label">Client:</span>
                     <span id="tooltipClient">-</span>
                 </div>
-                <div class="tooltip-info">
+                <div class="tooltip-info" id="tooltipStatusRow" style="display: none;">
+                    <span class="info-label">Status:</span>
+                    <span id="tooltipStatus">-</span>
+                </div>
+                <div class="tooltip-info" id="tooltipTotalRow">
                     <span class="info-label">Total:</span>
                     <span id="tooltipTotal">$0</span>
                 </div>
-                <div class="tooltip-info">
+                <div class="tooltip-info" id="tooltipServicesRow">
                     <span class="info-label">Services:</span>
                     <span id="tooltipServices">0</span>
                 </div>
-                <div class="tooltip-info">
+                <div class="tooltip-info" id="tooltipDaysRow">
                     <span class="info-label">Days:</span>
                     <span id="tooltipDays">0</span>
                 </div>
+                <div class="tooltip-info" id="tooltipQuotesRow" style="display: none;">
+                    <span class="info-label">Quotes:</span>
+                    <span id="tooltipQuotes">0</span>
+                </div>
+                <div class="tooltip-info" id="tooltipInvoicesRow" style="display: none;">
+                    <span class="info-label">Invoices:</span>
+                    <span id="tooltipInvoices">-</span>
+                </div>
             </div>
             <div class="tooltip-actions">
-                <button class="tooltip-btn primary" id="openQuoteBtn">Open Quote</button>
-                <button class="tooltip-btn secondary" id="toggleBookedBtn">Mark as Booked</button>
+                <button class="tooltip-btn primary" id="openPrimaryBtn">Open</button>
+                <button class="tooltip-btn secondary" id="convertToProjectBtn">Convert to Project</button>
                 <button class="tooltip-btn secondary" id="toggleArchiveBtn">Archive</button>
             </div>
         </div>

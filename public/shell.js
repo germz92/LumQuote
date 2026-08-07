@@ -5,6 +5,7 @@ const APP_NAV = [
     { id: 'projects', label: 'Projects', href: '/projects' },
     { id: 'clients', label: 'Clients', href: '/clients' },
     { id: 'quotes', label: 'Quotes', href: '/quotes' },
+    { id: 'invoices', label: 'Invoices', href: '/invoices' },
     { id: 'calendar', label: 'Calendar', href: '/calendar' }
 ];
 
@@ -50,6 +51,7 @@ const AppShell = {
         const path = window.location.pathname.replace(/\/$/, '') || '/';
         if (path === '/quotes' || path === '/') return 'quotes';
         if (path === '/projects' || path.startsWith('/projects/')) return 'projects';
+        if (path === '/invoices') return 'invoices';
         if (path === '/clients') return 'clients';
         if (path === '/builder' || path === '/calculator' || path.startsWith('/quote')) return 'quote';
         if (path === '/calendar') return 'calendar';

@@ -74,8 +74,8 @@
                             </button>
                             <div class="quote-overflow-dropdown" id="calculatorQuoteDropdown" style="display: none;">
                                 <button type="button" class="overflow-menu-item" id="calculatorGoToProjectBtn" onclick="calculator.goToProject()" style="display: none;">Go to Project</button>
-                                <button type="button" class="overflow-menu-item" id="calculatorToggleBookedBtn" onclick="calculator.handleToggleBooked()">Mark as Booked</button>
-                                <button type="button" class="overflow-menu-item" onclick="calculator.handleTransferToLumDash()">Transfer to LumDash</button>
+                                <button type="button" class="overflow-menu-item" id="calculatorConvertToProjectBtn" onclick="calculator.handleConvertToProject()" style="display: none;">Convert to Project</button>
+                                <button type="button" class="overflow-menu-item" id="calculatorTransferLumDashBtn" onclick="calculator.handleTransferToLumDash()" style="display: none;">Transfer to LumDash</button>
                                 <button type="button" class="overflow-menu-item" id="calculatorArchiveBtn" onclick="calculator.handleArchive()">Archive</button>
                                 <button type="button" class="overflow-menu-item danger" onclick="calculator.handleDelete()">Delete</button>
                             </div>
@@ -252,12 +252,6 @@
                             <option value="__new__">+ Create new project from this quote</option>
                         </select>
                         <p class="field-hint">Attach this quote to a CRM project to manage its contract and invoices.</p>
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="bookedCheckbox">
-                            <span>Mark as Booked</span>
-                        </label>
                     </div>
                     <div class="modal-buttons">
                         <button type="button" class="secondary-button" onclick="closeSaveModal()">Cancel</button>

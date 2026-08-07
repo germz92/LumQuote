@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoices - LumQuote</title>
+    <link rel="stylesheet" href="design-tokens.css">
+    <link rel="stylesheet" href="components.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="phase2.css">
+    <link rel="stylesheet" href="phase5.css">
+    <link rel="stylesheet" href="crm.css">
+    <link rel="stylesheet" href="page-controls.css">
+    <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
+</head>
+<body data-app-page="invoices" data-app-title="Invoices" data-app-subtitle="All invoices across projects — status, payments, and schedules">
+    <div class="container">
+        <main class="main-content">
+            <div class="quotes-page-section">
+                <div class="page-controls-sticky">
+                <div class="page-controls">
+                    <div class="pc-search">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        </svg>
+                        <input type="text"
+                               id="searchInvoices"
+                               placeholder="Search invoices, clients, projects..."
+                               oninput="invoicesManager.debouncedSearch()">
+                    </div>
+
+                    <select id="statusFilter" class="pc-select" onchange="invoicesManager.applyFilters()">
+                        <option value="">All Statuses</option>
+                        <option value="draft">Draft</option>
+                        <option value="sent">Sent</option>
+                        <option value="paid">Paid</option>
+                        <option value="void">Void</option>
+                    </select>
+
+                    <button type="button" class="pc-clear" id="clearFiltersBtn" onclick="invoicesManager.clearFilters()" style="display: none;">
+                        Clear
+                    </button>
+
+                    <div class="pc-actions">
+                        <div class="pc-when-toggle" role="group" aria-label="Invoice timing">
+                            <button type="button" class="pc-btn" data-when="all" onclick="invoicesManager.setWhen('all')">All</button>
+                            <button type="button" class="pc-btn" data-when="upcoming" onclick="invoicesManager.setWhen('upcoming')">Upcoming</button>
+                            <button type="button" class="pc-btn" data-when="past" onclick="invoicesManager.setWhen('past')">Past</button>
+                        </div>
+                    </div>
+                </div>
+                </div>
+
+                <div id="invoicesDataArea" class="quotes-data-area">
+                    <div id="invoicesSkeleton" class="quotes-skeleton" aria-hidden="true"></div>
+
+                    <div class="quotes-list-scroll">
+                    <div id="invoicesListView" class="quotes-list-view">
+                        <table class="quotes-table invoices-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:28px"></th>
+                                    <th class="sortable" onclick="invoicesManager.sortByColumn('invoiceNumber')">
+                                        Invoice <span class="sort-indicator" data-sort="invoiceNumber"></span>
+                                    </th>
+                                    <th class="sortable" onclick="invoicesManager.sortByColumn('status')">
+                                        Status <span class="sort-indicator" data-sort="status"></span>
+                                    </th>
+                                    <th>Client</th>
+                                    <th>Project</th>
+                                    <th class="sortable" onclick="invoicesManager.sortByColumn('dueDate')">
+                                        Due <span class="sort-indicator" data-sort="dueDate"></span>
+                                    </th>
+                                    <th class="sortable" onclick="invoicesManager.sortByColumn('total')">
+                                        Total <span class="sort-indicator" data-sort="total"></span>
+                                    </th>
+                                    <th class="sortable" onclick="invoicesManager.sortByColumn('amountPaid')">
+                                        Paid <span class="sort-indicator" data-sort="amountPaid"></span>
+                                    </th>
+                                    <th>Plan</th>
+                                    <th class="sortable col-hide-sm" onclick="invoicesManager.sortByColumn('owner')">
+                                        Owner <span class="sort-indicator" data-sort="owner"></span>
+                                    </th>
+                                    <th class="sortable col-hide-sm" onclick="invoicesManager.sortByColumn('createdAt')">
+                                        Created <span class="sort-indicator" data-sort="createdAt"></span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoicesTableBody">
+                                <!-- Invoice rows load here -->
+                            </tbody>
+                        </table>
+                        <div id="invoicesEmpty" class="crm-empty" style="display: none;">
+                            <h3>No invoices yet</h3>
+                            <p>Create an invoice from a project — sent and upcoming invoices will show here.</p>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                <div id="paginationContainer" class="pagination-container"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="toasts.js"></script>
+    <script src="a11y.js"></script>
+    <script src="modals.js"></script>
+    <script src="shell.js"></script>
+    <script src="crm-common.js"></script>
+    <script src="invoices.js"></script>
+</body>
+</html>

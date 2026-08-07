@@ -100,11 +100,8 @@ class QuotesManager {
             // Add filters if set
             const searchTerm = document.getElementById('searchQuotes')?.value || '';
             const userFilter = document.getElementById('userFilter')?.value || '';
-            const bookedFilter = document.getElementById('bookedFilter')?.value || '';
-            
             if (searchTerm) params.append('search', searchTerm);
             if (userFilter) params.append('createdBy', userFilter);
-            if (bookedFilter) params.append('booked', bookedFilter);
             if (this.when && this.when !== 'all') params.append('when', this.when);
             
             // Add sort parameters for server-side sorting
@@ -301,15 +298,12 @@ class QuotesManager {
         const sortBy = document.getElementById('sortQuotes')?.value || '';
         const dateFilter = document.getElementById('dateFilter')?.value || '';
         const userFilter = document.getElementById('userFilter')?.value || '';
-        const bookedFilter = document.getElementById('bookedFilter')?.value || '';
-
         console.log('🔍 Filter and sort called:', {
             showingArchived: this.showingArchived,
             searchTerm,
             sortBy,
             dateFilter,
             userFilter,
-            bookedFilter,
             sortColumn: this.sortColumn,
             sortDirection: this.sortDirection
         });
@@ -317,7 +311,7 @@ class QuotesManager {
         // Update clear filters button visibility
         const clearBtn = document.getElementById('clearFiltersBtn');
         if (clearBtn) {
-            if (searchTerm || dateFilter || userFilter || bookedFilter) {
+            if (searchTerm || dateFilter || userFilter) {
                 clearBtn.style.display = 'inline-block';
             } else {
                 clearBtn.style.display = 'none';
@@ -411,9 +405,7 @@ class QuotesManager {
         const searchTerm = document.getElementById('searchQuotes')?.value || '';
         const dateFilter = document.getElementById('dateFilter')?.value || '';
         const userFilter = document.getElementById('userFilter')?.value || '';
-        const bookedFilter = document.getElementById('bookedFilter')?.value || '';
-
-        if (searchTerm || dateFilter || userFilter || bookedFilter) {
+        if (searchTerm || dateFilter || userFilter) {
             return 'filtered';
         }
         if (this.showingArchived) {
@@ -540,7 +532,6 @@ class QuotesManager {
         const location = quote.location || '-';
         const quoteTitle = quote.quoteData?.quoteTitle || quote.name;
         const isArchived = quote.archived || false;
-        const isBooked = quote.booked || false;
         const createdBy = quote.createdBy?.name || '-';
         const isSharedWithMe = this.isSharedQuoteForCurrentUser(quote);
         const hasShares = quote.sharedWith && quote.sharedWith.length > 0;
@@ -591,8 +582,10 @@ class QuotesManager {
                     ` : ''}
                     ${quote.project ? `
                         <button class="overflow-menu-item" onclick="window.location.href='/projects/${this.escapeJs(String(quote.project))}'">View Project</button>
+                    ` : canEdit ? `
+                        <button class="overflow-menu-item" onclick="quotesManager.convertToProject('${this.escapeJs(quote.name)}')">Convert to Project</button>
                     ` : ''}
-                    ${canEdit ? `
+                    ${canEdit && quote.project ? `
                         <button class="overflow-menu-item" onclick="quotesManager.convertToInvoice('${this.escapeJs(quote.name)}')">Convert to Invoice</button>
                     ` : ''}
                     ${isArchived ? `
@@ -608,9 +601,8 @@ class QuotesManager {
         ` : '';
 
         return `
-            <tr class="quote-row ${isBooked ? 'booked-row' : ''} ${isSharedWithMe ? 'shared-row' : ''}" data-quote-name="${this.escapeHtml(quote.name)}" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
+            <tr class="quote-row ${isSharedWithMe ? 'shared-row' : ''}" data-quote-name="${this.escapeHtml(quote.name)}" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
                 <td class="quote-title-cell">
-                    ${isBooked ? '<span class="status-badge status-badge--booked">Booked</span>' : ''}
                     ${isArchived ? '<span class="status-badge status-badge--archived">Archived</span>' : ''}
                     ${isSharedWithMe ? `<span class="shared-badge-small ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${this.getSharedAccessBadgeLabel(quote.accessLevel)}</span>` : ''}
                     ${hasShares && quote.isOwner ? `<span class="sharing-badge-small" title="Shared with ${quote.sharedWith.length} user(s)">👥</span>` : ''}
@@ -625,12 +617,6 @@ class QuotesManager {
                 <td class="total-cell">${this.formatCurrency(total)}</td>
                 <td class="actions-cell" onclick="event.stopPropagation()">
                     <div class="actions-cell-inner">
-                    <button class="table-action-btn lumdash" onclick="quotesManager.transferToLumDash('${this.escapeJs(quote.name)}')" title="Transfer to LumDash">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M7 17L17 7"></path>
-                            <path d="M7 7h10v10"></path>
-                        </svg>
-                    </button>
                     ${quote.isOwner || quote.accessLevel === 'full' ? `
                         <button class="table-action-btn share" onclick="quotesManager.openShareModal('${this.escapeJs(quote.name)}')" title="Share">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -639,14 +625,6 @@ class QuotesManager {
                                 <circle cx="18" cy="19" r="3"></circle>
                                 <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
                                 <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                            </svg>
-                        </button>
-                    ` : ''}
-                    ${quote.accessLevel !== 'read' ? `
-                        <button class="table-action-btn booked${isBooked ? ' active' : ''}" onclick="quotesManager.toggleBookedStatus('${this.escapeJs(quote.name)}', ${!isBooked})" title="${isBooked ? 'Mark as Not Booked' : 'Mark as Booked'}">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
                             </svg>
                         </button>
                     ` : ''}
@@ -664,7 +642,6 @@ class QuotesManager {
         const location = quote.location || '';
         const quoteTitle = quote.quoteData?.quoteTitle || quote.name;
         const isArchived = quote.archived || false;
-        const isBooked = quote.booked || false;
         const createdBy = quote.createdBy?.name || 'Unknown User';
         const isSharedWithMe = this.isSharedQuoteForCurrentUser(quote);
         const hasShares = quote.sharedWith && quote.sharedWith.length > 0;
@@ -681,7 +658,6 @@ class QuotesManager {
 
         return `
             <div class="quote-card ${isArchived ? 'archived' : ''} ${isSharedWithMe ? 'shared-quote' : ''}" data-quote-name="${this.escapeHtml(quote.name)}">
-                ${isBooked ? '<div class="booked-banner">BOOKED</div>' : ''}
                 <div class="quote-card-header">
                     <div class="quote-card-header-main">
                         <h3 class="quote-card-title" title="${this.escapeHtml(quoteTitle)}">${this.escapeHtml(quoteTitle)}</h3>
@@ -702,15 +678,12 @@ class QuotesManager {
                                 </svg>
                             </button>
                             <div class="quote-overflow-dropdown" id="overflow-${this.escapeHtml(quote.name).replace(/\s/g, '-')}" style="display: none;">
-                                ${quote.accessLevel !== 'read' ? `
-                                    <button class="overflow-menu-item" onclick="quotesManager.toggleBookedStatus('${this.escapeJs(quote.name)}', ${!isBooked})">
-                                        ${isBooked ? 'Mark as Not Booked' : 'Mark as Booked'}
-                                    </button>
-                                ` : ''}
                                 ${quote.project ? `
                                     <button class="overflow-menu-item" onclick="window.location.href='/projects/${this.escapeJs(String(quote.project))}'">View Project</button>
+                                ` : quote.accessLevel !== 'read' ? `
+                                    <button class="overflow-menu-item" onclick="quotesManager.convertToProject('${this.escapeJs(quote.name)}')">Convert to Project</button>
                                 ` : ''}
-                                ${quote.accessLevel !== 'read' ? `
+                                ${quote.accessLevel !== 'read' && quote.project ? `
                                     <button class="overflow-menu-item" onclick="quotesManager.convertToInvoice('${this.escapeJs(quote.name)}')">Convert to Invoice</button>
                                 ` : ''}
                                 ${quote.isOwner || this.isCurrentUserAdmin() ? `
@@ -777,13 +750,6 @@ class QuotesManager {
                             Share
                         </button>
                     ` : ''}
-                    <button class="quote-action-btn lumdash" onclick="quotesManager.transferToLumDash('${this.escapeJs(quote.name)}')" title="Transfer to LumDash">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
-                            <path d="M7 17L17 7"></path>
-                            <path d="M7 7h10v10"></path>
-                        </svg>
-                        LumDash
-                    </button>
                     ${isArchived ? `
                         <button class="quote-action-btn secondary" onclick="quotesManager.unarchiveQuote('${this.escapeJs(quote.name)}')">
                             Unarchive
@@ -903,7 +869,6 @@ class QuotesManager {
         document.getElementById('searchQuotes').value = '';
         document.getElementById('dateFilter').value = '';
         document.getElementById('userFilter').value = '';
-        document.getElementById('bookedFilter').value = '';
         this.currentPage = 1;
         await this.loadQuotes({ showSkeleton: false });
         this.renderQuotes();
@@ -1056,9 +1021,37 @@ class QuotesManager {
         }
     }
 
+    async convertToProject(quoteName) {
+        const confirmed = await showConfirmModal(
+            `Create a project from "${quoteName}"? The quote will be linked to the new project so you can book it and transfer to LumDash from there.`,
+            'Convert to Project',
+            'Create Project',
+            'Cancel'
+        );
+        if (!confirmed) return;
+
+        try {
+            this.showLoading(true);
+            const response = await fetch(`/api/quotes/${encodeURIComponent(quoteName)}/convert-to-project`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to convert quote to project');
+            }
+            window.location.href = `/projects/${data.projectId}`;
+        } catch (error) {
+            console.error('Error converting quote to project:', error);
+            showAlertModal(error.message || 'Failed to convert quote to project.', 'error');
+        } finally {
+            this.showLoading(false);
+        }
+    }
+
     async convertToInvoice(quoteName) {
         const confirmed = await showConfirmModal(
-            `Create an invoice from "${quoteName}"? The quote's services and totals become invoice line items. A project is created automatically if the quote doesn't have one.`,
+            `Create an invoice from "${quoteName}"? The quote must already be linked to a project. Its services and totals become invoice line items.`,
             'Convert to Invoice',
             'Create Invoice',
             'Cancel'
@@ -1266,48 +1259,6 @@ class QuotesManager {
         }, 0);
     }
 
-    async toggleBookedStatus(quoteName, newBookedStatus) {
-        const quote = this.allQuotes.find(q => q.name === quoteName);
-        const wasPreviouslyBooked = quote?.booked || false;
-
-        try {
-            this.showLoading(true);
-
-            const response = await fetch(`/api/update-quote-metadata/${encodeURIComponent(quoteName)}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    newName: quoteName,
-                    booked: newBookedStatus
-                })
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || 'Failed to update booked status');
-            }
-
-            if (newBookedStatus && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
-                await window.LumDashIntegration.onQuoteMarkedAsBooked(quoteName, wasPreviouslyBooked);
-            }
-
-            await this.loadQuotes();
-            this.filterAndSort();
-
-            const statusText = newBookedStatus ? 'booked' : 'not booked';
-            showAlertModal(`Quote marked as ${statusText}!`, 'success', null, true);
-
-        } catch (error) {
-            console.error('Error updating booked status:', error);
-            showAlertModal('Failed to update booked status. Please try again.', 'error');
-        } finally {
-            this.showLoading(false);
-        }
-    }
-
     async deleteQuote(quoteName) {
         const confirmed = await showConfirmModal(
             `Are you sure you want to permanently delete "${quoteName}"? This action cannot be undone.`,
@@ -1356,7 +1307,6 @@ class QuotesManager {
         document.getElementById('editQuoteName').value = quote.name;
         document.getElementById('editQuoteClient').value = quote.clientName || '';
         document.getElementById('editQuoteLocation').value = quote.location || '';
-        document.getElementById('editQuoteBooked').checked = quote.booked || false;
 
         // Show modal
         document.getElementById('editQuoteModal').style.display = 'flex';
@@ -1600,13 +1550,9 @@ class QuotesManager {
     async saveQuoteEdit(event) {
         event.preventDefault();
 
-        const editingQuote = this.allQuotes.find(q => q.name === this.editingQuoteName);
-        const wasPreviouslyBooked = editingQuote?.booked || false;
-
         const newName = document.getElementById('editQuoteName').value.trim();
         const clientName = document.getElementById('editQuoteClient').value.trim();
         const location = document.getElementById('editQuoteLocation').value.trim();
-        const booked = document.getElementById('editQuoteBooked').checked;
 
         if (!newName) {
             showAlertModal('Please enter a quote name.', 'error');
@@ -1624,8 +1570,7 @@ class QuotesManager {
                 body: JSON.stringify({
                     newName,
                     clientName: clientName || null,
-                    location: location || null,
-                    booked
+                    location: location || null
                 })
             });
 
@@ -1638,10 +1583,6 @@ class QuotesManager {
 
             if (!response.ok) {
                 throw new Error(result.error || 'Failed to update quote');
-            }
-
-            if (booked && window.LumDashIntegration?.onQuoteMarkedAsBooked) {
-                await window.LumDashIntegration.onQuoteMarkedAsBooked(newName, wasPreviouslyBooked);
             }
 
             await this.loadQuotes();
@@ -1679,38 +1620,6 @@ class QuotesManager {
         }
     }
 
-    async transferToLumDash(quoteName) {
-        const quote = this.allQuotes.find(q => q.name === quoteName);
-        if (!quote) {
-            showAlertModal('Quote not found.', 'error');
-            return;
-        }
-
-        // Load full quote data if needed
-        try {
-            this.showLoading(true);
-            
-            const response = await fetch(`/api/load-quote/${encodeURIComponent(quoteName)}`);
-            if (!response.ok) {
-                throw new Error('Failed to load quote data');
-            }
-            
-            const fullQuote = await response.json();
-            
-            this.showLoading(false);
-            
-            // Use the LumDash integration
-            if (window.LumDashIntegration) {
-                await window.LumDashIntegration.transferToLumDash(fullQuote);
-            } else {
-                showAlertModal('LumDash integration not loaded.', 'error');
-            }
-        } catch (error) {
-            console.error('Error transferring to LumDash:', error);
-            showAlertModal('Failed to transfer quote to LumDash.', 'error');
-            this.showLoading(false);
-        }
-    }
 }
 
 // Initialize quotes manager when page loads

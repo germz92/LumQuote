@@ -32,6 +32,7 @@
 
                     <select id="statusFilter" class="pc-select" onchange="projectsManager.applyFilters()">
                         <option value="">All Statuses</option>
+                        <option value="booked_plus">Booked+</option>
                         <option value="lead">Lead</option>
                         <option value="quoted">Quoted</option>
                         <option value="booked">Booked</option>
@@ -97,6 +98,12 @@
                                     </th>
                                     <th class="sortable" onclick="projectsManager.sortByColumn('invoices')">
                                         Invoices <span class="sort-indicator" data-sort="invoices"></span>
+                                    </th>
+                                    <th class="sortable col-hide-sm" onclick="projectsManager.sortByColumn('owner')">
+                                        Owner <span class="sort-indicator" data-sort="owner"></span>
+                                    </th>
+                                    <th class="sortable col-hide-sm" onclick="projectsManager.sortByColumn('created')">
+                                        Created <span class="sort-indicator" data-sort="created"></span>
                                     </th>
                                     <th></th>
                                 </tr>
@@ -183,6 +190,7 @@
     <script src="modals.js"></script>
     <script src="shell.js"></script>
     <script src="crm-common.js"></script>
+    <script src="lumdash-integration.js"></script>
     <script src="projects.js"></script>
 </body>
 </html>

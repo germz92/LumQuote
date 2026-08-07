@@ -20,7 +20,19 @@ class ProjectPage {
         }
         this.renderAll();
         const hash = (window.location.hash || '').replace('#', '');
-        if (['overview', 'quotes', 'contract', 'invoices'].includes(hash)) {
+        const invoiceId = new URLSearchParams(window.location.search).get('invoice');
+        if (invoiceId) {
+            this.showTab('invoices');
+            try {
+                await this.editInvoice(invoiceId);
+            } catch (error) {
+                console.error('Could not open invoice from deep link:', error);
+            }
+            // Drop ?invoice= so refresh doesn't re-open the editor
+            if (history.replaceState) {
+                history.replaceState(null, '', `${window.location.pathname}#invoices`);
+            }
+        } else if (['overview', 'quotes', 'contract', 'invoices'].includes(hash)) {
             this.showTab(hash);
         }
     }
@@ -97,12 +109,14 @@ class ProjectPage {
     // ---------- Overview actions ----------
 
     async saveProject() {
+        const previousStatus = this.data?.project?.status || 'lead';
+        const nextStatus = document.getElementById('projStatus').value;
         try {
             await CRM.api(`/api/projects/${this.projectId}`, {
                 method: 'PUT',
                 body: {
                     name: document.getElementById('projName').value.trim(),
-                    status: document.getElementById('projStatus').value,
+                    status: nextStatus,
                     startDate: document.getElementById('projStart').value || null,
                     endDate: document.getElementById('projEnd').value || null,
                     notes: document.getElementById('projNotes').value
@@ -110,8 +124,23 @@ class ProjectPage {
             });
             showAlertModal('Project saved.', 'success', null, true);
             await this.reload();
+            if (nextStatus === 'booked' && window.LumDashIntegration?.onProjectMarkedAsBooked) {
+                await window.LumDashIntegration.onProjectMarkedAsBooked(this.projectId, previousStatus);
+            }
         } catch (error) {
             showAlertModal(error.message, 'error');
+        }
+    }
+
+    async transferToLumDash() {
+        if (!window.LumDashIntegration?.transferProjectToLumDash) {
+            showAlertModal('LumDash integration is not available.', 'error');
+            return;
+        }
+        try {
+            await window.LumDashIntegration.transferProjectToLumDash(this.projectId);
+        } catch (error) {
+            showAlertModal(error.message || 'Failed to transfer to LumDash.', 'error');
         }
     }
 
@@ -177,7 +206,6 @@ class ProjectPage {
                         <tr>
                             <td>
                                 <strong>${CRM.escapeHtml(this.quoteTitle(q))}</strong>
-                                ${q.booked ? ' <span class="crm-chip crm-chip--booked">Booked</span>' : ''}
                             </td>
                             <td>${CRM.escapeHtml(q.location || '—')}</td>
                             <td>${CRM.escapeHtml(this.quoteServiceDate(q))}</td>
