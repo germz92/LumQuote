@@ -30,13 +30,14 @@ body[data-app-page="quote"] .quote-section {
   isolation: isolate;
 }
 
+/* Small bleed only — 100vh painted a growing white sheet over the quote body */
 .builder-sticky-chrome::before {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 100%;
-  height: 100vh;
+  height: var(--space-6);
   background: var(--color-surface);
   z-index: -1;
   pointer-events: none;
@@ -228,6 +229,22 @@ body[data-app-page="quote"] .quote-section {
   color: var(--color-text-muted);
 }
 
+/* Desktop shows full labels; short / mobile-only variants */
+.btn-label-short,
+.override-text-short {
+  display: none;
+}
+
+.builder-menu-mobile-only {
+  display: none;
+}
+
+.overflow-menu-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--color-border);
+}
+
 .builder-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -407,42 +424,256 @@ body[data-app-page="quote"] .quote-section {
 }
 
 @media (max-width: 768px) {
-  .builder-sticky-chrome {
-    margin-left: calc(-1 * var(--space-4));
-    margin-right: calc(-1 * var(--space-4));
-    padding-left: var(--space-4);
-    padding-right: var(--space-4);
+  body[data-app-page="quote"] .main-content {
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-8);
   }
 
+  .builder-sticky-chrome {
+    position: static;
+    margin-left: calc(-1 * var(--space-4));
+    margin-right: calc(-1 * var(--space-4));
+    margin-bottom: var(--space-2);
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    max-width: none;
+    box-sizing: border-box;
+  }
+
+  .builder-table-card {
+    overflow: visible;
+    max-width: 100%;
+    margin-bottom: var(--space-3);
+  }
+
+  body[data-app-page="quote"] .quote-section,
+  body[data-app-page="quote"] .main-content {
+    overflow-x: clip;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .builder-sticky-chrome::before {
+    display: none;
+  }
+
+  /*
+   * Compact header:
+   *  [ Title ........ ] [ $Total ] [ ⋮ ]
+   *  [ meta chips ................... ]
+   *  [ Days − 1 + .......... ] [ Save ]
+   */
   .builder-quote-bar {
-    flex-direction: column;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    padding: 8px 0 6px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .builder-quote-main {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .builder-quote-aside {
-    width: 100%;
-    justify-content: space-between;
+    display: flex;
+    flex: 0 0 auto;
+    width: auto;
     align-items: center;
+    gap: 8px;
+  }
+
+  .builder-meta-row {
+    margin-top: 2px;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  /* Drop the meta row entirely when nothing useful is showing */
+  .builder-meta-row:not(:has(.is-visible)) {
+    display: none;
+  }
+
+  .builder-save-status {
+    display: none;
   }
 
   .builder-header-pricing {
+    min-width: 0;
     max-width: none;
+    width: auto;
+    padding: 0;
+    border: none;
+    background: transparent;
+    align-items: flex-end;
+    gap: 0;
+  }
+
+  .builder-pricing-lines {
+    display: none !important;
+  }
+
+  .builder-pricing-total {
+    border-top: none;
+    padding-top: 0;
+    width: auto;
+    gap: 4px;
+  }
+
+  .builder-pricing-total__label {
+    display: none;
+  }
+
+  .builder-pricing-total__value {
+    font-size: var(--font-size-base);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .calculator-quote-menu {
+    margin-top: 0;
+    position: relative;
+    z-index: 160;
+  }
+
+  .builder-title-row .editable-title,
+  .builder-title-row .title-input {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    min-width: 0;
     width: 100%;
+    max-width: none;
+    padding: 2px 0;
+  }
+
+  .builder-title-row .editable-title:hover::after {
+    content: none;
+  }
+
+  .builder-meta-chip {
+    font-size: 11px;
+    padding: 1px 7px;
+    max-width: 100%;
+  }
+
+  .builder-project-chip {
+    max-width: min(100%, 160px);
   }
 
   .builder-toolbar {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+  }
+
+  .builder-days-inline {
+    gap: 6px;
+  }
+
+  .builder-days-inline label {
+    font-size: var(--font-size-xs);
+  }
+
+  .builder-days-inline .counter-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .builder-days-inline .counter-display {
+    font-size: var(--font-size-base);
+    min-width: 24px;
   }
 
   .builder-toolbar-actions {
-    justify-content: stretch;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
   }
 
   .builder-toolbar-actions .btn {
-    flex: 1;
+    height: 32px;
+    padding: 0 14px;
+    font-size: var(--font-size-sm);
+  }
+
+  .builder-toolbar-desktop-only {
+    display: none !important;
+  }
+
+  .builder-menu-mobile-only {
+    display: block;
+  }
+
+  .overflow-menu-divider.builder-menu-mobile-only {
+    display: block;
+  }
+
+  .override-text-full {
+    display: none;
+  }
+
+  .override-text-short {
+    display: inline;
+  }
+
+  .override-banner {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 8px 10px;
+    font-size: var(--font-size-xs);
+  }
+
+  .builder-page .markup-section,
+  .builder-page .discount-section {
+    margin-bottom: var(--space-3);
+  }
+
+  .builder-page .markup-button,
+  .builder-page .discount-button {
+    width: 100%;
+  }
+
+  .builder-page .actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: var(--space-3);
+  }
+
+  .builder-page .actions .primary-button,
+  .builder-page .actions .secondary-button {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .btn-label-full {
+    display: none;
+  }
+
+  .btn-label-short {
+    display: inline;
   }
 
   .load-modal-controls {
     flex-direction: column;
+  }
+
+  .load-modal-controls .sort-select {
+    min-width: 0;
+    width: 100%;
   }
 }

@@ -62,6 +62,22 @@ class ProjectPage {
 
     // ---------- Render ----------
 
+    isCurrentUserAdmin() {
+        try {
+            return JSON.parse(localStorage.getItem('user') || '{}').role === 'admin';
+        } catch {
+            return false;
+        }
+    }
+
+    canEdit() {
+        return (this.data?.accessLevel || this.data?.project?.accessLevel) !== 'read';
+    }
+
+    canShare() {
+        return !!(this.data?.isOwner || this.data?.project?.isOwner || this.isCurrentUserAdmin());
+    }
+
     renderAll() {
         const { project, quotes, invoices } = this.data;
 
@@ -69,9 +85,20 @@ class ProjectPage {
         const titleEl = document.querySelector('.app-page-title');
         if (titleEl) titleEl.textContent = project.name;
 
+        const accessLevel = this.data.accessLevel || project.accessLevel || 'full';
+        // Share badge only for non-admin users who were shared in (not owners/admins)
+        const showSharedBadge = !this.isCurrentUserAdmin()
+            && !project.isOwner
+            && !this.data.isOwner
+            && accessLevel;
+        const sharedBadge = showSharedBadge
+            ? `<span class="crm-chip ${accessLevel === 'read' ? 'crm-chip--draft' : 'crm-chip--quoted'}" title="Shared with you">${accessLevel === 'read' ? 'Viewer' : 'Editor'}</span>`
+            : '';
+
         const meta = document.getElementById('projectHeroMeta');
         meta.innerHTML = `
             ${CRM.projectStatusChip(project.status)}
+            ${sharedBadge}
             <span>${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</span>
             ${project.client ? `<span>· ${CRM.escapeHtml(project.client.name)}</span>` : ''}
         `;
@@ -84,6 +111,45 @@ class ProjectPage {
         this.renderQuotes();
         this.renderContract();
         this.renderInvoices();
+        this.applyAccessUi();
+    }
+
+    applyAccessUi() {
+        const editable = this.canEdit();
+        const shareable = this.canShare();
+        const shareBtn = document.getElementById('shareProjectBtn');
+        const saveBtn = document.getElementById('saveProjectBtn');
+        const transferBtn = document.getElementById('transferLumDashBtn');
+        const note = document.getElementById('projectSaveNote');
+        const clientNote = document.getElementById('clientSaveNote');
+
+        if (shareBtn) shareBtn.style.display = shareable ? '' : 'none';
+        if (saveBtn) saveBtn.style.display = editable ? '' : 'none';
+        if (transferBtn) transferBtn.style.display = editable ? '' : 'none';
+        if (note) {
+            note.textContent = editable ? '' : 'You have read-only access to this project.';
+        }
+        if (clientNote && !editable) {
+            clientNote.textContent = 'Read-only access';
+        }
+
+        document.querySelectorAll('#panel-overview input, #panel-overview select, #panel-overview textarea').forEach((el) => {
+            el.disabled = !editable;
+        });
+
+        // Hide mutate actions; keep view/copy/download/open/pdf.
+        const keepText = /^(open|copy|copied!|pdf|download)/i;
+        document.querySelectorAll(
+            '#panel-overview .primary-button, #panel-overview .secondary-button, #panel-quotes .primary-button, #panel-quotes .secondary-button, #panel-quotes .crm-btn-sm, #panel-quotes a.crm-btn-sm, #panel-contract .primary-button, #panel-contract .secondary-button, #panel-contract .crm-btn-sm, #panel-contract a.primary-button, #panel-invoices .primary-button, #panel-invoices .secondary-button, #panel-invoices .crm-btn-sm, #panel-invoices a.crm-btn-sm'
+        ).forEach((el) => {
+            if (el.id === 'shareProjectBtn') return;
+            const label = (el.textContent || '').trim();
+            if (!editable && keepText.test(label)) {
+                el.style.display = '';
+                return;
+            }
+            el.style.display = editable ? '' : 'none';
+        });
     }
 
     fillOverviewForms() {
@@ -144,6 +210,152 @@ class ProjectPage {
         }
     }
 
+    // ---------- Share ----------
+
+    async openShareModal() {
+        if (!this.canShare()) {
+            showAlertModal('Only the owner can manage sharing.', 'error');
+            return;
+        }
+        const project = this.data?.project;
+        document.getElementById('shareProjectName').textContent = `"${project?.name || 'Project'}"`;
+        document.getElementById('shareProjectUserSearch').value = '';
+        document.getElementById('selectedShareProjectUserId').value = '';
+        document.getElementById('selectedShareProjectUserName').textContent = '';
+        document.querySelector('input[name="projectAccessLevel"][value="read"]').checked = true;
+        await this.loadShareableUsers();
+        await this.loadSharedUsers();
+        document.getElementById('shareProjectModal').style.display = 'flex';
+        this.setupShareUserSearch();
+    }
+
+    closeShareModal() {
+        document.getElementById('shareProjectModal').style.display = 'none';
+        document.getElementById('shareProjectUserDropdown').style.display = 'none';
+    }
+
+    async loadShareableUsers() {
+        try {
+            const response = await fetch('/api/shareable-users', { credentials: 'include' });
+            if (!response.ok) throw new Error('Failed to load users');
+            this.shareableUsers = await response.json();
+        } catch (error) {
+            console.error(error);
+            this.shareableUsers = [];
+        }
+    }
+
+    setupShareUserSearch() {
+        const searchInput = document.getElementById('shareProjectUserSearch');
+        const dropdown = document.getElementById('shareProjectUserDropdown');
+        const newSearchInput = searchInput.cloneNode(true);
+        searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+        newSearchInput.addEventListener('focus', () => {
+            this.renderShareUserDropdown('');
+            dropdown.style.display = 'block';
+        });
+        newSearchInput.addEventListener('input', (e) => {
+            this.renderShareUserDropdown(e.target.value);
+            dropdown.style.display = 'block';
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.share-user-dropdown')) dropdown.style.display = 'none';
+        });
+    }
+
+    renderShareUserDropdown(searchTerm) {
+        const dropdown = document.getElementById('shareProjectUserDropdown');
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const filtered = (this.shareableUsers || []).filter((user) =>
+            user.name.toLowerCase().includes((searchTerm || '').toLowerCase())
+            && user.name !== currentUser.name
+        );
+        if (!filtered.length) {
+            dropdown.innerHTML = '<div class="share-user-item no-results">No users found</div>';
+            return;
+        }
+        dropdown.innerHTML = filtered.map((user) => `
+            <div class="share-user-item" onclick="projectPage.selectShareUser('${user._id}', '${CRM.escapeJs(user.name)}')">
+                <span class="share-user-name">${CRM.escapeHtml(user.name)}</span>
+                ${user.email ? `<span class="share-user-email">${CRM.escapeHtml(user.email)}</span>` : ''}
+            </div>
+        `).join('');
+    }
+
+    selectShareUser(userId, userName) {
+        document.getElementById('selectedShareProjectUserId').value = userId;
+        document.getElementById('selectedShareProjectUserName').textContent = userName;
+        document.getElementById('shareProjectUserSearch').value = userName;
+        document.getElementById('shareProjectUserDropdown').style.display = 'none';
+    }
+
+    async addShare() {
+        const userId = document.getElementById('selectedShareProjectUserId').value;
+        const accessLevel = document.querySelector('input[name="projectAccessLevel"]:checked').value;
+        if (!userId) {
+            showAlertModal('Please select a user to share with', 'error');
+            return;
+        }
+        try {
+            const result = await CRM.api(`/api/projects/${this.projectId}/share`, {
+                method: 'POST',
+                body: { userId, accessLevel }
+            });
+            document.getElementById('selectedShareProjectUserId').value = '';
+            document.getElementById('selectedShareProjectUserName').textContent = '';
+            document.getElementById('shareProjectUserSearch').value = '';
+            await this.loadSharedUsers();
+            showAlertModal(result.message || 'Project shared successfully!', 'success', null, true);
+        } catch (error) {
+            showAlertModal(error.message || 'Failed to share project', 'error');
+        }
+    }
+
+    async loadSharedUsers() {
+        const container = document.getElementById('sharedProjectUsersList');
+        try {
+            const sharedUsers = await CRM.api(`/api/projects/${this.projectId}/shared-with`);
+            if (!sharedUsers.length) {
+                container.innerHTML = '<p class="no-shares-message">Not shared with anyone yet</p>';
+                return;
+            }
+            container.innerHTML = sharedUsers.map((share) => `
+                <div class="shared-user-item">
+                    <div class="shared-user-info">
+                        <span class="shared-user-name">${CRM.escapeHtml(share.user?.name || 'Unknown User')}</span>
+                        <span class="shared-user-access ${share.accessLevel}">${share.accessLevel === 'read' ? 'Read Only' : 'Full Access'}</span>
+                    </div>
+                    <button class="remove-share-btn" onclick="projectPage.removeShare('${share.user?._id}')" title="Remove access">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        } catch (error) {
+            container.innerHTML = '<p class="no-shares-message">Failed to load shared users</p>';
+        }
+    }
+
+    async removeShare(userId) {
+        if (!userId) return;
+        const confirmed = await showConfirmModal(
+            'Are you sure you want to remove this user\'s access?',
+            'Remove Access',
+            'Remove',
+            'Cancel'
+        );
+        if (!confirmed) return;
+        try {
+            await CRM.api(`/api/projects/${this.projectId}/share/${userId}`, { method: 'DELETE' });
+            await this.loadSharedUsers();
+            showAlertModal('Share access removed.', 'success', null, true);
+        } catch (error) {
+            showAlertModal(error.message || 'Failed to remove access', 'error');
+        }
+    }
+
     async saveClient() {
         const name = document.getElementById('clientName').value.trim();
         if (!name) {
@@ -197,29 +409,46 @@ class ProjectPage {
             return;
         }
         area.innerHTML = `
+            <div class="crm-table-scroll">
             <table class="crm-table">
                 <thead><tr>
-                    <th>Quote</th><th>Location</th><th>Service Date</th><th class="num">Total</th><th></th>
+                    <th>Quote</th>
+                    <th class="col-fold-sm">Location</th>
+                    <th class="col-fold-sm">Service Date</th>
+                    <th class="num">Total</th>
+                    <th></th>
                 </tr></thead>
                 <tbody>
-                    ${quotes.map((q) => `
+                    ${quotes.map((q) => {
+                        const location = q.location || '';
+                        const serviceDate = this.quoteServiceDate(q);
+                        const metaHtml = CRM.listRowMeta([
+                            location ? CRM.escapeHtml(location) : '',
+                            serviceDate && serviceDate !== '—' ? CRM.escapeHtml(serviceDate) : ''
+                        ]);
+                        return `
                         <tr>
                             <td>
-                                <strong>${CRM.escapeHtml(this.quoteTitle(q))}</strong>
+                                <div class="list-row-primary">
+                                    <strong>${CRM.escapeHtml(this.quoteTitle(q))}</strong>
+                                    ${metaHtml}
+                                </div>
                             </td>
-                            <td>${CRM.escapeHtml(q.location || '—')}</td>
-                            <td>${CRM.escapeHtml(this.quoteServiceDate(q))}</td>
+                            <td class="col-fold-sm">${CRM.escapeHtml(q.location || '—')}</td>
+                            <td class="col-fold-sm">${CRM.escapeHtml(serviceDate)}</td>
                             <td class="num">${CRM.money(q.quoteData?.total || 0, { cents: false })}</td>
                             <td>
                                 <div class="crm-row-actions">
                                     <button class="crm-btn-sm primary" onclick="projectPage.openQuote('${CRM.escapeJs(q.name)}')">Open</button>
-                                    <button class="crm-btn-sm" onclick="projectPage.invoiceFromQuote('${CRM.escapeJs(q.name)}')">Create Invoice</button>
+                                    <button class="crm-btn-sm" onclick="projectPage.invoiceFromQuote('${CRM.escapeJs(q.name)}')">Invoice</button>
                                     <button class="crm-btn-sm danger" onclick="projectPage.unlinkQuote('${CRM.escapeJs(q.name)}')">Unlink</button>
                                 </div>
                             </td>
-                        </tr>`).join('')}
+                        </tr>`;
+                    }).join('')}
                 </tbody>
-            </table>`;
+            </table>
+            </div>`;
     }
 
     async openQuote(quoteName) {
@@ -380,15 +609,7 @@ class ProjectPage {
                     <label for="contractTitle">Contract Title</label>
                     <input type="text" id="contractTitle" value="${CRM.escapeHtml(contract.title || '')}">
                 </div>
-                <div class="contract-editor-toolbar">
-                    <button type="button" onclick="projectPage.execCmd('bold')" title="Bold"><strong>B</strong></button>
-                    <button type="button" onclick="projectPage.execCmd('italic')" title="Italic"><em>I</em></button>
-                    <button type="button" onclick="projectPage.execCmd('underline')" title="Underline"><u>U</u></button>
-                    <button type="button" onclick="projectPage.execCmd('formatBlock', 'h3')" title="Heading">H</button>
-                    <button type="button" onclick="projectPage.execCmd('formatBlock', 'p')" title="Paragraph">¶</button>
-                    <button type="button" onclick="projectPage.execCmd('insertUnorderedList')" title="Bullet list">• List</button>
-                    <button type="button" onclick="projectPage.execCmd('undo')" title="Undo">↩</button>
-                </div>
+                <div class="contract-editor-toolbar" id="contractEditorToolbar"></div>
                 <div class="contract-editor" id="contractEditor" contenteditable="true">${contract.contentHtml || ''}</div>
                 <div class="crm-actions-row">
                     <button class="primary-button" onclick="projectPage.saveContract()">Save Contract</button>
@@ -406,6 +627,23 @@ class ProjectPage {
             </div>
             ${counterBlock}
             ${signedBlock}`;
+
+        if (!isSigned) {
+            this.mountContractEditor();
+        } else if (window.ContractEditor) {
+            const preview = area.querySelector('.contract-editor');
+            if (preview) {
+                ContractEditor.applyFieldResponses?.(preview, contract.fieldResponses || []);
+            }
+        }
+    }
+
+    mountContractEditor() {
+        const toolbar = document.getElementById('contractEditorToolbar');
+        if (!toolbar || !window.ContractEditor) return;
+        this.contractEditorApi = ContractEditor.mountToolbar(toolbar, {
+            getEditorEl: () => document.getElementById('contractEditor')
+        });
     }
 
     countersignBlock(contract) {
@@ -478,6 +716,10 @@ class ProjectPage {
     }
 
     execCmd(command, value = null) {
+        if (this.contractEditorApi) {
+            this.contractEditorApi.execCmd(command, value);
+            return;
+        }
         document.getElementById('contractEditor')?.focus();
         document.execCommand(command, false, value);
     }
@@ -531,7 +773,9 @@ class ProjectPage {
                 method: 'PUT',
                 body: {
                     title: document.getElementById('contractTitle')?.value ?? contract.title,
-                    contentHtml: document.getElementById('contractEditor')?.innerHTML ?? contract.contentHtml
+                    contentHtml: (window.ContractEditor
+                        ? ContractEditor.getEditorHtml(document.getElementById('contractEditor'))
+                        : document.getElementById('contractEditor')?.innerHTML) ?? contract.contentHtml
                 }
             });
             if (!silent) showAlertModal('Contract saved.', 'success', null, true);
@@ -620,30 +864,55 @@ class ProjectPage {
             return;
         }
         area.innerHTML = `
+            <div class="crm-table-scroll">
             <table class="crm-table">
                 <thead><tr>
-                    <th>Invoice #</th><th>Status</th><th>Issued</th><th>Due</th><th class="num">Total</th><th></th>
+                    <th>Invoice #</th>
+                    <th>Status</th>
+                    <th class="col-fold-sm">Issued</th>
+                    <th class="col-fold-sm">Due</th>
+                    <th class="num">Total</th>
+                    <th></th>
                 </tr></thead>
                 <tbody>
-                    ${invoices.map((inv) => `
+                    ${invoices.map((inv) => {
+                        const issued = CRM.formatDate(inv.issueDate) || '';
+                        const due = CRM.formatDate(inv.dueDate) || '';
+                        const paidMeta = inv.amountPaid > 0 ? `Paid ${CRM.money(inv.amountPaid)}` : '';
+                        const metaHtml = CRM.listRowMeta([
+                            issued ? `Issued ${CRM.escapeHtml(issued)}` : '',
+                            due ? `Due ${CRM.escapeHtml(due)}` : '',
+                            paidMeta
+                        ]);
+                        return `
                         <tr>
-                            <td><strong>${CRM.escapeHtml(inv.invoiceNumber)}</strong>${inv.subtitle ? `<br><span class="crm-inline-note">${CRM.escapeHtml(inv.subtitle)}</span>` : ''}</td>
+                            <td>
+                                <div class="list-row-primary">
+                                    <div>
+                                        <strong>${CRM.escapeHtml(inv.invoiceNumber)}</strong>
+                                        ${inv.subtitle ? `<br><span class="crm-inline-note">${CRM.escapeHtml(inv.subtitle)}</span>` : ''}
+                                    </div>
+                                    ${metaHtml}
+                                </div>
+                            </td>
                             <td>${CRM.invoiceStatusChip(inv.status)}</td>
-                            <td>${CRM.escapeHtml(CRM.formatDate(inv.issueDate) || '—')}</td>
-                            <td>${CRM.escapeHtml(CRM.formatDate(inv.dueDate) || '—')}</td>
+                            <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDate(inv.issueDate) || '—')}</td>
+                            <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDate(inv.dueDate) || '—')}</td>
                             <td class="num">${CRM.money(inv.total)}</td>
                             <td>
                                 <div class="crm-row-actions">
                                     ${(inv.status === 'draft' || inv.status === 'sent') ? `<button class="crm-btn-sm primary" onclick="projectPage.editInvoice('${inv._id}')">Edit</button>` : ''}
-                                    ${inv.publicToken && inv.status !== 'void' ? `<button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Copy Link</button>` : ''}
-                                    ${inv.status === 'sent' ? `<button class="crm-btn-sm" onclick="projectPage.markInvoicePaid('${inv._id}')">Mark Paid</button>` : ''}
+                                    ${inv.publicToken && inv.status !== 'void' ? `<button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Link</button>` : ''}
+                                    ${inv.status === 'sent' ? `<button class="crm-btn-sm" onclick="projectPage.markInvoicePaid('${inv._id}')">Paid</button>` : ''}
                                     <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">PDF</a>
                                     ${(inv.status === 'draft' || inv.status === 'sent') ? `<button class="crm-btn-sm danger" onclick="projectPage.voidOrDeleteInvoice('${inv._id}', '${inv.status}')">${inv.status === 'draft' ? 'Delete' : 'Void'}</button>` : ''}
                                 </div>
                             </td>
-                        </tr>`).join('')}
+                        </tr>`;
+                    }).join('')}
                 </tbody>
-            </table>`;
+            </table>
+            </div>`;
     }
 
     openCreateInvoiceModal() {
@@ -758,7 +1027,7 @@ class ProjectPage {
                     </div>
                 </div>
 
-                <div class="crm-form-grid" style="margin-top:20px">
+                <div class="crm-form-grid invoice-parties-grid" style="margin-top:20px">
                     <div>
                         <h3 style="font-size:14px">Bill To</h3>
                         <div class="crm-form-grid">${this.partyFields('invTo', inv.to || {})}</div>
@@ -770,6 +1039,7 @@ class ProjectPage {
                 </div>
 
                 <h3 style="font-size:14px;margin-top:24px">Line Items</h3>
+                <div class="invoice-items-scroll">
                 <table class="crm-table invoice-items-table">
                     <thead><tr>
                         <th class="col-day">Day</th>
@@ -779,6 +1049,7 @@ class ProjectPage {
                     </tr></thead>
                     <tbody id="invoiceItemsBody"></tbody>
                 </table>
+                </div>
                 <button class="crm-btn-sm" style="margin-top:8px" onclick="projectPage.addInvoiceLine()">+ Add Line</button>
 
                 <div class="invoice-totals">

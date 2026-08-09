@@ -317,6 +317,12 @@ class QuotesManager {
                 clearBtn.style.display = 'none';
             }
         }
+        const drawerActive = !!(dateFilter || userFilter ||
+            (this.when && this.when !== 'upcoming') ||
+            this.showingArchived);
+        if (window.PageControls) {
+            PageControls.syncFilterIndicator('#quotesPageControls', drawerActive);
+        }
 
         // Reset to page 1 when filters change
         this.currentPage = 1;
@@ -477,10 +483,10 @@ class QuotesManager {
             skeleton.innerHTML = Array.from({ length: 8 }, () => `
                 <div class="skeleton-row">
                     <div class="skeleton-block skeleton-block--title"></div>
-                    <div class="skeleton-block skeleton-block--line"></div>
-                    <div class="skeleton-block skeleton-block--line"></div>
                     <div class="skeleton-block skeleton-block--short"></div>
                     <div class="skeleton-block skeleton-block--short"></div>
+                    <div class="skeleton-block skeleton-block--line"></div>
+                    <div class="skeleton-block skeleton-block--line"></div>
                     <div class="skeleton-block skeleton-block--short"></div>
                 </div>
             `).join('');
@@ -600,20 +606,32 @@ class QuotesManager {
             </div>
         ` : '';
 
+        const metaParts = [clientName, location, createdBy, serviceDate, createdDate, modifiedDate]
+            .map((v) => this.escapeHtml(v))
+            .filter((v) => v && v !== '-' && v !== '—');
+        const metaHtml = metaParts.length
+            ? `<div class="list-row-meta">${metaParts.join('<span class="list-row-meta-sep">·</span>')}</div>`
+            : '';
+
         return `
             <tr class="quote-row ${isSharedWithMe ? 'shared-row' : ''}" data-quote-name="${this.escapeHtml(quote.name)}" onclick="quotesManager.loadQuote('${this.escapeJs(quote.name)}')">
                 <td class="quote-title-cell">
-                    ${isArchived ? '<span class="status-badge status-badge--archived">Archived</span>' : ''}
-                    ${isSharedWithMe ? `<span class="shared-badge-small ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${this.getSharedAccessBadgeLabel(quote.accessLevel)}</span>` : ''}
-                    ${hasShares && quote.isOwner ? `<span class="sharing-badge-small" title="Shared with ${quote.sharedWith.length} user(s)">👥</span>` : ''}
-                    <strong>${this.escapeHtml(quoteTitle)}</strong>
+                    <div class="list-row-primary">
+                        <div>
+                            ${isArchived ? '<span class="status-badge status-badge--archived">Archived</span>' : ''}
+                            ${isSharedWithMe ? `<span class="shared-badge-small ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${this.getSharedAccessBadgeLabel(quote.accessLevel)}</span>` : ''}
+                            ${hasShares && quote.isOwner ? `<span class="sharing-badge-small" title="Shared with ${quote.sharedWith.length} user(s)">👥</span>` : ''}
+                            <strong>${this.escapeHtml(quoteTitle)}</strong>
+                        </div>
+                        ${metaHtml}
+                    </div>
                 </td>
-                <td>${this.escapeHtml(clientName)}</td>
-                <td>${this.escapeHtml(location)}</td>
-                <td>${this.escapeHtml(createdBy)}</td>
-                <td>${serviceDate}</td>
-                <td>${createdDate}</td>
-                <td>${modifiedDate}</td>
+                <td class="col-fold-sm">${this.escapeHtml(clientName)}</td>
+                <td class="col-hide-sm col-fold-sm">${this.escapeHtml(location)}</td>
+                <td class="col-hide-sm col-fold-sm">${this.escapeHtml(createdBy)}</td>
+                <td class="col-fold-sm">${serviceDate}</td>
+                <td class="col-hide-sm col-fold-sm">${createdDate}</td>
+                <td class="col-hide-sm col-fold-sm">${modifiedDate}</td>
                 <td class="total-cell">${this.formatCurrency(total)}</td>
                 <td class="actions-cell" onclick="event.stopPropagation()">
                     <div class="actions-cell-inner">
@@ -892,6 +910,13 @@ class QuotesManager {
             if (toggleText) toggleText.textContent = 'View Archived';
             archiveBtn?.classList.remove('is-active');
             dataArea?.classList.remove('showing-archived');
+        }
+
+        const dateFilter = document.getElementById('dateFilter')?.value || '';
+        const userFilter = document.getElementById('userFilter')?.value || '';
+        if (window.PageControls) {
+            PageControls.syncFilterIndicator('#quotesPageControls', !!(dateFilter || userFilter ||
+                (this.when && this.when !== 'upcoming') || this.showingArchived));
         }
         
         await this.loadQuotes({ showSkeleton: false });

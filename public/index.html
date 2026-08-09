@@ -65,7 +65,7 @@
                                 </div>
                             </div>
                         <div class="quote-overflow-menu calculator-quote-menu" id="calculatorQuoteMenu">
-                            <button type="button" class="quote-overflow-btn" id="calculatorQuoteMenuBtn" onclick="calculator.toggleQuoteActionsMenu(event)" aria-label="Quote actions" aria-haspopup="true" aria-expanded="false" disabled>
+                            <button type="button" class="quote-overflow-btn" id="calculatorQuoteMenuBtn" onclick="calculator.toggleQuoteActionsMenu(event)" aria-label="Quote actions" aria-haspopup="true" aria-expanded="false">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                                     <circle cx="12" cy="12" r="1"></circle>
                                     <circle cx="12" cy="5" r="1"></circle>
@@ -73,6 +73,10 @@
                                 </svg>
                             </button>
                             <div class="quote-overflow-dropdown" id="calculatorQuoteDropdown" style="display: none;">
+                                <button type="button" class="overflow-menu-item builder-menu-mobile-only" onclick="showLoadModal(); calculator.closeQuoteActionsMenu();">Load quote</button>
+                                <button type="button" class="overflow-menu-item builder-menu-mobile-only" onclick="clearQuote(); calculator.closeQuoteActionsMenu();">Clear quote</button>
+                                <button type="button" class="overflow-menu-item builder-menu-mobile-only" id="calculatorOverrideMenuBtn" onclick="calculator.toggleOverrideMode(); calculator.closeQuoteActionsMenu();">Override prices</button>
+                                <div class="overflow-menu-divider builder-menu-mobile-only" role="separator"></div>
                                 <button type="button" class="overflow-menu-item" id="calculatorGoToProjectBtn" onclick="calculator.goToProject()" style="display: none;">Go to Project</button>
                                 <button type="button" class="overflow-menu-item" id="calculatorConvertToProjectBtn" onclick="calculator.handleConvertToProject()" style="display: none;">Convert to Project</button>
                                 <button type="button" class="overflow-menu-item" id="calculatorTransferLumDashBtn" onclick="calculator.handleTransferToLumDash()" style="display: none;">Transfer to LumDash</button>
@@ -93,16 +97,19 @@
                             </div>
                         </div>
                         <div class="builder-toolbar-actions">
-                            <button type="button" class="btn btn-primary btn-md" onclick="showSaveModal()">Save</button>
-                            <button type="button" class="btn btn-secondary btn-md" onclick="showLoadModal()">Load</button>
-                            <button type="button" class="btn btn-secondary btn-md" onclick="clearQuote()">Clear</button>
-                            <button type="button" class="override-btn btn btn-md" id="overrideBtn" onclick="calculator.toggleOverrideMode()">Override</button>
+                            <button type="button" class="btn btn-primary btn-md" onclick="showSaveModal()" title="Save">Save</button>
+                            <button type="button" class="btn btn-secondary btn-md builder-toolbar-desktop-only" onclick="showLoadModal()" title="Load">Load</button>
+                            <button type="button" class="btn btn-secondary btn-md builder-toolbar-desktop-only" onclick="clearQuote()" title="Clear">Clear</button>
+                            <button type="button" class="override-btn btn btn-md builder-toolbar-desktop-only" id="overrideBtn" onclick="calculator.toggleOverrideMode()" title="Override">Override</button>
                         </div>
                     </div>
 
                     <div id="overrideBanner" class="override-banner" style="display: none;">
-                        <span class="override-text">Override mode — click a service to edit name, price, and description. Dependencies are disabled.</span>
-                        <button type="button" class="override-exit-btn" onclick="calculator.toggleOverrideMode()">Exit override</button>
+                        <span class="override-text">
+                            <span class="override-text-full">Override mode — click a service to edit name, price, and description. Dependencies are disabled.</span>
+                            <span class="override-text-short">Override on — tap a service to edit.</span>
+                        </span>
+                        <button type="button" class="override-exit-btn" onclick="calculator.toggleOverrideMode()">Exit</button>
                     </div>
                 </div>
 
@@ -147,13 +154,16 @@
 
                 <div class="actions">
                     <button class="primary-button" id="generate-pdf" disabled>
-                        Download Quote (PDF)
+                        <span class="btn-label-full">Download Quote (PDF)</span>
+                        <span class="btn-label-short" aria-hidden="true">PDF</span>
                     </button>
                     <button class="secondary-button" id="export-excel" disabled>
-                        Export to Excel
+                        <span class="btn-label-full">Export to Excel</span>
+                        <span class="btn-label-short" aria-hidden="true">Excel</span>
                     </button>
                     <button class="secondary-button" id="export-docx" disabled>
-                        Export to DOCX
+                        <span class="btn-label-full">Export to DOCX</span>
+                        <span class="btn-label-short" aria-hidden="true">DOCX</span>
                     </button>
                 </div>
 
@@ -257,28 +267,6 @@
                         <button type="button" class="secondary-button" onclick="closeSaveModal()">Cancel</button>
                         <button type="button" class="tertiary-button" onclick="saveAsCopy()">Save as Copy</button>
                         <button type="submit" class="primary-button">Save Quote</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Prompt Modal -->
-    <div id="promptModal" class="modal" style="display: none;">
-        <div class="modal-content prompt-modal-content">
-            <div class="modal-header">
-                <h2 id="promptModalTitle">Input Required</h2>
-                <span class="close" onclick="hidePromptModal(null)">&times;</span>
-            </div>
-            <div class="modal-body">
-                <form id="promptForm">
-                    <div class="form-group">
-                        <label id="promptModalLabel" for="promptModalInput">Please enter:</label>
-                        <input type="text" id="promptModalInput" placeholder="Enter value">
-                    </div>
-                    <div class="modal-buttons">
-                        <button type="button" class="secondary-button" onclick="hidePromptModal(null)">Cancel</button>
-                        <button type="submit" class="primary-button">OK</button>
                     </div>
                 </form>
             </div>

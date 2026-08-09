@@ -1818,15 +1818,16 @@ body {
     }
     
     .container {
-        padding: 0 12px;
+        padding: 0 var(--space-4, 16px);
         max-width: 100vw;
-        overflow-x: hidden;
+        overflow-x: clip;
         box-sizing: border-box;
     }
     
     /* Prevent all child elements from causing overflow */
     .container > * {
         max-width: 100%;
+        min-width: 0;
     }
     
     /* Hide desktop-only elements on mobile */
@@ -1969,10 +1970,10 @@ body {
         width: 100%;
         flex: 0 0 100%;
         background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        padding: 12px 16px;
+        padding: 10px 12px;
         border-top: 2px solid #cbd5e1;
         border-bottom: 0;
-        font-size: 0.95rem;
+        font-size: 0.875rem;
         font-weight: 700;
         color: #1e293b;
         justify-content: space-between;
@@ -2007,12 +2008,12 @@ body {
     }
     
     .mobile-column-header .header-qty {
-        flex: 0 0 60px;
+        flex: 0 0 48px;
         text-align: center;
     }
     
     .mobile-column-header .header-price {
-        flex: 0 0 90px;
+        flex: 0 0 72px;
         text-align: right;
     }
     
@@ -2020,23 +2021,24 @@ body {
     .day-row:not(.mobile-day-header-row) .service-cell {
         flex: 1 1 0;
         min-width: 0;
-        max-width: 100%;
-        padding: 12px 8px 12px 12px;
+        max-width: none;
+        padding: 10px 4px 10px 8px;
         box-sizing: border-box;
-        overflow: hidden;
+        overflow: visible;
+        gap: 4px;
     }
     
     .day-row:not(.mobile-day-header-row) .quantity-cell {
-        flex: 0 0 60px;
-        padding: 12px 4px;
+        flex: 0 0 48px;
+        padding: 10px 2px;
         justify-content: center;
         display: flex;
         box-sizing: border-box;
     }
     
     .day-row:not(.mobile-day-header-row) .price-cell {
-        flex: 0 0 90px;
-        padding: 12px 12px 12px 8px;
+        flex: 0 0 72px;
+        padding: 10px 8px 10px 2px;
         justify-content: flex-end;
         display: flex;
         box-sizing: border-box;
@@ -2097,7 +2099,8 @@ body {
         display: none;
     }
     
-    /* Improved service name handling for mobile */
+    /* Improved service name handling for mobile.
+       Do NOT use width:100% here — it pushes % / remove controls off-screen. */
     .service-name {
         padding: 6px 8px;
         font-size: 13px;
@@ -2105,9 +2108,11 @@ body {
         min-height: auto;
         word-break: break-word;
         hyphens: auto;
-        flex: 1;
+        flex: 1 1 0;
+        width: auto;
         min-width: 0;
-        max-width: 100%;
+        max-width: none;
+        overflow: hidden;
         overflow-wrap: break-word;
     }
     
@@ -2115,7 +2120,13 @@ body {
         line-height: 1.2;
         word-break: break-word;
         overflow-wrap: break-word;
+        min-width: 0;
         max-width: 100%;
+    }
+
+    .service-discount-btn,
+    .remove-service {
+        flex-shrink: 0;
     }
     
     .edited-badge {
@@ -2147,7 +2158,7 @@ body {
     }
     
     .service-name.subservice {
-        margin-left: 15px;
+        margin-left: 8px;
         padding: 5px 8px;
         font-size: 12px;
     }

@@ -18,26 +18,40 @@
         <main class="main-content">
             <div class="quotes-page-section">
                 <div class="page-controls-sticky">
-                <div class="page-controls">
-                    <div class="pc-search">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <input type="text"
-                               id="searchClients"
-                               placeholder="Search clients or companies..."
-                               oninput="clientsManager.debouncedSearch()">
+                <div class="page-controls" id="clientsPageControls">
+                    <div class="pc-toolbar">
+                        <div class="pc-search">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                            <input type="text"
+                                   id="searchClients"
+                                   placeholder="Search clients..."
+                                   oninput="clientsManager.debouncedSearch()">
+                        </div>
+                        <button type="button"
+                                class="pc-btn pc-filters-toggle"
+                                aria-expanded="false"
+                                aria-controls="clientsFiltersDrawer"
+                                onclick="PageControls.toggleFilters(this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                            </svg>
+                            <span class="pc-filters-toggle-label">View</span>
+                        </button>
                     </div>
 
-                    <div class="pc-actions">
-                        <div class="pc-view-toggle" role="group" aria-label="Client view">
-                            <button type="button" class="pc-btn is-active" id="viewPeopleBtn" onclick="clientsManager.setView('people')" title="View by person">
-                                People
-                            </button>
-                            <button type="button" class="pc-btn" id="viewCompaniesBtn" onclick="clientsManager.setView('companies')" title="View by company">
-                                Companies
-                            </button>
+                    <div class="pc-filters-drawer" id="clientsFiltersDrawer">
+                        <div class="pc-actions">
+                            <div class="pc-view-toggle" role="group" aria-label="Client view">
+                                <button type="button" class="pc-btn is-active" id="viewPeopleBtn" onclick="clientsManager.setView('people')" title="View by person">
+                                    People
+                                </button>
+                                <button type="button" class="pc-btn" id="viewCompaniesBtn" onclick="clientsManager.setView('companies')" title="View by company">
+                                    Companies
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -71,6 +85,7 @@
     <script src="a11y.js"></script>
     <script src="modals.js"></script>
     <script src="shell.js"></script>
+    <script src="page-controls.js"></script>
     <script src="crm-common.js"></script>
     <script src="clients.js"></script>
 </body>

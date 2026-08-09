@@ -42,8 +42,9 @@ class QuoteCalculator {
         this.mobileGhost = null;
         this.lastServiceTap = 0;
         this.tooltipTimeout = null;
-        
-        this.init();
+
+        // Expose init completion so page boot can await services/draft before applying navigation loads
+        this.ready = this.init();
     }
 
     setupEventListeners() {
@@ -54,7 +55,12 @@ class QuoteCalculator {
 
     async init() {
         await this.loadServices();
-        this.loadDraftFromLocalStorage();
+        // Prefer an in-flight navigation payload over a stale local draft
+        const hasPendingNavigationLoad = !!sessionStorage.getItem('loadQuoteData')
+            || sessionStorage.getItem('lumquote_start_new') === '1';
+        if (!hasPendingNavigationLoad) {
+            this.loadDraftFromLocalStorage();
+        }
         this.setupEventListeners();
         this.renderDays();
         this.updateTotal();
@@ -1954,16 +1960,23 @@ class QuoteCalculator {
     updateQuoteActionsMenu() {
         const menuBtn = document.getElementById('calculatorQuoteMenuBtn');
         const archiveBtn = document.getElementById('calculatorArchiveBtn');
+        const deleteBtn = document.querySelector('#calculatorQuoteDropdown .overflow-menu-item.danger');
         const projectBtn = document.getElementById('calculatorGoToProjectBtn');
         const convertBtn = document.getElementById('calculatorConvertToProjectBtn');
         const transferBtn = document.getElementById('calculatorTransferLumDashBtn');
+        const overrideMenuBtn = document.getElementById('calculatorOverrideMenuBtn');
 
         if (!menuBtn) return;
 
-        menuBtn.disabled = !this.currentQuoteName;
+        // Always available — Load / Clear / Override live in this menu on mobile
+        menuBtn.disabled = false;
 
         if (archiveBtn) {
             archiveBtn.textContent = this.currentArchived ? 'Unarchive' : 'Archive';
+            archiveBtn.style.display = this.currentQuoteName ? '' : 'none';
+        }
+        if (deleteBtn) {
+            deleteBtn.style.display = this.currentQuoteName ? '' : 'none';
         }
         if (projectBtn) {
             projectBtn.style.display = this.currentProjectId ? '' : 'none';
@@ -1973,6 +1986,9 @@ class QuoteCalculator {
         }
         if (transferBtn) {
             transferBtn.style.display = this.currentProjectId ? '' : 'none';
+        }
+        if (overrideMenuBtn) {
+            overrideMenuBtn.textContent = this.isOverrideMode ? 'Exit override' : 'Override prices';
         }
         this.updateProjectChip();
     }
@@ -2016,10 +2032,6 @@ class QuoteCalculator {
 
     toggleQuoteActionsMenu(event) {
         event.stopPropagation();
-
-        if (!this.currentQuoteName) {
-            return;
-        }
 
         const menu = document.getElementById('calculatorQuoteMenu');
         const dropdown = document.getElementById('calculatorQuoteDropdown');
@@ -2372,10 +2384,13 @@ class QuoteCalculator {
     loadQuoteFromData(quote) {
         this.isHydratingQuote = true;
         try {
+            const quoteData = quote?.quoteData || {};
             // Load the quote data
-            this.days = quote.quoteData.days;
-            this.discountPercentage = quote.quoteData.discountPercentage || 0;
-            this.markups = quote.quoteData.markups || [];
+            this.days = Array.isArray(quoteData.days) && quoteData.days.length
+                ? quoteData.days
+                : [{ services: [], date: null }];
+            this.discountPercentage = quoteData.discountPercentage || 0;
+            this.markups = quoteData.markups || [];
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
             this.currentLocation = quote.location || null;
@@ -2383,13 +2398,17 @@ class QuoteCalculator {
             this.currentBooked = quote.booked || false;
             this.currentArchived = quote.archived || false;
             this.currentCreatedBy = quote.createdBy?._id || null;
-            this.currentProjectId = quote.project || null;
-            this.currentQuoteTitle = quote.quoteData?.quoteTitle || quote.name;
+            const projectRef = quote.project;
+            this.currentProjectId = projectRef && typeof projectRef === 'object'
+                ? (projectRef._id || null)
+                : (projectRef || null);
+            this.currentQuoteTitle = quoteData.quoteTitle || quote.name;
             this.updateQuoteTitleDisplay();
             this.updateQuoteActionsMenu();
             
             // Ensure all services have quantity property and days have date property
             this.days.forEach(day => {
+                if (!Array.isArray(day.services)) day.services = [];
                 if (day.date === undefined) {
                     day.date = null;
                 }
@@ -2405,12 +2424,15 @@ class QuoteCalculator {
             
             // Update discount button and input (matching regular loadQuote)
             const button = document.getElementById('discountBtn');
-            if (this.discountPercentage > 0) {
-                button.textContent = `Modify Discount (${this.discountPercentage}%)`;
-            } else {
-                button.textContent = 'Apply Discount';
+            if (button) {
+                if (this.discountPercentage > 0) {
+                    button.textContent = `Modify Discount (${this.discountPercentage}%)`;
+                } else {
+                    button.textContent = 'Apply Discount';
+                }
             }
-            document.getElementById('discountInput').value = this.discountPercentage;
+            const discountInput = document.getElementById('discountInput');
+            if (discountInput) discountInput.value = this.discountPercentage;
             
             // Update client display
             this.updateClientDisplay();
@@ -3873,15 +3895,23 @@ class QuoteCalculator {
         
         const button = document.getElementById('overrideBtn');
         const banner = document.getElementById('overrideBanner');
+        const overrideMenuBtn = document.getElementById('calculatorOverrideMenuBtn');
         
         if (this.isOverrideMode) {
-            button.textContent = 'Exit Override';
-            button.classList.add('active');
-            banner.style.display = 'block';
+            if (button) {
+                button.textContent = 'Exit Override';
+                button.classList.add('active');
+            }
+            if (banner) banner.style.display = 'flex';
         } else {
-            button.textContent = 'Override';
-            button.classList.remove('active');
-            banner.style.display = 'none';
+            if (button) {
+                button.textContent = 'Override';
+                button.classList.remove('active');
+            }
+            if (banner) banner.style.display = 'none';
+        }
+        if (overrideMenuBtn) {
+            overrideMenuBtn.textContent = this.isOverrideMode ? 'Exit override' : 'Override prices';
         }
         
         // Re-render to update click handlers
@@ -4385,10 +4415,18 @@ class QuoteCalculator {
 
 // Initialize calculator when page loads
 let calculator;
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     calculator = new QuoteCalculator();
+
+    // Wait for services + optional draft restore before applying navigation payloads.
+    // Otherwise async init() can overwrite a freshly loaded quote with a stale draft.
+    try {
+        await calculator.ready;
+    } catch (error) {
+        console.error('Quote calculator failed to initialize:', error);
+    }
     
-    // Check if we should load a quote from calendar navigation
+    // Check if we should load a quote from list/calendar navigation
     const loadQuoteData = sessionStorage.getItem('loadQuoteData');
     if (loadQuoteData) {
         try {
@@ -4396,8 +4434,8 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionStorage.removeItem('loadQuoteData');
             calculator.loadQuoteFromData(quoteData);
         } catch (error) {
-            console.error('Error loading quote from calendar:', error);
-            showAlertModal('Failed to load quote from calendar.', 'error');
+            console.error('Error loading quote from navigation:', error);
+            showAlertModal('Failed to load quote.', 'error');
         }
     } else if (sessionStorage.getItem('lumquote_start_new') === '1') {
         sessionStorage.removeItem('lumquote_start_new');
@@ -4600,57 +4638,6 @@ async function clearQuote() {
     }
 }
 
-let currentPromptCallback = null;
-
-function showPromptModal(message, defaultValue = '', title = 'Input Required', placeholder = 'Enter value') {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('promptModal');
-        const titleEl = document.getElementById('promptModalTitle');
-        const labelEl = document.getElementById('promptModalLabel');
-        const inputEl = document.getElementById('promptModalInput');
-        const form = document.getElementById('promptForm');
-        
-        // Set content
-        titleEl.textContent = title;
-        labelEl.textContent = message;
-        inputEl.value = defaultValue;
-        inputEl.placeholder = placeholder;
-        
-        // Set callback
-        currentPromptCallback = resolve;
-        
-        // Show modal
-        modal.style.display = 'flex';
-        
-        // Focus management
-        setTimeout(() => {
-            inputEl.focus();
-            inputEl.select();
-        }, 100);
-        
-        // Handle form submission
-        form.onsubmit = (e) => {
-            e.preventDefault();
-            hidePromptModal(inputEl.value.trim());
-        };
-    });
-}
-
-function hidePromptModal(result) {
-    const modal = document.getElementById('promptModal');
-    if (modal) {
-        modal.classList.add('closing');
-        setTimeout(() => {
-            modal.style.display = 'none';
-            modal.classList.remove('closing');
-            if (currentPromptCallback) {
-                currentPromptCallback(result);
-                currentPromptCallback = null;
-            }
-        }, 200);
-    }
-}
-
 function showExportModal(defaultTitle = '', defaultClientName = '') {
     return new Promise((resolve) => {
         // Create modal HTML if it doesn't exist
@@ -4740,15 +4727,6 @@ function submitExportModal() {
     
     hideExportModal(result);
 }
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        const promptModal = document.getElementById('promptModal');
-        if (promptModal && promptModal.style.display === 'flex') {
-            hidePromptModal(null);
-        }
-    }
-});
 
 // Close tooltips when clicking outside
 document.addEventListener('click', (e) => {

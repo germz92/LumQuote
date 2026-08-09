@@ -18,57 +18,72 @@
         <main class="main-content">
             <div class="quotes-page-section">
                 <div class="page-controls-sticky">
-                <div class="page-controls">
-                    <div class="pc-search">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <input type="text"
-                               id="searchProjects"
-                               placeholder="Search projects..."
-                               oninput="projectsManager.debouncedSearch()">
+                <div class="page-controls" id="projectsPageControls">
+                    <div class="pc-toolbar">
+                        <div class="pc-search">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                            <input type="text"
+                                   id="searchProjects"
+                                   placeholder="Search projects..."
+                                   oninput="projectsManager.debouncedSearch()">
+                        </div>
+                        <button type="button"
+                                class="pc-btn pc-filters-toggle"
+                                aria-expanded="false"
+                                aria-controls="projectsFiltersDrawer"
+                                onclick="PageControls.toggleFilters(this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                            </svg>
+                            <span class="pc-filters-toggle-label">Filters</span>
+                        </button>
+                        <button type="button" class="btn btn-primary btn-md pc-primary-cta" onclick="projectsManager.openCreateModal()" title="New Project">
+                            <span class="pc-cta-full">+ New Project</span>
+                            <span class="pc-cta-short" aria-hidden="true">+</span>
+                        </button>
                     </div>
 
-                    <select id="statusFilter" class="pc-select" onchange="projectsManager.applyFilters()">
-                        <option value="">All Statuses</option>
-                        <option value="booked_plus">Booked+</option>
-                        <option value="lead">Lead</option>
-                        <option value="quoted">Quoted</option>
-                        <option value="booked">Booked</option>
-                        <option value="contract_signed">Contract Signed</option>
-                        <option value="invoiced">Invoiced</option>
-                        <option value="paid">Paid</option>
-                        <option value="complete">Complete</option>
-                    </select>
+                    <div class="pc-filters-drawer" id="projectsFiltersDrawer">
+                        <select id="statusFilter" class="pc-select" onchange="projectsManager.applyFilters()">
+                            <option value="">All Statuses</option>
+                            <option value="booked_plus">Booked+</option>
+                            <option value="lead">Lead</option>
+                            <option value="quoted">Quoted</option>
+                            <option value="booked">Booked</option>
+                            <option value="contract_signed">Contract Signed</option>
+                            <option value="invoiced">Invoiced</option>
+                            <option value="paid">Paid</option>
+                            <option value="complete">Complete</option>
+                        </select>
 
-                    <input type="date"
-                           id="dateFilter"
-                           class="pc-select"
-                           title="Filter by project date"
-                           onchange="projectsManager.applyFilters()">
+                        <input type="date"
+                               id="dateFilter"
+                               class="pc-select"
+                               title="Filter by project date"
+                               onchange="projectsManager.applyFilters()">
 
-                    <button class="pc-clear" id="clearFiltersBtn" onclick="projectsManager.clearFilters()" style="display: none;">
-                        Clear
-                    </button>
+                        <button class="pc-clear" id="clearFiltersBtn" onclick="projectsManager.clearFilters()" style="display: none;">
+                            Clear
+                        </button>
 
-                    <div class="pc-actions">
-                        <div class="pc-when-toggle" role="group" aria-label="Project timing">
-                            <button type="button" class="pc-btn" data-when="all" onclick="projectsManager.setWhen('all')">All</button>
-                            <button type="button" class="pc-btn" data-when="upcoming" onclick="projectsManager.setWhen('upcoming')">Upcoming</button>
-                            <button type="button" class="pc-btn" data-when="past" onclick="projectsManager.setWhen('past')">Past</button>
+                        <div class="pc-actions">
+                            <div class="pc-when-toggle" role="group" aria-label="Project timing">
+                                <button type="button" class="pc-btn" data-when="all" onclick="projectsManager.setWhen('all')">All</button>
+                                <button type="button" class="pc-btn" data-when="upcoming" onclick="projectsManager.setWhen('upcoming')">Upcoming</button>
+                                <button type="button" class="pc-btn" data-when="past" onclick="projectsManager.setWhen('past')">Past</button>
+                            </div>
+                            <button type="button" class="pc-btn" id="archiveToggleBtn" onclick="projectsManager.toggleArchiveView()" title="View archived projects">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M21 8v13H3V8"></path>
+                                    <path d="M1 3h22v5H1z"></path>
+                                    <path d="M10 12h4"></path>
+                                </svg>
+                                <span id="archiveToggleText">View Archived</span>
+                            </button>
                         </div>
-                        <button type="button" class="pc-btn" id="archiveToggleBtn" onclick="projectsManager.toggleArchiveView()" title="View archived projects">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <path d="M21 8v13H3V8"></path>
-                                <path d="M1 3h22v5H1z"></path>
-                                <path d="M10 12h4"></path>
-                            </svg>
-                            <span id="archiveToggleText">View Archived</span>
-                        </button>
-                        <button type="button" class="btn btn-primary btn-md" onclick="projectsManager.openCreateModal()">
-                            + New Project
-                        </button>
                     </div>
                 </div>
                 </div>
@@ -84,25 +99,25 @@
                                     <th class="sortable" onclick="projectsManager.sortByColumn('name')">
                                         Project <span class="sort-indicator" data-sort="name"></span>
                                     </th>
-                                    <th class="sortable" onclick="projectsManager.sortByColumn('client')">
+                                    <th class="sortable col-fold-sm" onclick="projectsManager.sortByColumn('client')">
                                         Client <span class="sort-indicator" data-sort="client"></span>
                                     </th>
-                                    <th class="sortable" onclick="projectsManager.sortByColumn('dates')">
+                                    <th class="sortable col-fold-sm" onclick="projectsManager.sortByColumn('dates')">
                                         Dates <span class="sort-indicator" data-sort="dates"></span>
                                     </th>
                                     <th class="sortable" onclick="projectsManager.sortByColumn('status')">
                                         Status <span class="sort-indicator" data-sort="status"></span>
                                     </th>
-                                    <th class="sortable" onclick="projectsManager.sortByColumn('contract')">
+                                    <th class="sortable col-fold-sm" onclick="projectsManager.sortByColumn('contract')">
                                         Contract <span class="sort-indicator" data-sort="contract"></span>
                                     </th>
-                                    <th class="sortable" onclick="projectsManager.sortByColumn('invoices')">
+                                    <th class="sortable col-fold-sm" onclick="projectsManager.sortByColumn('invoices')">
                                         Invoices <span class="sort-indicator" data-sort="invoices"></span>
                                     </th>
-                                    <th class="sortable col-hide-sm" onclick="projectsManager.sortByColumn('owner')">
+                                    <th class="sortable col-hide-sm col-fold-sm" onclick="projectsManager.sortByColumn('owner')">
                                         Owner <span class="sort-indicator" data-sort="owner"></span>
                                     </th>
-                                    <th class="sortable col-hide-sm" onclick="projectsManager.sortByColumn('created')">
+                                    <th class="sortable col-hide-sm col-fold-sm" onclick="projectsManager.sortByColumn('created')">
                                         Created <span class="sort-indicator" data-sort="created"></span>
                                     </th>
                                     <th></th>
@@ -129,6 +144,66 @@
         <div class="loading-spinner">
             <div class="spinner"></div>
             <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Share Project Modal -->
+    <div id="shareProjectModal" class="modal" style="display: none;">
+        <div class="modal-content share-modal-content">
+            <div class="modal-header">
+                <h2>Share Project</h2>
+                <span class="close" onclick="projectsManager.closeShareModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="share-quote-name" id="shareProjectName"></p>
+
+                <div class="share-add-section">
+                    <h3>Share with User</h3>
+                    <div class="share-user-select-container">
+                        <div class="share-user-dropdown">
+                            <input type="text" id="shareProjectUserSearch" class="share-user-search" placeholder="Search users..." autocomplete="off">
+                            <div id="shareProjectUserDropdown" class="share-user-dropdown-list" style="display: none;"></div>
+                        </div>
+                        <input type="hidden" id="selectedShareProjectUserId">
+                        <span id="selectedShareProjectUserName" class="selected-user-name"></span>
+                    </div>
+
+                    <div class="share-access-level">
+                        <label>Access Level:</label>
+                        <div class="access-level-options">
+                            <label class="radio-label">
+                                <input type="radio" name="projectAccessLevel" value="read" checked>
+                                <span class="radio-text">
+                                    <strong>Read Only</strong>
+                                    <small>Can view but not edit</small>
+                                </span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="projectAccessLevel" value="full">
+                                <span class="radio-text">
+                                    <strong>Full Access</strong>
+                                    <small>Can view and edit</small>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="button" class="primary-button share-add-btn" onclick="projectsManager.addShare()">
+                        Add User
+                    </button>
+                </div>
+
+                <div class="share-current-section">
+                    <h3>Currently Shared With</h3>
+                    <div id="sharedProjectUsersList" class="shared-users-list">
+                        <p class="no-shares-message">Not shared with anyone yet</p>
+                    </div>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="secondary-button" onclick="projectsManager.closeShareModal()">Done</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -189,6 +264,7 @@
     <script src="a11y.js"></script>
     <script src="modals.js"></script>
     <script src="shell.js"></script>
+    <script src="page-controls.js"></script>
     <script src="crm-common.js"></script>
     <script src="lumdash-integration.js"></script>
     <script src="projects.js"></script>

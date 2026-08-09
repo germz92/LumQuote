@@ -17,71 +17,86 @@
         <main class="main-content">
             <div class="quotes-page-section">
                 <div class="page-controls-sticky">
-                <div class="page-controls">
-                    <div class="pc-search">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                            <circle cx="11" cy="11" r="8"></circle>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <input type="text"
-                               id="searchQuotes"
-                               placeholder="Search quotes..."
-                               oninput="quotesManager.debouncedSearch()">
+                <div class="page-controls" id="quotesPageControls">
+                    <div class="pc-toolbar">
+                        <div class="pc-search">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            </svg>
+                            <input type="text"
+                                   id="searchQuotes"
+                                   placeholder="Search quotes..."
+                                   oninput="quotesManager.debouncedSearch()">
+                        </div>
+                        <button type="button"
+                                class="pc-btn pc-filters-toggle"
+                                aria-expanded="false"
+                                aria-controls="quotesFiltersDrawer"
+                                onclick="PageControls.toggleFilters(this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                            </svg>
+                            <span class="pc-filters-toggle-label">Filters</span>
+                        </button>
+                        <button type="button" class="btn btn-primary btn-md pc-primary-cta" onclick="clearQuoteData(event)" title="New Quote">
+                            <span class="pc-cta-full">+ New Quote</span>
+                            <span class="pc-cta-short" aria-hidden="true">+</span>
+                        </button>
                     </div>
 
-                    <select id="sortQuotes" class="pc-select" onchange="quotesManager.filterAndSort()">
-                        <option value="created-newest" selected>Created (Newest)</option>
-                        <option value="created-oldest">Created (Oldest)</option>
-                        <option value="service-date-newest">Service Date (Newest)</option>
-                        <option value="service-date-oldest">Service Date (Oldest)</option>
-                        <option value="newest">Updated (Newest)</option>
-                        <option value="oldest">Updated (Oldest)</option>
-                        <option value="name-asc">Name (A-Z)</option>
-                        <option value="name-desc">Name (Z-A)</option>
-                    </select>
+                    <div class="pc-filters-drawer" id="quotesFiltersDrawer">
+                        <select id="sortQuotes" class="pc-select" onchange="quotesManager.filterAndSort()">
+                            <option value="created-newest" selected>Created (Newest)</option>
+                            <option value="created-oldest">Created (Oldest)</option>
+                            <option value="service-date-newest">Service Date (Newest)</option>
+                            <option value="service-date-oldest">Service Date (Oldest)</option>
+                            <option value="newest">Updated (Newest)</option>
+                            <option value="oldest">Updated (Oldest)</option>
+                            <option value="name-asc">Name (A-Z)</option>
+                            <option value="name-desc">Name (Z-A)</option>
+                        </select>
 
-                    <input type="date"
-                           id="dateFilter"
-                           class="pc-select"
-                           title="Filter by service date"
-                           onchange="quotesManager.filterAndSort()">
+                        <input type="date"
+                               id="dateFilter"
+                               class="pc-select"
+                               title="Filter by service date"
+                               onchange="quotesManager.filterAndSort()">
 
-                    <select id="userFilter" class="pc-select" onchange="quotesManager.filterAndSort()">
-                        <option value="">All Users</option>
-                    </select>
+                        <select id="userFilter" class="pc-select" onchange="quotesManager.filterAndSort()">
+                            <option value="">All Users</option>
+                        </select>
 
-                    <button type="button" class="pc-clear" id="clearFiltersBtn" onclick="quotesManager.clearFilters()" style="display: none;">
-                        Clear
-                    </button>
+                        <button type="button" class="pc-clear" id="clearFiltersBtn" onclick="quotesManager.clearFilters()" style="display: none;">
+                            Clear
+                        </button>
 
-                    <div class="pc-actions">
-                        <div class="pc-when-toggle" role="group" aria-label="Quote timing">
-                            <button type="button" class="pc-btn" data-when="all" onclick="quotesManager.setWhen('all')">All</button>
-                            <button type="button" class="pc-btn" data-when="upcoming" onclick="quotesManager.setWhen('upcoming')">Upcoming</button>
-                            <button type="button" class="pc-btn" data-when="past" onclick="quotesManager.setWhen('past')">Past</button>
+                        <div class="pc-actions">
+                            <div class="pc-when-toggle" role="group" aria-label="Quote timing">
+                                <button type="button" class="pc-btn" data-when="all" onclick="quotesManager.setWhen('all')">All</button>
+                                <button type="button" class="pc-btn" data-when="upcoming" onclick="quotesManager.setWhen('upcoming')">Upcoming</button>
+                                <button type="button" class="pc-btn" data-when="past" onclick="quotesManager.setWhen('past')">Past</button>
+                            </div>
+                            <button type="button" class="pc-btn" id="viewToggleBtn" onclick="quotesManager.toggleView()" title="Toggle grid and list view">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="viewToggleIcon" aria-hidden="true">
+                                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                                </svg>
+                                <span id="viewToggleText">Grid View</span>
+                            </button>
+                            <button type="button" class="pc-btn" id="archiveToggleBtn" onclick="quotesManager.toggleArchiveView()" title="View archived quotes">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M21 8v13H3V8"></path>
+                                    <path d="M1 3h22v5H1z"></path>
+                                    <path d="M10 12h4"></path>
+                                </svg>
+                                <span id="archiveToggleText">View Archived</span>
+                            </button>
                         </div>
-                        <button type="button" class="pc-btn" id="viewToggleBtn" onclick="quotesManager.toggleView()" title="Toggle grid and list view">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="viewToggleIcon" aria-hidden="true">
-                                <line x1="8" y1="6" x2="21" y2="6"></line>
-                                <line x1="8" y1="12" x2="21" y2="12"></line>
-                                <line x1="8" y1="18" x2="21" y2="18"></line>
-                                <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                                <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                                <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                            </svg>
-                            <span id="viewToggleText">Grid View</span>
-                        </button>
-                        <button type="button" class="pc-btn" id="archiveToggleBtn" onclick="quotesManager.toggleArchiveView()" title="View archived quotes">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <path d="M21 8v13H3V8"></path>
-                                <path d="M1 3h22v5H1z"></path>
-                                <path d="M10 12h4"></path>
-                            </svg>
-                            <span id="archiveToggleText">View Archived</span>
-                        </button>
-                        <button type="button" class="btn btn-primary btn-md" onclick="clearQuoteData(event)">
-                            + New Quote
-                        </button>
                     </div>
                 </div>
                 </div>
@@ -98,22 +113,22 @@
                                     <th class="sortable" onclick="quotesManager.sortByColumn('title')">
                                         Quote Title <span class="sort-indicator"></span>
                                     </th>
-                                    <th class="sortable" onclick="quotesManager.sortByColumn('client')">
+                                    <th class="sortable col-fold-sm" onclick="quotesManager.sortByColumn('client')">
                                         Client <span class="sort-indicator"></span>
                                     </th>
-                                    <th class="sortable col-hide-sm" onclick="quotesManager.sortByColumn('location')">
+                                    <th class="sortable col-hide-sm col-fold-sm" onclick="quotesManager.sortByColumn('location')">
                                         Location <span class="sort-indicator"></span>
                                     </th>
-                                    <th class="sortable col-hide-sm" onclick="quotesManager.sortByColumn('owner')">
+                                    <th class="sortable col-hide-sm col-fold-sm" onclick="quotesManager.sortByColumn('owner')">
                                         Owner <span class="sort-indicator"></span>
                                     </th>
-                                    <th class="sortable" onclick="quotesManager.sortByColumn('date')">
+                                    <th class="sortable col-fold-sm" onclick="quotesManager.sortByColumn('date')">
                                         Service Date <span class="sort-indicator"></span>
                                     </th>
-                                    <th class="sortable col-hide-sm" onclick="quotesManager.sortByColumn('created')">
+                                    <th class="sortable col-hide-sm col-fold-sm" onclick="quotesManager.sortByColumn('created')">
                                         Created <span class="sort-indicator"></span>
                                     </th>
-                                    <th class="sortable col-hide-sm" onclick="quotesManager.sortByColumn('modified')">
+                                    <th class="sortable col-hide-sm col-fold-sm" onclick="quotesManager.sortByColumn('modified')">
                                         Modified <span class="sort-indicator"></span>
                                     </th>
                                     <th class="sortable" onclick="quotesManager.sortByColumn('total')">
@@ -256,6 +271,7 @@
     <script src="a11y.js"></script>
     <script src="modals.js"></script>
     <script src="shell.js"></script>
+    <script src="page-controls.js"></script>
     <script src="lumdash-integration.js"></script>
     <script src="quotes.js"></script>
 </body>

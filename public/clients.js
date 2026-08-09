@@ -115,10 +115,27 @@ class ClientsManager {
     syncViewToggle() {
         document.getElementById('viewPeopleBtn')?.classList.toggle('is-active', this.viewMode === 'people');
         document.getElementById('viewCompaniesBtn')?.classList.toggle('is-active', this.viewMode === 'companies');
+        if (window.PageControls) {
+            PageControls.syncFilterIndicator('#clientsPageControls', this.viewMode === 'companies');
+        }
     }
 
     async load() {
         const skeleton = document.getElementById('clientsSkeleton');
+        if (skeleton) {
+            skeleton.className = 'quotes-skeleton quotes-skeleton--list';
+            skeleton.innerHTML = Array.from({ length: 8 }, () => `
+                <div class="skeleton-row">
+                    <div class="skeleton-block skeleton-block--title"></div>
+                    <div class="skeleton-block skeleton-block--short"></div>
+                    <div class="skeleton-block skeleton-block--short"></div>
+                    <div class="skeleton-block skeleton-block--line"></div>
+                    <div class="skeleton-block skeleton-block--line"></div>
+                    <div class="skeleton-block skeleton-block--short"></div>
+                </div>
+            `).join('');
+            skeleton.style.display = 'block';
+        }
         try {
             const search = document.getElementById('searchClients').value.trim();
             const params = new URLSearchParams();
@@ -205,10 +222,10 @@ class ClientsManager {
             <tr>
                 <th style="width:28px"></th>
                 ${this.sortHeader('Client', 'name')}
-                ${this.sortHeader('Company', 'company', 'col-hide-sm')}
-                ${this.sortHeader('Contact', 'contact', 'col-hide-sm')}
+                ${this.sortHeader('Company', 'company', 'col-hide-sm col-fold-sm')}
+                ${this.sortHeader('Contact', 'contact', 'col-hide-sm col-fold-sm')}
                 ${this.sortHeader('Projects', 'projects')}
-                ${this.sortHeader('Total Value', 'total', 'col-hide-sm')}
+                ${this.sortHeader('Total Value', 'total', 'col-hide-sm col-fold-sm')}
             </tr>`;
 
         if (this.clients.length === 0) {
@@ -232,14 +249,27 @@ class ClientsManager {
                 ? `<span class="crm-cell-amount">${CRM.money(client.totalValue, { cents: false })}</span>`
                 : '<span class="crm-inline-note">—</span>';
 
+            const companyMeta = client.company ? CRM.escapeHtml(client.company) : '';
+            const contactMeta = [client.email, client.phone].filter(Boolean)
+                .map((v) => CRM.escapeHtml(v)).join(' · ');
+            const valueMeta = client.totalValue > 0
+                ? CRM.money(client.totalValue, { cents: false })
+                : '';
+            const metaHtml = CRM.listRowMeta([companyMeta, contactMeta, valueMeta]);
+
             const mainRow = `
                 <tr class="client-row ${isOpen ? 'is-open' : ''}" onclick="clientsManager.toggleExpand('${CRM.escapeJs(id)}')">
                     <td class="client-caret">${client.projectCount > 0 ? `<span class="caret ${isOpen ? 'open' : ''}">▸</span>` : ''}</td>
-                    <td><strong>${CRM.escapeHtml(client.name)}</strong></td>
-                    <td class="col-hide-sm">${client.company ? CRM.escapeHtml(client.company) : '<span class="crm-inline-note">—</span>'}</td>
-                    <td class="col-hide-sm">${contact}</td>
+                    <td>
+                        <div class="list-row-primary">
+                            <strong>${CRM.escapeHtml(client.name)}</strong>
+                            ${metaHtml}
+                        </div>
+                    </td>
+                    <td class="col-hide-sm col-fold-sm">${client.company ? CRM.escapeHtml(client.company) : '<span class="crm-inline-note">—</span>'}</td>
+                    <td class="col-hide-sm col-fold-sm">${contact}</td>
                     <td>${projectsLabel}</td>
-                    <td class="col-hide-sm">${valueLabel}</td>
+                    <td class="col-hide-sm col-fold-sm">${valueLabel}</td>
                 </tr>`;
 
             if (!isOpen || client.projectCount === 0) return mainRow;
@@ -260,7 +290,7 @@ class ClientsManager {
                 ${this.sortHeader('Company', 'name')}
                 ${this.sortHeader('Contacts', 'contacts')}
                 ${this.sortHeader('Projects', 'projects')}
-                ${this.sortHeader('Total Value', 'total', 'col-hide-sm')}
+                ${this.sortHeader('Total Value', 'total', 'col-hide-sm col-fold-sm')}
             </tr>`;
 
         if (groups.length === 0) {
@@ -280,13 +310,23 @@ class ClientsManager {
                 : '<span class="crm-inline-note">—</span>';
             const unnamed = group.key === '__none__';
 
+            const valueMeta = group.totalValue > 0
+                ? CRM.money(group.totalValue, { cents: false })
+                : '';
+            const metaHtml = CRM.listRowMeta([valueMeta]);
+
             const mainRow = `
                 <tr class="client-row ${isOpen ? 'is-open' : ''}" onclick="clientsManager.toggleExpand('${CRM.escapeJs(group.key)}')">
                     <td class="client-caret">${canExpand ? `<span class="caret ${isOpen ? 'open' : ''}">▸</span>` : ''}</td>
-                    <td><strong class="${unnamed ? 'crm-inline-note' : ''}">${CRM.escapeHtml(group.name)}</strong></td>
+                    <td>
+                        <div class="list-row-primary">
+                            <strong class="${unnamed ? 'crm-inline-note' : ''}">${CRM.escapeHtml(group.name)}</strong>
+                            ${metaHtml}
+                        </div>
+                    </td>
                     <td>${group.contactCount} contact${group.contactCount === 1 ? '' : 's'}</td>
                     <td>${group.projectCount > 0 ? `${group.projectCount} project${group.projectCount === 1 ? '' : 's'}` : '<span class="crm-inline-note">None</span>'}</td>
-                    <td class="col-hide-sm">${valueLabel}</td>
+                    <td class="col-hide-sm col-fold-sm">${valueLabel}</td>
                 </tr>`;
 
             if (!isOpen || !canExpand) return mainRow;

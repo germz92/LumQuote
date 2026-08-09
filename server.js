@@ -315,6 +315,9 @@ app.get('/calculator', requireAuth, (req, res) => {
 });
 
 app.get('/admin', requireAuth, (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.redirect('/projects');
+  }
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
@@ -2980,22 +2983,41 @@ app.get('/api/calendar-events', requireApiAuth, async (req, res) => {
       return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     };
 
-    // Quotes: non-admins only see their own (orphan bars + deriving project dates from linked quotes)
+    const {
+      buildProjectAccessQuery,
+      mergeAccessIntoQuery
+    } = require('./lib/crm-access');
+
+    // Quotes: non-admins see owned or shared (orphan bars + linked quote date derivation)
     let quoteQuery = { archived: { $ne: true } };
     let skipQuotes = false;
     if (!isAdmin) {
       const userRecord = await User.findOne({ name: user.name || user.fullName });
-      if (userRecord) {
-        quoteQuery.createdBy = userRecord._id;
-      } else {
+      const lumQuoteUser = await LumQuoteUser.findOne({
+        $or: [{ name: user.name }, { name: user.fullName }]
+      });
+      const orConditions = [];
+      if (userRecord) orConditions.push({ createdBy: userRecord._id });
+      if (lumQuoteUser) orConditions.push({ 'sharedWith.user': lumQuoteUser._id });
+      if (orConditions.length === 0) {
         skipQuotes = true;
+      } else {
+        quoteQuery.$or = orConditions;
       }
     }
 
+    let projectQuery = mergeAccessIntoQuery(
+      { archived: { $ne: true } },
+      await buildProjectAccessQuery(user)
+    );
+    const skipProjects = projectQuery._id === null;
+
     const [projects, quotes] = await Promise.all([
-      Project.find({ archived: { $ne: true } })
-        .populate('client', 'name company')
-        .select('name status startDate endDate client archived'),
+      skipProjects
+        ? Promise.resolve([])
+        : Project.find(projectQuery)
+          .populate('client', 'name company')
+          .select('name status startDate endDate client archived'),
       skipQuotes
         ? Promise.resolve([])
         : SavedQuote.find(quoteQuery, {
@@ -3148,7 +3170,7 @@ app.get('/reports', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'reports.html'));
 });
 
-// Get report data with filters (admin only) — project-centric ops dashboard
+// Get report data with filters (admin only) — project + invoice ops dashboard (no quote totals)
 app.get('/api/reports', requireApiAuth, async (req, res) => {
   try {
     if (req.user.role !== 'admin') {
@@ -3200,64 +3222,12 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
     const invoicePeriodDate = (invoice) =>
       parsePeriodDate(invoice.issueDate) || parsePeriodDate(invoice.createdAt);
 
-    const quoteFirstEventDate = (quote) => {
-      const days = quote.quoteData?.days || [];
-      const eventDates = days
-        .filter((d) => d.date)
-        .map((d) => parseStoredDate(d.date))
-        .filter(Boolean)
-        .sort((a, b) => a - b);
-      return eventDates[0] || null;
-    };
-
-    const normalizeLeadSourceForReport = (source) => {
-      if (!source) return 'Unknown';
-      const standard = [
-        'Repeat Client', 'Referral', 'Website / Inbound', 'LinkedIn', 'Social Media',
-        'Google Search', 'Email / Newsletter', 'Trade Show / Industry Event',
-        'Partner Referral', 'Cold Outreach', 'Other'
-      ];
-      if (standard.includes(source)) return source;
-      if (source.startsWith('Referral:')) return 'Referral';
-      if (source.startsWith('Other:')) return 'Other';
-      const legacy = {
-        repeat: 'Repeat Client',
-        'repeat client': 'Repeat Client',
-        referral: 'Referral',
-        website: 'Website / Inbound',
-        inbound: 'Website / Inbound',
-        linkedin: 'LinkedIn',
-        'social media': 'Social Media',
-        instagram: 'Social Media',
-        google: 'Google Search',
-        email: 'Email / Newsletter',
-        lumdash: 'Other'
-      };
-      return legacy[String(source).trim().toLowerCase()] || 'Other';
-    };
-
-    const [allServices, allProjects, allInvoices, allQuotes] = await Promise.all([
-      Service.find({}, { category: 1 }),
+    const [allProjects, allInvoices] = await Promise.all([
       Project.find({ archived: { $ne: true } }).populate('client', 'name company address'),
       Invoice.find({ status: { $ne: 'void' } }, {
         project: 1, total: 1, amountPaid: 1, issueDate: 1, createdAt: 1, status: 1
-      }),
-      SavedQuote.find({ archived: { $ne: true } }, {
-        name: 1,
-        clientName: 1,
-        location: 1,
-        leadSource: 1,
-        project: 1,
-        createdAt: 1,
-        'quoteData.total': 1,
-        'quoteData.days': 1
       })
     ]);
-
-    const serviceCategoryMap = {};
-    allServices.forEach((s) => {
-      serviceCategoryMap[s._id.toString()] = s.category || 'Other';
-    });
 
     const hasDateFilter = !!(start || end);
     const projects = hasDateFilter
@@ -3266,50 +3236,36 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
     const invoices = hasDateFilter
       ? allInvoices.filter((inv) => inRange(invoicePeriodDate(inv)))
       : allInvoices;
-    const filteredQuotes = hasDateFilter
-      ? allQuotes.filter((q) => inRange(quoteFirstEventDate(q)))
-      : allQuotes;
 
-    const projectIds = new Set(projects.map((p) => String(p._id)));
-    const quotesByProject = new Map();
-    allQuotes.forEach((quote) => {
-      if (!quote.project) return;
-      const key = String(quote.project);
-      if (!quotesByProject.has(key)) quotesByProject.set(key, []);
-      quotesByProject.get(key).push(quote);
+    const invoicedTotalByProject = new Map();
+    allInvoices.forEach((inv) => {
+      if (hasDateFilter && !inRange(invoicePeriodDate(inv))) return;
+      const key = String(inv.project);
+      invoicedTotalByProject.set(key, (invoicedTotalByProject.get(key) || 0) + (Number(inv.total) || 0));
     });
 
-    const quotedTotalByProject = new Map();
-    for (const id of projectIds) {
-      const linked = quotesByProject.get(id) || [];
-      const sum = linked.reduce((acc, q) => acc + (Number(q.quoteData?.total) || 0), 0);
-      quotedTotalByProject.set(id, sum);
-    }
-
-    const quotedTotal = [...quotedTotalByProject.values()].reduce((a, b) => a + b, 0);
     const bookedPlusCount = projects.filter((p) => BOOKED_PLUS.has(p.status)).length;
     const totalProjects = projects.length;
+    const invoiceCount = invoices.length;
     const invoicedTotal = invoices.reduce((sum, inv) => sum + (Number(inv.total) || 0), 0);
     const paidTotal = invoices.reduce((sum, inv) => sum + (Number(inv.amountPaid) || 0), 0);
     const outstandingTotal = Math.max(0, invoicedTotal - paidTotal);
 
     const pipelineByStatus = PROJECT_STATUSES.map((status) => {
       const statusProjects = projects.filter((p) => (p.status || 'lead') === status);
-      const statusQuoted = statusProjects.reduce(
-        (sum, p) => sum + (quotedTotalByProject.get(String(p._id)) || 0),
+      const statusInvoiced = statusProjects.reduce(
+        (sum, p) => sum + (invoicedTotalByProject.get(String(p._id)) || 0),
         0
       );
       return {
         status,
         label: STATUS_LABELS[status] || status,
         count: statusProjects.length,
-        quotedTotal: statusQuoted
+        invoicedTotal: statusInvoiced
       };
     });
 
-    // Top clients by paid (invoices → project → client)
     const projectById = new Map(projects.map((p) => [String(p._id), p]));
-    // Include all projects for invoice→client lookup (invoice period may differ)
     allProjects.forEach((p) => {
       if (!projectById.has(String(p._id))) projectById.set(String(p._id), p);
     });
@@ -3328,79 +3284,28 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);
 
-    // Top clients by project count
     const projectsByClient = {};
-    const quotedByClient = {};
+    const invoicedByClient = {};
     projects.forEach((p) => {
       const name = p.client?.name || 'Unknown';
       projectsByClient[name] = (projectsByClient[name] || 0) + 1;
-      quotedByClient[name] = (quotedByClient[name] || 0) + (quotedTotalByProject.get(String(p._id)) || 0);
+      invoicedByClient[name] = (invoicedByClient[name] || 0) + (invoicedTotalByProject.get(String(p._id)) || 0);
     });
     const topClientsByProjects = Object.entries(projectsByClient)
-      .map(([name, count]) => ({ name, count, quotedTotal: quotedByClient[name] || 0 }))
+      .map(([name, count]) => ({ name, count, invoicedTotal: invoicedByClient[name] || 0 }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    // Top cities — project client city, else primary linked quote location
     const cityCounts = {};
     const cityTotals = {};
     projects.forEach((p) => {
-      const linked = quotesByProject.get(String(p._id)) || [];
-      const quoteLocation = linked[0]?.location || '';
-      const city = (p.client?.address?.city || '').trim()
-        || (quoteLocation.split(',')[0] || '').trim()
-        || quoteLocation.trim()
-        || 'Unknown';
+      const city = (p.client?.address?.city || '').trim() || 'Unknown';
       cityCounts[city] = (cityCounts[city] || 0) + 1;
-      cityTotals[city] = (cityTotals[city] || 0) + (quotedTotalByProject.get(String(p._id)) || 0);
+      cityTotals[city] = (cityTotals[city] || 0) + (invoicedTotalByProject.get(String(p._id)) || 0);
     });
     const topCities = Object.entries(cityCounts)
       .map(([name, count]) => ({ name, count, total: cityTotals[name] || 0 }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    // Quote insights: sources + categories
-    const sourceCounts = {};
-    const sourceTotals = {};
-    filteredQuotes.forEach((quote) => {
-      const source = normalizeLeadSourceForReport(quote.leadSource);
-      sourceCounts[source] = (sourceCounts[source] || 0) + 1;
-      sourceTotals[source] = (sourceTotals[source] || 0) + (Number(quote.quoteData?.total) || 0);
-    });
-    const topSources = Object.entries(sourceCounts)
-      .map(([name, count]) => ({ name, count, total: sourceTotals[name] || 0 }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    const categoryCounts = {};
-    const categoryTotals = {};
-    filteredQuotes.forEach((quote) => {
-      (quote.quoteData?.days || []).forEach((day) => {
-        (day.services || []).forEach((service) => {
-          const category = service.category || serviceCategoryMap[service.id] || 'Other';
-          const displayCategory = category.charAt(0).toUpperCase() + category.slice(1);
-          if (!categoryCounts[displayCategory]) {
-            categoryCounts[displayCategory] = 0;
-            categoryTotals[displayCategory] = 0;
-          }
-          const originalTotal = (service.price || 0) * (service.quantity || 1);
-          let discountAmount = 0;
-          if (service.discount && service.discount.applied && service.discount.value > 0) {
-            if (service.discount.type === 'percentage') {
-              discountAmount = originalTotal * (service.discount.value / 100);
-            } else {
-              discountAmount = service.discount.value;
-            }
-            discountAmount = Math.min(discountAmount, originalTotal);
-          }
-          categoryCounts[displayCategory]++;
-          categoryTotals[displayCategory] += originalTotal - discountAmount;
-        });
-      });
-    });
-    const topCategories = Object.entries(categoryTotals)
-      .map(([name, total]) => ({ name, total, count: categoryCounts[name] || 0 }))
-      .sort((a, b) => b.total - a.total)
       .slice(0, 10);
 
     res.json({
@@ -3410,18 +3315,16 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
         conversionRate: totalProjects > 0
           ? ((bookedPlusCount / totalProjects) * 100).toFixed(1)
           : '0.0',
-        quotedTotal,
+        invoiceCount,
         invoicedTotal,
         paidTotal,
         outstandingTotal
       },
       pipelineByStatus,
-      cash: { invoicedTotal, paidTotal, outstandingTotal },
+      cash: { invoicedTotal, paidTotal, outstandingTotal, invoiceCount },
       topClientsByPaid,
       topClientsByProjects,
       topCities,
-      topSources,
-      topCategories,
       dateRange: {
         startDate: startDate || null,
         endDate: endDate || null

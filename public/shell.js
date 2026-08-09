@@ -12,6 +12,7 @@ const APP_NAV = [
 const AppShell = {
     currentUser: null,
     profileMenuOpen: false,
+    mobileNavOpen: false,
 
     init() {
         const body = document.body;
@@ -24,6 +25,7 @@ const AppShell = {
 
         this.mount(page, { title, subtitle, showBack });
         this.initProfileMenu();
+        this.initMobileNav();
         this.refreshUserProfile();
         this.updateLayoutOffsets();
         body.classList.add('app-has-shell');
@@ -76,6 +78,11 @@ const AppShell = {
             return `<a href="${item.href}" class="app-nav-link${active}" data-nav="${item.id}">${item.label}</a>`;
         }).join('');
 
+        const drawerNavHtml = APP_NAV.map((item) => {
+            const active = item.id === activePage ? ' is-active' : '';
+            return `<a href="${item.href}" class="app-mobile-nav-link${active}" data-nav="${item.id}">${item.label}</a>`;
+        }).join('');
+
         const backBtn = options.showBack
             ? `<button type="button" class="app-page-header-back" onclick="window.location.href='/quotes'" aria-label="Back to Quotes">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -95,8 +102,20 @@ const AppShell = {
                     <div class="app-brand">
                         <img src="/assets/logo.png" alt="Lumetry Media" class="app-brand-logo" onclick="window.location.href='/quotes'">
                     </div>
-                    <nav class="app-nav" aria-label="Main">${navHtml}</nav>
+                    <nav class="app-nav app-nav--desktop" aria-label="Main">${navHtml}</nav>
                     <div class="app-shell-util">
+                        <button
+                            type="button"
+                            class="app-nav-toggle"
+                            id="appNavToggle"
+                            aria-label="Open menu"
+                            aria-expanded="false"
+                            aria-controls="appMobileNav"
+                        >
+                            <span class="app-nav-toggle-bars" aria-hidden="true">
+                                <span></span><span></span><span></span>
+                            </span>
+                        </button>
                         <div class="app-profile-menu" id="appProfileMenu">
                             <button
                                 type="button"
@@ -123,7 +142,7 @@ const AppShell = {
                                     </div>
                                 </div>
                                 <a href="/reports" class="app-profile-dropdown-item" role="menuitem" data-profile-admin-only hidden>Reports</a>
-                                <a href="/admin" class="app-profile-dropdown-item" role="menuitem">Admin</a>
+                                <a href="/admin" class="app-profile-dropdown-item" role="menuitem" data-profile-admin-only hidden>Admin</a>
                                 <label class="app-profile-dropdown-item app-profile-dropdown-item--action" role="menuitem">
                                     <span>Update photo</span>
                                     <input type="file" id="appProfilePhotoInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
@@ -136,6 +155,14 @@ const AppShell = {
                     </div>
                 </div>
             </header>
+            <div class="app-mobile-nav-backdrop" id="appMobileNavBackdrop" aria-hidden="true"></div>
+            <nav class="app-mobile-nav" id="appMobileNav" aria-label="Mobile main" aria-hidden="true">
+                <div class="app-mobile-nav-header">
+                    <span class="app-mobile-nav-title">Menu</span>
+                    <button type="button" class="app-mobile-nav-close" id="appMobileNavClose" aria-label="Close menu">&times;</button>
+                </div>
+                <div class="app-mobile-nav-links">${drawerNavHtml}</div>
+            </nav>
             <div class="app-shell-body">
                 <div class="app-shell-inner">
                     <div class="app-page-header">
@@ -278,6 +305,7 @@ const AppShell = {
 
         trigger.addEventListener('click', (event) => {
             event.stopPropagation();
+            this.setMobileNavOpen(false);
             this.setProfileMenuOpen(!this.profileMenuOpen);
         });
 
@@ -289,7 +317,13 @@ const AppShell = {
         });
 
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && this.profileMenuOpen) {
+            if (event.key !== 'Escape') return;
+            if (this.mobileNavOpen) {
+                this.setMobileNavOpen(false);
+                document.getElementById('appNavToggle')?.focus();
+                return;
+            }
+            if (this.profileMenuOpen) {
                 this.setProfileMenuOpen(false);
                 trigger.focus();
             }
@@ -306,6 +340,54 @@ const AppShell = {
         removeBtn?.addEventListener('click', async () => {
             await this.removeProfilePhoto();
         });
+    },
+
+    initMobileNav() {
+        const toggle = document.getElementById('appNavToggle');
+        const drawer = document.getElementById('appMobileNav');
+        const backdrop = document.getElementById('appMobileNavBackdrop');
+        const closeBtn = document.getElementById('appMobileNavClose');
+        if (!toggle || !drawer || !backdrop) return;
+
+        toggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.setProfileMenuOpen(false);
+            this.setMobileNavOpen(!this.mobileNavOpen);
+        });
+
+        closeBtn?.addEventListener('click', () => this.setMobileNavOpen(false));
+        backdrop.addEventListener('click', () => this.setMobileNavOpen(false));
+
+        drawer.querySelectorAll('a.app-mobile-nav-link').forEach((link) => {
+            link.addEventListener('click', () => this.setMobileNavOpen(false));
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768 && this.mobileNavOpen) {
+                this.setMobileNavOpen(false);
+            }
+        });
+    },
+
+    setMobileNavOpen(open) {
+        this.mobileNavOpen = open;
+        const toggle = document.getElementById('appNavToggle');
+        const drawer = document.getElementById('appMobileNav');
+        const backdrop = document.getElementById('appMobileNavBackdrop');
+        if (!toggle || !drawer || !backdrop) return;
+
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+        toggle.classList.toggle('is-open', open);
+        drawer.classList.toggle('is-open', open);
+        backdrop.classList.toggle('is-open', open);
+        drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+        backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+        document.body.classList.toggle('app-mobile-nav-open', open);
+
+        if (open) {
+            document.getElementById('appMobileNavClose')?.focus();
+        }
     },
 
     setProfileMenuOpen(open) {

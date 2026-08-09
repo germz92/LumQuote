@@ -71,6 +71,17 @@ const CRM = {
         return s || e || '—';
     },
 
+    /** Join already-escaped HTML fragments into a mobile-only meta line under a list title. */
+    listRowMeta(parts) {
+        const items = (parts || []).filter((p) => {
+            if (p == null) return false;
+            const t = String(p).replace(/<[^>]*>/g, '').trim();
+            return t && t !== '—' && t !== '-';
+        });
+        if (!items.length) return '';
+        return `<div class="list-row-meta">${items.join('<span class="list-row-meta-sep">·</span>')}</div>`;
+    },
+
     projectStatusChip(status) {
         const label = this.PROJECT_STATUS_LABELS[status] || status || 'Lead';
         return `<span class="crm-chip crm-chip--${this.escapeHtml(status || 'lead')}">${this.escapeHtml(label)}</span>`;

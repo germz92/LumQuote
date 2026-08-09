@@ -43,7 +43,7 @@
                                 <label for="projName">Project Name</label>
                                 <input type="text" id="projName">
                             </div>
-                            <div class="form-group">
+                            <div class="form-group form-group--full">
                                 <label for="projStatus">Status</label>
                                 <select id="projStatus">
                                     <option value="lead">Lead</option>
@@ -69,8 +69,9 @@
                             </div>
                         </div>
                         <div class="crm-actions-row">
-                            <button class="primary-button" onclick="projectPage.saveProject()">Save Project</button>
-                            <button type="button" class="secondary-button" onclick="projectPage.transferToLumDash()">Transfer to LumDash</button>
+                            <button class="primary-button" id="saveProjectBtn" onclick="projectPage.saveProject()">Save Project</button>
+                            <button type="button" class="secondary-button" id="shareProjectBtn" onclick="projectPage.openShareModal()" style="display:none">Share</button>
+                            <button type="button" class="secondary-button" id="transferLumDashBtn" onclick="projectPage.transferToLumDash()">Transfer to LumDash</button>
                             <span class="crm-inline-note" id="projectSaveNote"></span>
                         </div>
                     </div>
@@ -227,11 +228,65 @@
         </div>
     </div>
 
+    <!-- Share Project Modal -->
+    <div id="shareProjectModal" class="modal" style="display: none;">
+        <div class="modal-content share-modal-content">
+            <div class="modal-header">
+                <h2>Share Project</h2>
+                <span class="close" onclick="projectPage.closeShareModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="share-quote-name" id="shareProjectName"></p>
+                <div class="share-add-section">
+                    <h3>Share with User</h3>
+                    <div class="share-user-select-container">
+                        <div class="share-user-dropdown">
+                            <input type="text" id="shareProjectUserSearch" class="share-user-search" placeholder="Search users..." autocomplete="off">
+                            <div id="shareProjectUserDropdown" class="share-user-dropdown-list" style="display: none;"></div>
+                        </div>
+                        <input type="hidden" id="selectedShareProjectUserId">
+                        <span id="selectedShareProjectUserName" class="selected-user-name"></span>
+                    </div>
+                    <div class="share-access-level">
+                        <label>Access Level:</label>
+                        <div class="access-level-options">
+                            <label class="radio-label">
+                                <input type="radio" name="projectAccessLevel" value="read" checked>
+                                <span class="radio-text">
+                                    <strong>Read Only</strong>
+                                    <small>Can view but not edit</small>
+                                </span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="projectAccessLevel" value="full">
+                                <span class="radio-text">
+                                    <strong>Full Access</strong>
+                                    <small>Can view and edit</small>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="button" class="primary-button share-add-btn" onclick="projectPage.addShare()">Add User</button>
+                </div>
+                <div class="share-current-section">
+                    <h3>Currently Shared With</h3>
+                    <div id="sharedProjectUsersList" class="shared-users-list">
+                        <p class="no-shares-message">Not shared with anyone yet</p>
+                    </div>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="secondary-button" onclick="projectPage.closeShareModal()">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/toasts.js"></script>
     <script src="/a11y.js"></script>
     <script src="/modals.js"></script>
     <script src="/shell.js"></script>
     <script src="/crm-common.js"></script>
+    <script src="/contract-editor.js"></script>
     <script src="/lumdash-integration.js"></script>
     <script src="/project.js"></script>
 </body>

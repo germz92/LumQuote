@@ -10,6 +10,7 @@ class SignPage {
         this.padHasInk = false;
         this.drawing = false;
         this.ctx = null;
+        this.fieldEls = [];
         this.init();
     }
 
@@ -51,7 +52,13 @@ class SignPage {
 
         if (c.source === 'generated') {
             // Contract HTML is authored internally (templates + staff edits)
-            document.getElementById('contractBody').innerHTML = c.contentHtml || '';
+            const body = document.getElementById('contractBody');
+            body.innerHTML = c.contentHtml || '';
+            if (c.status === 'signed') {
+                this.applyFieldResponses(body, c.fieldResponses || []);
+            } else {
+                this.hydrateContractFields(body);
+            }
         } else if (c.hasFile) {
             const frame = document.getElementById('contractPdfFrame');
             frame.src = `/api/public/contracts/${encodeURIComponent(this.token)}/file`;
@@ -65,6 +72,132 @@ class SignPage {
         } else {
             this.initPad();
         }
+    }
+
+    deriveInitials(name) {
+        const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+        if (!parts.length) return '';
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+
+    hydrateContractFields(root) {
+        this.fieldEls = [];
+        if (!root) return;
+
+        root.querySelectorAll('.contract-field').forEach((field) => {
+            const fieldId = field.getAttribute('data-field-id');
+            const type = field.getAttribute('data-field-type');
+            const required = field.getAttribute('data-required') !== 'false';
+            const labelEl = field.querySelector('.contract-field-label');
+            const label = (labelEl?.textContent || '').trim();
+            if (!fieldId || (type !== 'initials' && type !== 'checkbox')) return;
+
+            field.classList.add('is-interactive', 'is-incomplete');
+            field.setAttribute('contenteditable', 'false');
+            labelEl?.removeAttribute('contenteditable');
+
+            let control = null;
+            if (type === 'initials') {
+                const box = field.querySelector('.contract-field-box');
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'contract-initials-input';
+                input.maxLength = 40;
+                input.placeholder = 'Initials';
+                input.setAttribute('aria-label', label || 'Initials');
+                input.addEventListener('input', () => this.syncFieldCompletion(field, type, input));
+                if (box) box.replaceWith(input);
+                else field.appendChild(input);
+
+                const useName = document.createElement('button');
+                useName.type = 'button';
+                useName.className = 'contract-field-use-name';
+                useName.textContent = 'Use my initials';
+                useName.addEventListener('click', () => {
+                    const name = document.getElementById('signerName')?.value || '';
+                    input.value = this.deriveInitials(name);
+                    this.syncFieldCompletion(field, type, input);
+                    input.focus();
+                });
+                field.appendChild(useName);
+                control = input;
+            } else {
+                const box = field.querySelector('.contract-field-box');
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.className = 'contract-checkbox-input';
+                input.setAttribute('aria-label', label || 'Acknowledgment');
+                input.addEventListener('change', () => this.syncFieldCompletion(field, type, input));
+                if (box) box.replaceWith(input);
+                else field.insertBefore(input, field.firstChild);
+                control = input;
+            }
+
+            this.fieldEls.push({ field, fieldId, type, required, label, control });
+            this.syncFieldCompletion(field, type, control);
+        });
+    }
+
+    syncFieldCompletion(field, type, control) {
+        let complete = false;
+        if (type === 'initials') {
+            complete = !!(control?.value || '').trim();
+        } else if (type === 'checkbox') {
+            complete = !!control?.checked;
+            field.classList.toggle('is-checked', complete);
+        }
+        field.classList.toggle('is-incomplete', !complete);
+        field.classList.toggle('is-complete', complete);
+    }
+
+    collectFieldResponses() {
+        return this.fieldEls.map(({ fieldId, type, label, control }) => ({
+            fieldId,
+            type,
+            label,
+            value: type === 'checkbox'
+                ? (control?.checked ? 'true' : 'false')
+                : String(control?.value || '').trim()
+        }));
+    }
+
+    validateFields() {
+        for (const item of this.fieldEls) {
+            if (!item.required) continue;
+            if (item.type === 'initials' && !(item.control?.value || '').trim()) {
+                item.field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                item.control?.focus();
+                return `Please provide initials for "${item.label || 'Initials'}".`;
+            }
+            if (item.type === 'checkbox' && !item.control?.checked) {
+                item.field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                item.control?.focus();
+                return `Please check: "${item.label || 'Acknowledgment'}".`;
+            }
+        }
+        return null;
+    }
+
+    applyFieldResponses(root, responses) {
+        if (!root) return;
+        const map = new Map((responses || []).map((r) => [String(r.fieldId), r]));
+        root.querySelectorAll('.contract-field').forEach((field) => {
+            const id = field.getAttribute('data-field-id');
+            const type = field.getAttribute('data-field-type');
+            const response = map.get(String(id));
+            const box = field.querySelector('.contract-field-box');
+            field.classList.toggle('is-complete', !!response);
+            if (type === 'initials' && box) {
+                box.textContent = response?.value || '';
+                box.classList.toggle('is-filled', !!(response?.value));
+            }
+            if (type === 'checkbox') {
+                const checked = response?.value === 'true' || response?.value === true;
+                field.classList.toggle('is-checked', checked);
+                if (box) box.classList.toggle('is-checked', checked);
+            }
+        });
     }
 
     signatureSlot({ signatureHtml, caption, pending }) {
@@ -230,13 +363,22 @@ class SignPage {
             this.showError('Please draw your signature, or switch to a typed signature.');
             return;
         }
+        const fieldError = this.validateFields();
+        if (fieldError) {
+            this.showError(fieldError);
+            return;
+        }
 
         const button = document.getElementById('signButton');
         button.disabled = true;
         button.textContent = 'Recording signature…';
 
         try {
-            const body = { name, method: this.method };
+            const body = {
+                name,
+                method: this.method,
+                fieldResponses: this.collectFieldResponses()
+            };
             if (this.method === 'drawn') {
                 body.imageData = document.getElementById('signaturePad').toDataURL('image/png');
             }
@@ -253,6 +395,16 @@ class SignPage {
                 imageData: body.imageData || null,
                 signedAt: data.signedAt
             };
+            this.contract.fieldResponses = data.fieldResponses || body.fieldResponses;
+            this.contract.status = 'signed';
+
+            if (this.contract.source === 'generated') {
+                const bodyEl = document.getElementById('contractBody');
+                bodyEl.innerHTML = this.contract.contentHtml || '';
+                this.applyFieldResponses(bodyEl, this.contract.fieldResponses || []);
+                this.fieldEls = [];
+            }
+
             this.renderSignatures();
             this.showSignedState(name, data.signedAt);
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });

@@ -156,6 +156,19 @@
   align-items: center;
 }
 
+/* Override global quote-builder button sizing so CRM actions fit one row */
+.crm-actions-row .primary-button,
+.crm-actions-row .secondary-button {
+  min-width: 0;
+  margin-left: 0;
+  margin-top: 0;
+  padding: 10px 16px;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  border-radius: var(--radius-md, 8px);
+}
+
 .crm-inline-note { color: var(--color-text-muted); font-size: var(--font-size-sm); }
 
 /* ---------- Detail header ---------- */
@@ -234,13 +247,28 @@
 
 .contract-editor-toolbar {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   padding: 6px;
   border: 1px solid var(--color-border);
   border-bottom: none;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: #f8fafc;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.contract-toolbar-group {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.contract-toolbar-sep {
+  width: 1px;
+  height: 22px;
+  background: var(--color-border);
+  margin: 0 2px;
 }
 
 .contract-editor-toolbar button {
@@ -253,9 +281,99 @@
   color: var(--color-text-secondary);
 }
 
-.contract-editor-toolbar button:hover {
+.contract-editor-toolbar button:hover:not(:disabled) {
   background: #eef1f6;
   color: var(--color-text);
+}
+
+.contract-editor-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Floating table controls (hover overlay — not saved into HTML) */
+.contract-table-controls {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
+  pointer-events: auto;
+}
+
+.contract-table-controls[hidden] {
+  display: none !important;
+}
+
+.contract-table-controls button {
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.contract-table-controls button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.contract-table-controls-sep {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.25);
+  margin: 0 2px;
+}
+
+.contract-editor table.contract-table.is-table-hover {
+  outline: 2px solid var(--color-primary, #4f46e5);
+  outline-offset: 2px;
+}
+
+.contract-field-controls {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
+}
+
+.contract-field-controls[hidden] {
+  display: none !important;
+}
+
+.contract-field-controls button {
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.contract-field-controls button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.contract-editor .contract-field.is-field-hover {
+  outline: 2px solid var(--color-primary, #4f46e5);
+  outline-offset: 2px;
 }
 
 .contract-editor {
@@ -273,7 +391,173 @@
 
 .contract-editor:focus { outline: none; box-shadow: var(--shadow-focus); }
 .contract-editor h3 { margin: 16px 0 6px; font-size: var(--font-size-sm); text-transform: uppercase; letter-spacing: 0.04em; }
-.contract-editor hr.contract-section-divider { border: none; border-top: 1px solid var(--color-border); margin: 16px 0; }
+.contract-editor hr.contract-section-divider,
+.contract-editor hr.contract-divider,
+.public-doc-body hr.contract-section-divider,
+.public-doc-body hr.contract-divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 16px 0;
+}
+
+.contract-editor table.contract-table,
+.public-doc-body table.contract-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: inherit;
+}
+
+.contract-editor table.contract-table th,
+.contract-editor table.contract-table td,
+.public-doc-body table.contract-table th,
+.public-doc-body table.contract-table td {
+  border: 1px solid var(--color-border);
+  padding: 8px 10px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.contract-editor table.contract-table th,
+.public-doc-body table.contract-table th {
+  background: #f6f7f9;
+  font-weight: 600;
+}
+
+.contract-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: #fafbfc;
+  user-select: none;
+}
+
+.contract-field-label {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  user-select: text;
+}
+
+.contract-initials {
+  flex-wrap: wrap;
+}
+
+.contract-initials .contract-field-label {
+  flex: 0 0 auto;
+  min-width: 80px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.contract-initials .contract-field-box {
+  min-width: 88px;
+  min-height: 36px;
+  padding: 4px 10px;
+  border-bottom: 1.5px solid #333;
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  font-size: 22px;
+  line-height: 1.1;
+  background: #fff;
+}
+
+.contract-initials .contract-field-box:empty::before {
+  content: attr(data-placeholder);
+  font-family: inherit;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--color-text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.contract-checkbox .contract-field-box {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid #333;
+  border-radius: 3px;
+  flex: 0 0 auto;
+  background: #fff;
+  position: relative;
+}
+
+.contract-checkbox .contract-field-box.is-checked,
+.contract-checkbox.is-checked .contract-field-box {
+  background: var(--color-primary, #4f46e5);
+  border-color: var(--color-primary, #4f46e5);
+}
+
+.contract-checkbox .contract-field-box.is-checked::after,
+.contract-checkbox.is-checked .contract-field-box::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Public signing — interactive controls */
+.public-doc-body .contract-field.is-interactive {
+  border-style: solid;
+  border-color: var(--color-border);
+  background: #fff;
+  cursor: default;
+}
+
+.public-doc-body .contract-field.is-interactive.is-incomplete {
+  border-color: #f6a4b4;
+  background: #fff7f8;
+}
+
+.public-doc-body .contract-initials-input {
+  min-width: 88px;
+  max-width: 140px;
+  border: none;
+  border-bottom: 1.5px solid #333;
+  background: transparent;
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  font-size: 22px;
+  padding: 4px 8px;
+  text-align: center;
+  color: var(--color-text);
+}
+
+.public-doc-body .contract-initials-input:focus {
+  outline: none;
+  border-bottom-color: var(--color-primary, #4f46e5);
+}
+
+.public-doc-body .contract-checkbox-input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--color-primary, #4f46e5);
+}
+
+.public-doc-body .contract-field-use-name {
+  border: none;
+  background: transparent;
+  color: var(--color-primary, #4f46e5);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
 
 .contract-file-box {
   display: flex;
@@ -751,6 +1035,236 @@
 
 @media (max-width: 900px) {
   .crm-overview-grid { grid-template-columns: 1fr; }
+}
+
+/* ---------- Dense list rows (project detail; page-controls.css not loaded here) ---------- */
+
+.list-row-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.list-row-meta {
+  display: none;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular, 400);
+  color: var(--color-text-secondary);
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.list-row-meta-sep {
+  color: var(--color-text-muted);
+  margin: 0 0.15em;
+}
+
+.crm-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.invoice-items-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  margin-top: 8px;
+}
+
+/* ---------- Project detail — mobile ---------- */
+
+@media (max-width: 760px) {
+  .project-detail .list-row-meta {
+    display: block;
+  }
+
+  .project-detail .col-fold-sm {
+    display: none !important;
+  }
+
+  .project-detail {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .project-detail .project-hero {
+    margin-bottom: var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .project-detail .project-hero-meta {
+    gap: 6px;
+    font-size: var(--font-size-xs);
+  }
+
+  .project-detail .crm-tabs {
+    position: sticky;
+    top: var(--app-topbar-height, 56px);
+    z-index: 120;
+    margin-bottom: var(--space-4);
+    padding-bottom: 0;
+    background: var(--color-surface);
+    gap: 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .project-detail .crm-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .project-detail .crm-tab {
+    padding: 8px 12px;
+    font-size: var(--font-size-xs);
+  }
+
+  .project-detail .crm-tab .crm-tab-badge {
+    margin-left: 4px;
+    min-width: 16px;
+    padding: 0 4px;
+  }
+
+  .project-detail .crm-card {
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    border-radius: var(--radius-lg);
+  }
+
+  .project-detail .crm-card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+
+  .project-detail .crm-card-header .crm-actions-row {
+    width: 100%;
+    margin-top: 0;
+    gap: 6px;
+  }
+
+  .project-detail .crm-card-header .crm-actions-row .crm-btn-sm,
+  .project-detail .crm-card-header .crm-actions-row a.crm-btn-sm {
+    flex: 1 1 auto;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .project-detail .crm-actions-row {
+    gap: 8px;
+    margin-top: var(--space-4);
+  }
+
+  .project-detail .crm-actions-row .primary-button,
+  .project-detail .crm-actions-row .secondary-button,
+  .project-detail .crm-actions-row > .crm-btn-sm,
+  .project-detail .crm-actions-row > a.crm-btn-sm,
+  .project-detail .crm-actions-row > a.primary-button {
+    flex: 1 1 100%;
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+    box-sizing: border-box;
+  }
+
+  .project-detail .crm-form-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .project-detail .crm-overview-grid {
+    gap: var(--space-3);
+  }
+
+  .project-detail .crm-row-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .project-detail .crm-table th,
+  .project-detail .crm-table td {
+    padding: 10px 8px;
+    white-space: normal;
+  }
+
+  .project-detail .crm-table td.num {
+    white-space: nowrap;
+  }
+
+  /* Contract */
+  .project-detail .contract-editor-toolbar {
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .project-detail .contract-editor-toolbar button {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .project-detail .contract-editor {
+    max-height: min(55vh, 420px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: var(--font-size-sm);
+  }
+
+  .project-detail .contract-file-box {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+  }
+
+  .project-detail .invoice-share-link {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .project-detail #panel-contract .crm-card-header {
+    align-items: flex-start;
+  }
+
+  .project-detail .invoice-share-link span {
+    word-break: break-all;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  /* Invoice editor */
+  .project-detail .invoice-items-table {
+    min-width: 560px;
+  }
+
+  .project-detail .invoice-items-table .col-day { width: 14%; }
+  .project-detail .invoice-items-table .col-qty { width: 56px; }
+  .project-detail .invoice-items-table .col-price { width: 88px; }
+  .project-detail .invoice-items-table .col-amount { width: 80px; }
+
+  .project-detail .invoice-totals {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+  }
+
+  .project-detail .pp-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .project-detail .pp-row .pp-label {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .project-detail .pp-relative {
+    flex-wrap: wrap;
+  }
 }
 
 .crm-cell-amount {

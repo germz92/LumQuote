@@ -324,15 +324,7 @@ class AdminCrm {
                 </div>
             </div>
 
-            <div class="contract-editor-toolbar">
-                <button type="button" onclick="adminCrm.execCmd('bold')" title="Bold"><strong>B</strong></button>
-                <button type="button" onclick="adminCrm.execCmd('italic')" title="Italic"><em>I</em></button>
-                <button type="button" onclick="adminCrm.execCmd('underline')" title="Underline"><u>U</u></button>
-                <button type="button" onclick="adminCrm.execCmd('formatBlock', 'h3')" title="Heading">H</button>
-                <button type="button" onclick="adminCrm.execCmd('formatBlock', 'p')" title="Paragraph">¶</button>
-                <button type="button" onclick="adminCrm.execCmd('insertUnorderedList')" title="Bullet list">• List</button>
-                <button type="button" onclick="adminCrm.execCmd('undo')" title="Undo">↩</button>
-            </div>
+            <div class="contract-editor-toolbar" id="tplEditorToolbar"></div>
             <div class="contract-editor tpl-body" id="tplBody" contenteditable="true"
                  data-placeholder="Paste or write the contract language for this clause...">${body}</div>
 
@@ -353,6 +345,19 @@ class AdminCrm {
             </div>`;
 
         this.renderTargetChips();
+        this.mountTemplateEditor();
+    }
+
+    mountTemplateEditor() {
+        const toolbar = document.getElementById('tplEditorToolbar');
+        if (!toolbar || !window.ContractEditor) return;
+        this.templateEditorApi = ContractEditor.mountToolbar(toolbar, {
+            getEditorEl: () => document.getElementById('tplBody')
+        });
+        const body = document.getElementById('tplBody');
+        if (body && this.previewOn) {
+            body.addEventListener('input', () => this.updatePreview());
+        }
     }
 
     renderTargetChips() {
@@ -395,6 +400,10 @@ class AdminCrm {
     }
 
     execCmd(command, value = null) {
+        if (this.templateEditorApi) {
+            this.templateEditorApi.execCmd(command, value);
+            return;
+        }
         document.getElementById('tplBody')?.focus();
         document.execCommand(command, false, value);
     }
@@ -440,7 +449,10 @@ class AdminCrm {
 
     async saveClause() {
         const name = document.getElementById('tplName')?.value.trim();
-        const body = document.getElementById('tplBody')?.innerHTML || '';
+        const tplBody = document.getElementById('tplBody');
+        const body = (window.ContractEditor && tplBody
+            ? ContractEditor.getEditorHtml(tplBody)
+            : tplBody?.innerHTML) || '';
         if (!name) {
             showAlertModal('Give the clause a name first.', 'error');
             return;

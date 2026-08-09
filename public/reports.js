@@ -6,9 +6,7 @@ class ReportsManager {
             'cashSummary',
             'topClientsByPaid',
             'topClientsByProjects',
-            'topCities',
-            'topSources',
-            'topCategories'
+            'topCities'
         ];
         this.init();
     }
@@ -128,8 +126,6 @@ class ReportsManager {
         this.renderTopClientsByPaid();
         this.renderTopClientsByProjects();
         this.renderTopCities();
-        this.renderTopSources();
-        this.renderTopCategories();
     }
 
     renderSummary() {
@@ -137,7 +133,7 @@ class ReportsManager {
         document.getElementById('totalProjects').textContent = (summary.totalProjects || 0).toLocaleString();
         document.getElementById('bookedPlusCount').textContent = (summary.bookedPlusCount || 0).toLocaleString();
         document.getElementById('conversionRate').textContent = `${summary.conversionRate || 0}% conversion`;
-        document.getElementById('quotedTotal').textContent = this.formatCurrency(summary.quotedTotal);
+        document.getElementById('invoiceCount').textContent = (summary.invoiceCount || 0).toLocaleString();
         document.getElementById('invoicedTotal').textContent = this.formatCurrency(summary.invoicedTotal);
         document.getElementById('paidTotal').textContent = this.formatCurrency(summary.paidTotal);
         document.getElementById('outstandingTotal').textContent = this.formatCurrency(summary.outstandingTotal);
@@ -160,7 +156,7 @@ class ReportsManager {
                     <li class="report-list-item">
                         <div class="info">
                             <div class="name">${this.escapeHtml(item.label)}</div>
-                            <div class="details">${this.formatCurrency(item.quotedTotal)} quoted</div>
+                            <div class="details">${this.formatCurrency(item.invoicedTotal)} invoiced</div>
                         </div>
                         <div class="stats">
                             <div class="primary-stat">${item.count} project${item.count !== 1 ? 's' : ''}</div>
@@ -256,7 +252,7 @@ class ReportsManager {
                         <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
                         <div class="info">
                             <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${this.formatCurrency(item.quotedTotal)} quoted</div>
+                            <div class="details">${this.formatCurrency(item.invoicedTotal)} invoiced</div>
                         </div>
                         <div class="stats">
                             <div class="primary-stat">${item.count} project${item.count !== 1 ? 's' : ''}</div>
@@ -287,74 +283,12 @@ class ReportsManager {
                         <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
                         <div class="info">
                             <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${this.formatCurrency(item.total)} quoted</div>
+                            <div class="details">${this.formatCurrency(item.total)} invoiced</div>
                         </div>
                         <div class="stats">
                             <div class="primary-stat">${item.count} project${item.count !== 1 ? 's' : ''}</div>
                             <div class="progress-bar-container">
                                 <div class="progress-bar" style="width: ${(item.count / maxCount) * 100}%"></div>
-                            </div>
-                        </div>
-                    </li>
-                `).join('')}
-            </ul>
-        `;
-    }
-
-    renderTopSources() {
-        const container = document.getElementById('topSources');
-        const data = this.reportData.topSources;
-
-        if (!data || data.length === 0) {
-            container.innerHTML = this.getNoDataHTML('No lead source data available');
-            return;
-        }
-
-        const maxCount = data[0]?.count || 1;
-        container.innerHTML = `
-            <ul class="report-list">
-                ${data.map((item, index) => `
-                    <li class="report-list-item">
-                        <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
-                        <div class="info">
-                            <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${this.formatCurrency(item.total)} quoted</div>
-                        </div>
-                        <div class="stats">
-                            <div class="primary-stat">${item.count} quote${item.count !== 1 ? 's' : ''}</div>
-                            <div class="progress-bar-container">
-                                <div class="progress-bar" style="width: ${(item.count / maxCount) * 100}%"></div>
-                            </div>
-                        </div>
-                    </li>
-                `).join('')}
-            </ul>
-        `;
-    }
-
-    renderTopCategories() {
-        const container = document.getElementById('topCategories');
-        const data = this.reportData.topCategories;
-
-        if (!data || data.length === 0) {
-            container.innerHTML = this.getNoDataHTML('No category data available');
-            return;
-        }
-
-        const maxTotal = data[0]?.total || 1;
-        container.innerHTML = `
-            <ul class="report-list">
-                ${data.map((item, index) => `
-                    <li class="report-list-item">
-                        <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
-                        <div class="info">
-                            <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${item.count} service item${item.count !== 1 ? 's' : ''}</div>
-                        </div>
-                        <div class="stats">
-                            <div class="primary-stat">${this.formatCurrency(item.total)}</div>
-                            <div class="progress-bar-container">
-                                <div class="progress-bar" style="width: ${(item.total / maxTotal) * 100}%"></div>
                             </div>
                         </div>
                     </li>

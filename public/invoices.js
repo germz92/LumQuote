@@ -31,6 +31,7 @@ class InvoicesManager {
         this.when = when;
         localStorage.setItem('invoicesWhen', when);
         this.syncWhenToggle();
+        this.updateClearButton();
         this.currentPage = 1;
         this.expanded.clear();
         this.loadInvoices().then(() => {
@@ -95,6 +96,11 @@ class InvoicesManager {
             document.getElementById('statusFilter')?.value;
         const btn = document.getElementById('clearFiltersBtn');
         if (btn) btn.style.display = hasFilters ? '' : 'none';
+        const drawerActive = !!(document.getElementById('statusFilter')?.value ||
+            (this.when && this.when !== 'upcoming'));
+        if (window.PageControls) {
+            PageControls.syncFilterIndicator('#invoicesPageControls', drawerActive);
+        }
     }
 
     async loadInvoices() {
@@ -135,7 +141,23 @@ class InvoicesManager {
         const area = document.getElementById('invoicesDataArea');
         const skeleton = document.getElementById('invoicesSkeleton');
         if (area) area.classList.toggle('is-loading', !!show);
-        if (skeleton) skeleton.style.display = show ? 'block' : 'none';
+        if (!skeleton) return;
+        if (show) {
+            skeleton.className = 'quotes-skeleton quotes-skeleton--list';
+            skeleton.innerHTML = Array.from({ length: 8 }, () => `
+                <div class="skeleton-row">
+                    <div class="skeleton-block skeleton-block--title"></div>
+                    <div class="skeleton-block skeleton-block--short"></div>
+                    <div class="skeleton-block skeleton-block--short"></div>
+                    <div class="skeleton-block skeleton-block--line"></div>
+                    <div class="skeleton-block skeleton-block--line"></div>
+                    <div class="skeleton-block skeleton-block--short"></div>
+                </div>
+            `).join('');
+            skeleton.style.display = 'block';
+        } else {
+            skeleton.style.display = 'none';
+        }
     }
 
     toggleExpand(invoiceId, event) {
@@ -268,25 +290,61 @@ class InvoicesManager {
             ? `<span class="caret ${isOpen ? 'open' : ''}" onclick="invoicesManager.toggleExpand('${CRM.escapeJs(id)}', event)">▸</span>`
             : '';
 
+        const client = inv.client;
+        const clientMeta = client?.name || client?.company
+            ? CRM.escapeHtml(client.name || client.company) +
+              (client.company && client.name && client.company !== client.name
+                  ? ` · ${CRM.escapeHtml(client.company)}`
+                  : '')
+            : '';
+        const projectMeta = inv.project?.name ? CRM.escapeHtml(inv.project.name) : '';
+        const dueMeta = inv.dueDate ? CRM.escapeHtml(CRM.formatDate(inv.dueDate)) : '';
+        const paidMeta = `Paid ${CRM.money(inv.amountPaid)}`;
+        const plan = inv.plan;
+        let planMeta = '';
+        if (plan) {
+            const left = Math.max(0, (plan.total || 0) - (plan.amountPaid || 0));
+            planMeta = `${plan.paidCount}/${plan.totalCount} paid`;
+            if (left > 0 && inv.status !== 'paid') {
+                planMeta += ` · ${CRM.money(left)} left`;
+            }
+        }
+        const ownerMeta = inv.createdBy?.name ? CRM.escapeHtml(inv.createdBy.name) : '';
+        const createdMeta = inv.createdAt ? CRM.escapeHtml(CRM.formatDate(inv.createdAt)) : '';
+        const metaHtml = CRM.listRowMeta([
+            clientMeta,
+            projectMeta,
+            dueMeta ? `Due ${dueMeta}` : '',
+            paidMeta,
+            planMeta,
+            ownerMeta,
+            createdMeta
+        ]);
+
         const main = `
             <tr class="invoice-row ${isOpen ? 'is-open' : ''} ${hasPlan ? 'has-plan' : ''}"
                 onclick="invoicesManager.openInvoice('${CRM.escapeJs(projectId)}', '${CRM.escapeJs(id)}')">
                 <td class="invoice-caret">${caret}</td>
                 <td>
-                    <strong class="invoice-number">${CRM.escapeHtml(inv.invoiceNumber || '')}</strong>
-                    ${inv.subtitle ? `<br><span class="crm-inline-note">${CRM.escapeHtml(inv.subtitle)}</span>` : ''}
+                    <div class="list-row-primary">
+                        <div>
+                            <strong class="invoice-number">${CRM.escapeHtml(inv.invoiceNumber || '')}</strong>
+                            ${inv.subtitle ? `<br><span class="crm-inline-note">${CRM.escapeHtml(inv.subtitle)}</span>` : ''}
+                        </div>
+                        ${metaHtml}
+                    </div>
                 </td>
                 <td>${CRM.invoiceStatusChip(inv.status)}</td>
-                <td>${this.clientLabel(inv.client)}</td>
-                <td>${projectCell}</td>
-                <td>${due}</td>
+                <td class="col-fold-sm">${this.clientLabel(inv.client)}</td>
+                <td class="col-fold-sm">${projectCell}</td>
+                <td class="col-fold-sm">${due}</td>
                 <td class="num"><span class="crm-cell-amount">${CRM.money(inv.total)}</span></td>
-                <td class="num">${CRM.money(inv.amountPaid)}</td>
-                <td>${this.planSummary(inv)}</td>
-                <td class="col-hide-sm">${inv.createdBy?.name
+                <td class="num col-fold-sm">${CRM.money(inv.amountPaid)}</td>
+                <td class="col-fold-sm">${this.planSummary(inv)}</td>
+                <td class="col-hide-sm col-fold-sm">${inv.createdBy?.name
                     ? CRM.escapeHtml(inv.createdBy.name)
                     : '<span class="crm-inline-note">—</span>'}</td>
-                <td class="col-hide-sm">${inv.createdAt
+                <td class="col-hide-sm col-fold-sm">${inv.createdAt
                     ? CRM.escapeHtml(CRM.formatDate(inv.createdAt))
                     : '<span class="crm-inline-note">—</span>'}</td>
             </tr>`;
