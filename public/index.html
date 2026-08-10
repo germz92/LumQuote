@@ -97,6 +97,7 @@
                             </div>
                         </div>
                         <div class="builder-toolbar-actions">
+                            <button type="button" class="btn btn-primary btn-md" id="commitInvoiceBtn" onclick="calculator.commitToInvoice()" title="Commit to Invoice" style="display: none;">Commit to Invoice</button>
                             <button type="button" class="btn btn-primary btn-md" onclick="showSaveModal()" title="Save">Save</button>
                             <button type="button" class="btn btn-secondary btn-md builder-toolbar-desktop-only" onclick="showLoadModal()" title="Load">Load</button>
                             <button type="button" class="btn btn-secondary btn-md builder-toolbar-desktop-only" onclick="clearQuote()" title="Clear">Clear</button>
@@ -110,6 +111,14 @@
                             <span class="override-text-short">Override on — tap a service to edit.</span>
                         </span>
                         <button type="button" class="override-exit-btn" onclick="calculator.toggleOverrideMode()">Exit</button>
+                    </div>
+
+                    <div id="invoiceEditBanner" class="invoice-edit-banner" style="display: none;" role="status">
+                        <span class="invoice-edit-banner__text">
+                            Editing invoice — use <strong>Commit to Invoice</strong> to save these changes to the invoice.
+                            The Save button only saves a separate quote.
+                        </span>
+                        <button type="button" class="invoice-edit-banner__back" onclick="calculator.returnToInvoiceEditor()">Back to invoice</button>
                     </div>
                 </div>
 
@@ -216,6 +225,10 @@
                 <span class="close" onclick="closeSaveModal()">&times;</span>
             </div>
             <div class="modal-body">
+                <div id="saveInvoiceModeWarning" class="save-invoice-mode-warning" style="display: none;" role="alert">
+                    This saves a <strong>quote</strong>, not the invoice you are editing.
+                    Use <strong>Commit to Invoice</strong> on the editor toolbar to update the invoice.
+                </div>
                 <form id="saveQuoteForm">
                     <div class="form-group">
                         <label for="saveQuoteTitle">Quote Title *</label>

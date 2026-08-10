@@ -461,6 +461,27 @@ class ProjectPage {
         }
     }
 
+    openInvoiceInQuoteEditor(invoiceId) {
+        const inv = this.editingInvoice;
+        if (!inv || String(inv._id) !== String(invoiceId)) {
+            showAlertModal('Open the invoice editor first.', 'error');
+            return;
+        }
+        if (inv.status === 'paid' || inv.status === 'void') {
+            showAlertModal('Paid and void invoices cannot be edited in the quote editor.', 'error');
+            return;
+        }
+        sessionStorage.removeItem('loadQuoteData');
+        sessionStorage.removeItem('lumquote_start_new');
+        sessionStorage.setItem('invoiceEditorSession', JSON.stringify({
+            invoiceId: inv._id,
+            projectId: this.projectId,
+            invoiceNumber: inv.invoiceNumber,
+            returnUrl: `/projects/${this.projectId}?invoice=${encodeURIComponent(inv._id)}`
+        }));
+        window.location.href = '/quote';
+    }
+
     async unlinkQuote(quoteName) {
         const confirmed = await showConfirmModal(`Remove "${quoteName}" from this project? The quote itself is kept.`, 'Unlink Quote', 'Unlink');
         if (!confirmed) return;
@@ -558,6 +579,7 @@ class ProjectPage {
             <div class="invoice-share-link" style="margin-bottom:16px">
                 <span id="contractLinkText">${CRM.escapeHtml(`${window.location.origin}/sign/${contract.publicToken}`)}</span>
                 <button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/sign/${contract.publicToken}`)}', this)">Copy</button>
+                <a class="crm-btn-sm" href="/sign/${CRM.escapeHtml(contract.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>
             </div>` : '';
 
         const signedBlock = isSigned ? `
@@ -903,7 +925,7 @@ class ProjectPage {
                                 <div class="crm-row-actions">
                                     ${(inv.status === 'draft' || inv.status === 'sent') ? `<button class="crm-btn-sm primary" onclick="projectPage.editInvoice('${inv._id}')">Edit</button>` : ''}
                                     ${inv.publicToken && inv.status !== 'void' ? `<button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Link</button>` : ''}
-                                    ${inv.status === 'sent' ? `<button class="crm-btn-sm" onclick="projectPage.markInvoicePaid('${inv._id}')">Paid</button>` : ''}
+                                    ${inv.publicToken && inv.status !== 'void' ? `<a class="crm-btn-sm" href="/invoice/${CRM.escapeHtml(inv.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>` : ''}
                                     <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">PDF</a>
                                     ${(inv.status === 'draft' || inv.status === 'sent') ? `<button class="crm-btn-sm danger" onclick="projectPage.voidOrDeleteInvoice('${inv._id}', '${inv.status}')">${inv.status === 'draft' ? 'Delete' : 'Void'}</button>` : ''}
                                 </div>
@@ -1075,17 +1097,129 @@ class ProjectPage {
                 <div class="invoice-share-link" style="margin-top:14px">
                     <span>${CRM.escapeHtml(`${window.location.origin}/invoice/${inv.publicToken}`)}</span>
                     <button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Copy</button>
+                    <a class="crm-btn-sm" href="/invoice/${CRM.escapeHtml(inv.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>
                 </div>` : ''}
 
                 <div class="crm-actions-row">
                     <button class="primary-button" onclick="projectPage.saveInvoice()">Save Invoice</button>
+                    ${(inv.status === 'draft' || inv.status === 'sent') ? `
+                    <button type="button" class="secondary-button" onclick="projectPage.openInvoiceInQuoteEditor('${inv._id}')">Open in Quote Editor</button>` : ''}
                     <button class="secondary-button" onclick="projectPage.sendInvoice()">${inv.status === 'draft' ? 'Send (Get Shareable Link)' : 'Save &amp; Refresh Link'}</button>
                     <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">Download PDF</a>
                 </div>
+
+                ${this.recordPaymentSectionHtml(inv)}
             </div>`;
 
         this.renderInvoiceLines();
         this.renderPaymentPlan();
+    }
+
+    todayYmd() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    paidOnLabel(paidAt) {
+        const formatted = CRM.formatDate(paidAt);
+        return formatted ? ` on ${formatted}` : '';
+    }
+
+    async promptPaidDate(title, message) {
+        const values = await showPromptModal({
+            title,
+            message,
+            confirmText: 'Mark Paid',
+            fields: [{
+                name: 'paidDate',
+                label: 'Payment date',
+                type: 'date',
+                value: this.todayYmd(),
+                required: true
+            }]
+        });
+        if (!values || !values.paidDate) return null;
+        return values.paidDate;
+    }
+
+    recordPaymentSectionHtml(inv) {
+        if (!inv || inv.status === 'draft' || inv.status === 'void') {
+            return '';
+        }
+
+        const plan = inv.paymentPlan;
+        const installments = plan?.enabled ? (plan.installments || []) : [];
+        const hasPlan = installments.length > 0;
+
+        if (inv.status === 'paid') {
+            const paidLine = inv.paidAt
+                ? `Paid in full${this.paidOnLabel(inv.paidAt)}.`
+                : 'Paid in full.';
+            const installmentRows = hasPlan
+                ? `<div class="invoice-record-installments" style="margin-top:10px">
+                    ${installments.map((inst, i) => {
+                        const label = CRM.escapeHtml(inst.label || `Payment ${i + 1}`);
+                        const amount = CRM.money(inst.amount || 0);
+                        const when = inst.status === 'paid' ? this.paidOnLabel(inst.paidAt) : '';
+                        return `<div class="pp-row-static">
+                            <strong>${label}</strong> — ${amount}
+                            <span class="crm-chip crm-chip--paid" style="margin-left:6px">Paid${CRM.escapeHtml(when)}</span>
+                        </div>`;
+                    }).join('')}
+                </div>`
+                : '';
+            return `
+                <div class="invoice-record-payment" style="margin-top:28px;padding-top:20px;border-top:1px solid var(--color-border)">
+                    <h3 style="font-size:14px;margin:0 0 6px">Payment</h3>
+                    <p class="crm-inline-note" style="margin:0">${CRM.escapeHtml(paidLine)}</p>
+                    ${installmentRows}
+                </div>`;
+        }
+
+        let installmentRows = '';
+        if (hasPlan) {
+            installmentRows = `
+                <div class="invoice-record-installments">
+                    ${installments.map((inst, i) => {
+                        const label = CRM.escapeHtml(inst.label || `Payment ${i + 1}`);
+                        const amount = CRM.money(inst.amount || 0);
+                        if (inst.status === 'paid') {
+                            const when = this.paidOnLabel(inst.paidAt);
+                            return `<div class="pp-row-static">
+                                <strong>${label}</strong> — ${amount}
+                                <span class="crm-chip crm-chip--paid" style="margin-left:6px">Paid${CRM.escapeHtml(when)}</span>
+                            </div>`;
+                        }
+                        return `<div class="pp-row-static" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between">
+                            <span><strong>${label}</strong> — ${amount}</span>
+                            <button type="button" class="crm-btn-sm primary" onclick="projectPage.markInstallmentPaid('${inv._id}', ${i})">Mark paid</button>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+        }
+
+        const remaining = Math.max(0, (Number(inv.total) || 0) - (Number(inv.amountPaid) || 0));
+        return `
+            <div class="invoice-record-payment" style="margin-top:28px;padding-top:20px;border-top:1px solid var(--color-border)">
+                <h3 style="font-size:14px;margin:0 0 6px">Record payment</h3>
+                <p class="crm-inline-note" style="margin:0 0 14px">
+                    For payments received outside Stripe.
+                    ${hasPlan
+                        ? 'Mark individual installments as they come in, or mark the full invoice paid.'
+                        : 'Marks the invoice paid in full.'}
+                    You will choose the payment date when marking paid.
+                    ${remaining > 0 ? ` Balance due: <strong>${CRM.money(remaining)}</strong>.` : ''}
+                </p>
+                ${installmentRows}
+                <div class="crm-actions-row" style="margin-top:12px">
+                    <button type="button" class="secondary-button" onclick="projectPage.markInvoicePaid('${inv._id}')">
+                        Mark invoice paid in full
+                    </button>
+                </div>
+            </div>`;
     }
 
     // ---------- Payment plan editor ----------
@@ -1109,11 +1243,13 @@ class ProjectPage {
 
         if (this.planLocked()) {
             box.innerHTML = `
-                <p class="crm-inline-note">A payment has already been made — the plan is locked.</p>
+                <p class="crm-inline-note">A payment has already been made — the plan schedule is locked. Use Record payment below to mark remaining installments.</p>
                 ${plan.installments.map((inst, i) => `
                     <div class="pp-row-static">
                         <strong>${CRM.escapeHtml(inst.label || `Payment ${i + 1}`)}</strong> — ${inst.percent}% (${CRM.money(inst.amount)})
-                        ${inst.status === 'paid' ? '<span class="crm-chip crm-chip--paid" style="margin-left:6px">Paid</span>' : ''}
+                        ${inst.status === 'paid'
+                            ? `<span class="crm-chip crm-chip--paid" style="margin-left:6px">Paid${CRM.escapeHtml(this.paidOnLabel(inst.paidAt))}</span>`
+                            : '<span class="crm-chip crm-chip--draft" style="margin-left:6px">Pending</span>'}
                     </div>`).join('')}`;
             return;
         }
@@ -1377,13 +1513,42 @@ class ProjectPage {
     }
 
     async markInvoicePaid(invoiceId) {
-        const confirmed = await showConfirmModal('Mark this invoice as paid? Use this for payments received outside Stripe.', 'Mark Paid', 'Mark Paid');
-        if (!confirmed) return;
+        const paidDate = await this.promptPaidDate(
+            'Mark Invoice Paid',
+            'All unpaid installments will be marked paid. Choose the date the payment was received.'
+        );
+        if (!paidDate) return;
         try {
-            await CRM.api(`/api/invoices/${invoiceId}/mark-paid`, { method: 'POST' });
+            await CRM.api(`/api/invoices/${invoiceId}/mark-paid`, {
+                method: 'POST',
+                body: { paidDate }
+            });
             showAlertModal('Invoice marked as paid.', 'success', null, true);
             await this.reload();
             this.showTab('invoices');
+            if (this.editingInvoice && String(this.editingInvoice._id) === String(invoiceId)) {
+                await this.editInvoice(invoiceId);
+            }
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    async markInstallmentPaid(invoiceId, index) {
+        const paidDate = await this.promptPaidDate(
+            'Mark Installment Paid',
+            'Choose the date this payment was received (outside Stripe).'
+        );
+        if (!paidDate) return;
+        try {
+            await CRM.api(`/api/invoices/${invoiceId}/mark-installment-paid`, {
+                method: 'POST',
+                body: { index, paidDate }
+            });
+            showAlertModal('Installment marked as paid.', 'success', null, true);
+            await this.reload();
+            this.showTab('invoices');
+            await this.editInvoice(invoiceId);
         } catch (error) {
             showAlertModal(error.message, 'error');
         }

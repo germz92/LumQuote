@@ -17,6 +17,8 @@ class QuoteCalculator {
         this.autoSaveKey = 'quote_calculator_draft';
         this.isOverrideMode = false;
         this.users = [];
+        this.invoiceEditMode = false;
+        this.invoiceEditorSession = null;
         
         // Auto-save state
         this.autoSaveTimeout = null;
@@ -57,7 +59,8 @@ class QuoteCalculator {
         await this.loadServices();
         // Prefer an in-flight navigation payload over a stale local draft
         const hasPendingNavigationLoad = !!sessionStorage.getItem('loadQuoteData')
-            || sessionStorage.getItem('lumquote_start_new') === '1';
+            || sessionStorage.getItem('lumquote_start_new') === '1'
+            || !!sessionStorage.getItem('invoiceEditorSession');
         if (!hasPendingNavigationLoad) {
             this.loadDraftFromLocalStorage();
         }
@@ -136,6 +139,13 @@ class QuoteCalculator {
         }
     }
 
+    getLocalDraftKey() {
+        if (this.invoiceEditMode && this.invoiceEditorSession?.invoiceId) {
+            return `invoice_quote_editor_draft_${this.invoiceEditorSession.invoiceId}`;
+        }
+        return this.autoSaveKey;
+    }
+
     saveDraftToLocalStorage(skipAutoSave = false) {
         try {
             const draftData = {
@@ -152,6 +162,8 @@ class QuoteCalculator {
                 currentCreatedBy: this.currentCreatedBy,
                 currentProjectId: this.currentProjectId,
                 perEventDiscountEnabled: this.perEventDiscountEnabled,
+                invoiceEditMode: this.invoiceEditMode,
+                invoiceEditorSession: this.invoiceEditorSession,
                 lastSaved: new Date().toISOString()
             };
             console.log('💾 Saving to localStorage:', {
@@ -162,9 +174,9 @@ class QuoteCalculator {
                 leadSource: draftData.currentLeadSource,
                 booked: draftData.currentBooked
             });
-            localStorage.setItem(this.autoSaveKey, JSON.stringify(draftData));
+            localStorage.setItem(this.getLocalDraftKey(), JSON.stringify(draftData));
             
-            if (!skipAutoSave && !this.isHydratingQuote) {
+            if (!skipAutoSave && !this.isHydratingQuote && !this.invoiceEditMode) {
                 this.triggerAutoSave();
             }
         } catch (error) {
@@ -1348,7 +1360,12 @@ class QuoteCalculator {
     // Save/Load functionality
     async showSaveModal() {
         // Pre-fill form with current quote info if available
-        document.getElementById('saveQuoteTitle').value = this.currentQuoteTitle || this.currentQuoteName || '';
+        const titleForSave = this.invoiceEditMode
+            ? (this.invoiceEditorSession?.invoiceNumber
+                ? `Quote from ${this.invoiceEditorSession.invoiceNumber}`
+                : 'Quote from invoice')
+            : (this.currentQuoteTitle || this.currentQuoteName || '');
+        document.getElementById('saveQuoteTitle').value = titleForSave;
         document.getElementById('clientName').value = this.currentClientName || '';
         document.getElementById('eventLocation').value = this.currentLocation || '';
         if (window.LeadSources) {
@@ -1356,6 +1373,10 @@ class QuoteCalculator {
         } else {
             document.getElementById('leadSource').value = this.currentLeadSource || '';
         }
+
+        const warn = document.getElementById('saveInvoiceModeWarning');
+        if (warn) warn.style.display = this.invoiceEditMode ? '' : 'none';
+
         // Load previous clients for the dropdown
         await this.loadClients();
         
@@ -1375,7 +1396,7 @@ class QuoteCalculator {
         setTimeout(() => {
             document.getElementById('saveQuoteTitle').focus();
             // If pre-filled, select all text for easy replacement
-            if (this.currentQuoteTitle || this.currentQuoteName) {
+            if (document.getElementById('saveQuoteTitle').value) {
                 document.getElementById('saveQuoteTitle').select();
             }
         }, 100);
@@ -1824,7 +1845,7 @@ class QuoteCalculator {
 
     // Trigger auto-save (debounced)
     triggerAutoSave() {
-        if (this.isHydratingQuote) {
+        if (this.isHydratingQuote || this.invoiceEditMode) {
             return;
         }
 
@@ -1852,7 +1873,7 @@ class QuoteCalculator {
     
     // Perform the actual auto-save
     async performAutoSave(force = false) {
-        if (!this.currentQuoteName || this.isHydratingQuote) {
+        if (!this.currentQuoteName || this.isHydratingQuote || this.invoiceEditMode) {
             return;
         }
 
@@ -1965,32 +1986,38 @@ class QuoteCalculator {
         const convertBtn = document.getElementById('calculatorConvertToProjectBtn');
         const transferBtn = document.getElementById('calculatorTransferLumDashBtn');
         const overrideMenuBtn = document.getElementById('calculatorOverrideMenuBtn');
+        const commitBtn = document.getElementById('commitInvoiceBtn');
 
         if (!menuBtn) return;
 
         // Always available — Load / Clear / Override live in this menu on mobile
         menuBtn.disabled = false;
 
+        if (commitBtn) {
+            commitBtn.style.display = this.invoiceEditMode ? '' : 'none';
+        }
+
         if (archiveBtn) {
             archiveBtn.textContent = this.currentArchived ? 'Unarchive' : 'Archive';
-            archiveBtn.style.display = this.currentQuoteName ? '' : 'none';
+            archiveBtn.style.display = (!this.invoiceEditMode && this.currentQuoteName) ? '' : 'none';
         }
         if (deleteBtn) {
-            deleteBtn.style.display = this.currentQuoteName ? '' : 'none';
+            deleteBtn.style.display = (!this.invoiceEditMode && this.currentQuoteName) ? '' : 'none';
         }
         if (projectBtn) {
             projectBtn.style.display = this.currentProjectId ? '' : 'none';
         }
         if (convertBtn) {
-            convertBtn.style.display = this.currentQuoteName && !this.currentProjectId ? '' : 'none';
+            convertBtn.style.display = (!this.invoiceEditMode && this.currentQuoteName && !this.currentProjectId) ? '' : 'none';
         }
         if (transferBtn) {
-            transferBtn.style.display = this.currentProjectId ? '' : 'none';
+            transferBtn.style.display = (!this.invoiceEditMode && this.currentProjectId) ? '' : 'none';
         }
         if (overrideMenuBtn) {
             overrideMenuBtn.textContent = this.isOverrideMode ? 'Exit override' : 'Override prices';
         }
         this.updateProjectChip();
+        this.updateInvoiceEditChrome();
     }
 
     // Visible "back to project" chip in the builder header
@@ -2331,6 +2358,160 @@ class QuoteCalculator {
             titleElement.textContent = this.currentQuoteTitle;
             console.log('✅ Title updated to:', this.currentQuoteTitle);
         }
+        if (this.invoiceEditMode) {
+            document.title = `${this.currentQuoteTitle || 'Invoice'} - LumQuote`;
+        }
+    }
+
+    updateInvoiceEditChrome() {
+        const banner = document.getElementById('invoiceEditBanner');
+        if (banner) {
+            banner.style.display = this.invoiceEditMode ? 'flex' : 'none';
+        }
+        document.body.classList.toggle('invoice-edit-mode', !!this.invoiceEditMode);
+        const titleEl = document.getElementById('quoteTitle');
+        if (titleEl) {
+            titleEl.title = this.invoiceEditMode
+                ? 'Editing invoice in quote editor'
+                : 'Click to edit quote title';
+        }
+    }
+
+    clearInvoiceEditorSession() {
+        try {
+            if (this.invoiceEditorSession?.invoiceId) {
+                localStorage.removeItem(`invoice_quote_editor_draft_${this.invoiceEditorSession.invoiceId}`);
+            }
+        } catch (_) { /* ignore */ }
+        sessionStorage.removeItem('invoiceEditorSession');
+        this.invoiceEditMode = false;
+        this.invoiceEditorSession = null;
+        this.updateInvoiceEditChrome();
+    }
+
+    returnToInvoiceEditor() {
+        const returnUrl = this.invoiceEditorSession?.returnUrl
+            || (this.invoiceEditorSession?.projectId && this.invoiceEditorSession?.invoiceId
+                ? `/projects/${this.invoiceEditorSession.projectId}?invoice=${encodeURIComponent(this.invoiceEditorSession.invoiceId)}`
+                : null);
+        this.clearInvoiceEditorSession();
+        if (returnUrl) {
+            window.location.href = returnUrl;
+        } else {
+            window.location.href = '/quotes';
+        }
+    }
+
+    async enterInvoiceEditMode(session) {
+        if (!session?.invoiceId) {
+            throw new Error('Missing invoice session');
+        }
+        this.invoiceEditMode = true;
+        this.invoiceEditorSession = session;
+        sessionStorage.setItem('invoiceEditorSession', JSON.stringify(session));
+
+        const response = await fetch(`/api/invoices/${session.invoiceId}/quote-editor-data`, {
+            credentials: 'include'
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(payload.error || 'Failed to load invoice for quote editor');
+        }
+
+        const quoteData = payload.quoteData || {};
+        this.isHydratingQuote = true;
+        try {
+            this.days = Array.isArray(quoteData.days) && quoteData.days.length
+                ? quoteData.days
+                : [{ services: [], date: null }];
+            this.discountPercentage = quoteData.discountPercentage || 0;
+            this.markups = quoteData.markups || [];
+            this.currentQuoteName = null;
+            this.currentClientName = null;
+            this.currentLocation = null;
+            this.currentLeadSource = null;
+            this.currentBooked = false;
+            this.currentArchived = false;
+            this.currentCreatedBy = null;
+            this.currentProjectId = payload.projectId || session.projectId || null;
+            this.currentQuoteTitle = `Invoice ${payload.invoiceNumber || session.invoiceNumber || ''}`.trim();
+            this.invoiceEditorSession = {
+                ...session,
+                invoiceNumber: payload.invoiceNumber || session.invoiceNumber,
+                projectId: String(payload.projectId || session.projectId || ''),
+                returnUrl: session.returnUrl
+                    || `/projects/${payload.projectId || session.projectId}?invoice=${encodeURIComponent(payload.invoiceId || session.invoiceId)}`
+            };
+            sessionStorage.setItem('invoiceEditorSession', JSON.stringify(this.invoiceEditorSession));
+
+            this.days.forEach((day) => {
+                if (!Array.isArray(day.services)) day.services = [];
+                if (day.date === undefined) day.date = null;
+                day.services.forEach((service) => {
+                    if (!service.quantity) service.quantity = 1;
+                    if (service.tentative === undefined) service.tentative = false;
+                    if (!service.discount) {
+                        service.discount = { type: 'percentage', value: 0, applied: false };
+                    }
+                });
+            });
+
+            const button = document.getElementById('discountBtn');
+            if (button) {
+                button.textContent = this.discountPercentage > 0
+                    ? `Modify Discount (${this.discountPercentage}%)`
+                    : 'Apply Discount';
+            }
+
+            this.renderDays();
+            this.renderMarkups();
+            this.updateTotal();
+            this.updateQuoteTitleDisplay();
+            this.updateClientDisplay();
+            this.updateLocationDisplay();
+            this.applyPerEventDiscountState();
+            this.updateQuoteActionsMenu();
+            this.saveDraftToLocalStorage(true);
+            this.updateSaveStatus('saved');
+        } finally {
+            this.isHydratingQuote = false;
+        }
+    }
+
+    buildCommitQuoteData() {
+        return {
+            days: this.days,
+            markups: this.markups,
+            discountPercentage: this.discountPercentage,
+            quoteTitle: this.currentQuoteTitle
+        };
+    }
+
+    async commitToInvoice() {
+        if (!this.invoiceEditMode || !this.invoiceEditorSession?.invoiceId) {
+            showAlertModal('No invoice is open for editing.', 'error');
+            return;
+        }
+        try {
+            const response = await fetch(`/api/invoices/${this.invoiceEditorSession.invoiceId}/commit-from-quote`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quoteData: this.buildCommitQuoteData() })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to commit invoice');
+            }
+            const returnUrl = this.invoiceEditorSession.returnUrl
+                || `/projects/${this.invoiceEditorSession.projectId}?invoice=${encodeURIComponent(this.invoiceEditorSession.invoiceId)}`;
+            this.clearInvoiceEditorSession();
+            showAlertModal('Invoice updated from quote editor.', 'success', null, true);
+            window.location.href = returnUrl;
+        } catch (error) {
+            console.error('Error committing invoice:', error);
+            showAlertModal(error.message || 'Failed to commit invoice.', 'error');
+        }
     }
 
     updateLocationDisplay() {
@@ -2371,7 +2552,7 @@ class QuoteCalculator {
         if (this.isHydratingQuote) {
             return;
         }
-        if (!this.currentQuoteName) {
+        if (!this.invoiceEditMode && !this.currentQuoteName) {
             this.currentQuoteName = this.generateUntitledQuoteName();
             this.currentQuoteTitle = this.currentQuoteName;
             this.updateQuoteTitleDisplay();
@@ -2457,6 +2638,17 @@ class QuoteCalculator {
     }
 
     async showLoadModal() {
+        if (this.invoiceEditMode) {
+            const leave = await showConfirmModal(
+                'Loading a quote will leave invoice-edit mode. The invoice is unchanged until you Commit. Continue?',
+                'Leave Invoice Edit',
+                'Load Quote',
+                'Cancel'
+            );
+            if (!leave) return;
+            this.clearInvoiceEditorSession();
+        }
+
         const modal = document.getElementById('loadModal');
         if (!modal) {
             window.location.href = '/quotes';
@@ -4426,31 +4618,46 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Quote calculator failed to initialize:', error);
     }
     
-    // Check if we should load a quote from list/calendar navigation
-    const loadQuoteData = sessionStorage.getItem('loadQuoteData');
-    if (loadQuoteData) {
+    // Invoice → quote editor session takes priority over normal quote handoff
+    const invoiceEditorSessionRaw = sessionStorage.getItem('invoiceEditorSession');
+    if (invoiceEditorSessionRaw) {
         try {
-            const quoteData = JSON.parse(loadQuoteData);
+            const session = JSON.parse(invoiceEditorSessionRaw);
             sessionStorage.removeItem('loadQuoteData');
-            calculator.loadQuoteFromData(quoteData);
+            sessionStorage.removeItem('lumquote_start_new');
+            await calculator.enterInvoiceEditMode(session);
         } catch (error) {
-            console.error('Error loading quote from navigation:', error);
-            showAlertModal('Failed to load quote.', 'error');
+            console.error('Error opening invoice in quote editor:', error);
+            sessionStorage.removeItem('invoiceEditorSession');
+            showAlertModal(error.message || 'Failed to open invoice in quote editor.', 'error');
         }
-    } else if (sessionStorage.getItem('lumquote_start_new') === '1') {
-        sessionStorage.removeItem('lumquote_start_new');
-        calculator.beginUntitledAutoSave();
-    }
+    } else {
+        // Check if we should load a quote from list/calendar navigation
+        const loadQuoteData = sessionStorage.getItem('loadQuoteData');
+        if (loadQuoteData) {
+            try {
+                const quoteData = JSON.parse(loadQuoteData);
+                sessionStorage.removeItem('loadQuoteData');
+                calculator.loadQuoteFromData(quoteData);
+            } catch (error) {
+                console.error('Error loading quote from navigation:', error);
+                showAlertModal('Failed to load quote.', 'error');
+            }
+        } else if (sessionStorage.getItem('lumquote_start_new') === '1') {
+            sessionStorage.removeItem('lumquote_start_new');
+            calculator.beginUntitledAutoSave();
+        }
 
-    // Arriving from a project's "New Quote" button — prefill client/title from the project
-    const projectParam = new URLSearchParams(window.location.search).get('project');
-    if (projectParam) {
-        history.replaceState(null, '', window.location.pathname);
-        calculator.applyProjectContext(projectParam);
+        // Arriving from a project's "New Quote" button — prefill client/title from the project
+        const projectParam = new URLSearchParams(window.location.search).get('project');
+        if (projectParam) {
+            history.replaceState(null, '', window.location.pathname);
+            calculator.applyProjectContext(projectParam);
+        }
     }
 
     calculator.updateQuoteActionsMenu();
-    if (!calculator.currentQuoteName) {
+    if (!calculator.currentQuoteName && !calculator.invoiceEditMode) {
         calculator.updateSaveStatus('saved');
     }
 
@@ -4625,13 +4832,32 @@ function removeDiscount() {
 }
 
 async function clearQuote() {
+    if (calculator?.invoiceEditMode) {
+        const leave = await showConfirmModal(
+            'Clearing will discard the invoice edits in this editor and leave invoice-edit mode. The invoice itself is unchanged until you Commit. Continue?',
+            'Leave Invoice Edit',
+            'Clear & Leave',
+            'Cancel'
+        );
+        if (!leave) return;
+        const returnUrl = calculator.invoiceEditorSession?.returnUrl;
+        calculator.clearInvoiceEditorSession();
+        calculator.clearDraft();
+        if (returnUrl) {
+            window.location.href = returnUrl;
+            return;
+        }
+        showAlertModal('Editor cleared.', 'success', null, true);
+        return;
+    }
+
     const confirmed = await showConfirmModal(
         'Are you sure you want to clear the entire quote? This will remove all services, dates, and settings. This action cannot be undone.',
         'Clear Quote',
         'Clear Quote',
         'Cancel'
     );
-    
+
     if (confirmed) {
         calculator.clearDraft();
         showAlertModal('Quote cleared successfully!', 'success', null, true);

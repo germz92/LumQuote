@@ -288,6 +288,54 @@ body[data-app-page="quote"] .quote-section {
   min-width: 32px;
 }
 
+/* Invoice edit mode (quote editor opened from an invoice) */
+.invoice-edit-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid #1d4f7c;
+  background: #e8f2fa;
+  color: #0f3a5c;
+  text-align: left;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.invoice-edit-banner__back {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid #1d4f7c;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.9);
+  color: #0f3a5c;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.invoice-edit-banner__back:hover {
+  background: #fff;
+}
+
+.save-invoice-mode-warning {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid #b45309;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+body.invoice-edit-mode #autoSaveIndicator {
+  display: none;
+}
+
 /* Override mode */
 .override-banner {
   display: flex;
