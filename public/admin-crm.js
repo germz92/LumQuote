@@ -33,7 +33,9 @@ const MERGE_TOKENS = [
     { token: 'project_dates', label: 'Project dates' },
     { token: 'investment', label: 'Investment' },
     { token: 'service_name', label: 'Service name(s)' },
-    { token: 'service_role', label: 'Provider role' }
+    { token: 'service_role', label: 'Provider role' },
+    { token: 'photo_delivery', label: 'Photo delivery' },
+    { token: 'video_delivery', label: 'Video delivery' }
 ];
 
 // Sample values used by the in-editor preview
@@ -53,7 +55,9 @@ const SAMPLE_MERGE_DATA = {
     investment: '$4,850.00',
     service_name: 'Event Videography',
     service_names: 'Event Videography',
-    service_role: 'Videographer'
+    service_role: 'Videographer',
+    photo_delivery: 'within forty-eight (48) hours after the event via online gallery',
+    video_delivery: 'within one (1) week of the final project date (60–90 second highlight)'
 };
 
 class AdminCrm {
