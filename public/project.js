@@ -401,6 +401,17 @@ class ProjectPage {
         return CRM.formatDateRange(dates[0], dates[dates.length - 1]);
     }
 
+    quoteHasInvoice(quote) {
+        const quoteId = quote?._id != null ? String(quote._id) : '';
+        if (!quoteId) return false;
+        return (this.data?.invoices || []).some((inv) => {
+            if (!inv || inv.status === 'void') return false;
+            const source = inv.sourceQuote;
+            const sourceId = source && typeof source === 'object' ? source._id : source;
+            return sourceId != null && String(sourceId) === quoteId;
+        });
+    }
+
     renderQuotes() {
         const area = document.getElementById('quotesListArea');
         const { quotes } = this.data;
@@ -426,6 +437,8 @@ class ProjectPage {
                             location ? CRM.escapeHtml(location) : '',
                             serviceDate && serviceDate !== '—' ? CRM.escapeHtml(serviceDate) : ''
                         ]);
+                        const hasInvoice = this.quoteHasInvoice(q);
+                        const invoiceLabel = hasInvoice ? 'Invoice' : 'Create Invoice';
                         return `
                         <tr>
                             <td>
@@ -440,7 +453,7 @@ class ProjectPage {
                             <td>
                                 <div class="crm-row-actions">
                                     <button class="crm-btn-sm primary" onclick="projectPage.openQuote('${CRM.escapeJs(q.name)}')">Open</button>
-                                    <button class="crm-btn-sm" onclick="projectPage.invoiceFromQuote('${CRM.escapeJs(q.name)}')">Invoice</button>
+                                    <button class="crm-btn-sm" onclick="projectPage.invoiceFromQuote('${CRM.escapeJs(q.name)}')">${invoiceLabel}</button>
                                     <button class="crm-btn-sm danger" onclick="projectPage.unlinkQuote('${CRM.escapeJs(q.name)}')">Unlink</button>
                                 </div>
                             </td>
@@ -580,7 +593,8 @@ class ProjectPage {
                 <span id="contractLinkText">${CRM.escapeHtml(`${window.location.origin}/sign/${contract.publicToken}`)}</span>
                 <button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/sign/${contract.publicToken}`)}', this)">Copy</button>
                 <a class="crm-btn-sm" href="/sign/${CRM.escapeHtml(contract.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>
-            </div>` : '';
+            </div>
+            ${this.docTrackingHtml(contract)}` : '';
 
         const signedBlock = isSigned ? `
             <div class="crm-card" style="border-color: var(--color-success);">
@@ -607,7 +621,8 @@ class ProjectPage {
                     </div>
                     <div class="crm-actions-row">
                         ${!isSigned ? `
-                            <button class="primary-button" onclick="projectPage.sendContract()">${contract.status === 'sent' ? 'Refresh Signing Link' : 'Send for Signature'}</button>
+                            <button class="primary-button" onclick="projectPage.emailContract()">Send Contract</button>
+                            <button class="secondary-button" onclick="projectPage.sendContract()">${contract.status === 'sent' ? 'Refresh Signature Link' : 'Create Signature Link'}</button>
                             <button class="secondary-button" onclick="document.getElementById('contractFileInput').click()">Replace PDF</button>
                             <input type="file" id="contractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadContract(this.files[0])">
                             <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
@@ -635,7 +650,8 @@ class ProjectPage {
                 <div class="contract-editor" id="contractEditor" contenteditable="true">${contract.contentHtml || ''}</div>
                 <div class="crm-actions-row">
                     <button class="primary-button" onclick="projectPage.saveContract()">Save Contract</button>
-                    <button class="secondary-button" onclick="projectPage.sendContract()">${contract.status === 'sent' ? 'Update &amp; Resend Link' : 'Send for Signature'}</button>
+                    <button class="secondary-button" onclick="projectPage.emailContract()">Send Contract</button>
+                    <button class="secondary-button" onclick="projectPage.sendContract()">${contract.status === 'sent' ? 'Refresh Signature Link' : 'Create Signature Link'}</button>
                     <a class="crm-btn-sm" href="/api/contracts/${contract._id}/pdf">Preview PDF</a>
                     <button class="crm-btn-sm" onclick="projectPage.openGenerateContractModal()">Regenerate from Quote</button>
                     <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
@@ -804,6 +820,54 @@ class ProjectPage {
         } catch (error) {
             showAlertModal(error.message, 'error');
             throw error;
+        }
+    }
+
+    docTrackingHtml(doc) {
+        if (!doc) return '';
+        const fmt = (d) => (d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—');
+        const emailOpened = (doc.emailLog || [])
+            .filter((e) => e.openedAt)
+            .map((e) => new Date(e.openedAt).getTime())
+            .sort((a, b) => b - a)[0];
+        return `<p class="crm-inline-note" style="margin:0 0 14px">
+            Sent ${fmt(doc.sentAt)} · Viewed ${fmt(doc.firstViewedAt)}${doc.viewCount ? ` (${doc.viewCount})` : ''} · Email opened ${fmt(emailOpened || null)}
+        </p>`;
+    }
+
+    async emailContract() {
+        const contract = this.data.contract;
+        if (!contract) return;
+        const defaultEmail = this.data.project?.client?.email || '';
+        const values = await showPromptModal({
+            title: 'Send Contract',
+            message: 'Email the signing link to your client.',
+            confirmText: 'Send Email',
+            fields: [{
+                name: 'email',
+                label: 'Recipient email',
+                type: 'email',
+                value: defaultEmail,
+                required: true
+            }]
+        });
+        if (!values?.email) return;
+        try {
+            if (contract.source === 'generated') {
+                await this.saveContract({ silent: true });
+            }
+            const result = await CRM.api(`/api/contracts/${contract._id}/email`, {
+                method: 'POST',
+                body: { email: values.email }
+            });
+            await this.reload();
+            this.showTab('contract');
+            showAlertModal(
+                `Contract emailed to <strong>${CRM.escapeHtml((result.emailedTo || [values.email]).join(', '))}</strong>.`,
+                'success', 'Contract Sent', false, true
+            );
+        } catch (error) {
+            showAlertModal(error.message, 'error');
         }
     }
 
@@ -1098,13 +1162,16 @@ class ProjectPage {
                     <span>${CRM.escapeHtml(`${window.location.origin}/invoice/${inv.publicToken}`)}</span>
                     <button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Copy</button>
                     <a class="crm-btn-sm" href="/invoice/${CRM.escapeHtml(inv.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>
-                </div>` : ''}
+                </div>
+                ${this.docTrackingHtml(inv)}` : ''}
 
                 <div class="crm-actions-row">
                     <button class="primary-button" onclick="projectPage.saveInvoice()">Save Invoice</button>
                     ${(inv.status === 'draft' || inv.status === 'sent') ? `
                     <button type="button" class="secondary-button" onclick="projectPage.openInvoiceInQuoteEditor('${inv._id}')">Open in Quote Editor</button>` : ''}
-                    <button class="secondary-button" onclick="projectPage.sendInvoice()">${inv.status === 'draft' ? 'Send (Get Shareable Link)' : 'Save &amp; Refresh Link'}</button>
+                    ${(inv.status === 'draft' || inv.status === 'sent') ? `
+                    <button type="button" class="secondary-button" onclick="projectPage.emailInvoice()">Send Invoice</button>` : ''}
+                    <button class="secondary-button" onclick="projectPage.sendInvoice()">${inv.status === 'draft' ? 'Get Shareable Link' : 'Refresh Shareable Link'}</button>
                     <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">Download PDF</a>
                 </div>
 
@@ -1494,6 +1561,43 @@ class ProjectPage {
         }
     }
 
+    async emailInvoice() {
+        if (!this.editingInvoice) return;
+        const defaultEmail = this.editingInvoice.to?.email
+            || this.data.project?.client?.email
+            || '';
+        const values = await showPromptModal({
+            title: 'Send Invoice',
+            message: 'Email the invoice link to your client.',
+            confirmText: 'Send Email',
+            fields: [{
+                name: 'email',
+                label: 'Recipient email',
+                type: 'email',
+                value: defaultEmail,
+                required: true
+            }]
+        });
+        if (!values?.email) return;
+        try {
+            await this.saveInvoice({ silent: true });
+            const result = await CRM.api(`/api/invoices/${this.editingInvoice._id}/email`, {
+                method: 'POST',
+                body: { email: values.email }
+            });
+            this.editingInvoice = result.invoice;
+            await this.load();
+            this.renderInvoices();
+            this.renderInvoiceEditor();
+            showAlertModal(
+                `Invoice emailed to <strong>${CRM.escapeHtml((result.emailedTo || [values.email]).join(', '))}</strong>.`,
+                'success', 'Invoice Sent', false, true
+            );
+        } catch (error) {
+            if (error.message) showAlertModal(error.message, 'error');
+        }
+    }
+
     async sendInvoice() {
         try {
             await this.saveInvoice({ silent: true });
@@ -1505,7 +1609,7 @@ class ProjectPage {
             const copied = await CRM.copyToClipboard(result.link);
             showAlertModal(
                 `Invoice link ready${copied ? ' (copied to clipboard)' : ''}:<br><code>${CRM.escapeHtml(result.link)}</code><br><br>This is the formal invoice your client can view and pay online.`,
-                'success', 'Invoice Sent', false, true
+                'success', 'Shareable Link Ready', false, true
             );
         } catch (error) {
             if (error.message) showAlertModal(error.message, 'error');

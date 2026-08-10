@@ -147,7 +147,15 @@ class InvoicePage {
             document.getElementById('totalLabel').textContent = 'Total (Paid)';
             document.getElementById('totalDisplay').textContent = this.money(inv.total);
             document.getElementById('payArea').style.display = 'none';
+            const receiptBox = document.getElementById('emailReceiptBox');
+            const receiptInput = document.getElementById('emailReceiptInput');
+            if (receiptBox) receiptBox.style.display = 'block';
+            if (receiptInput && !receiptInput.value) {
+                receiptInput.value = inv.to?.email || '';
+            }
         } else {
+            const receiptBox = document.getElementById('emailReceiptBox');
+            if (receiptBox) receiptBox.style.display = 'none';
             const due = inv.total - (inv.amountPaid || 0);
             document.getElementById('totalDisplay').textContent = this.money(due);
             if (!inv.stripeEnabled) {
@@ -258,6 +266,33 @@ class InvoicePage {
             errorEl.style.display = 'block';
             button.disabled = false;
             button.textContent = this.payButtonLabel();
+        }
+    }
+
+    async emailCopy() {
+        const input = document.getElementById('emailReceiptInput');
+        const status = document.getElementById('emailReceiptStatus');
+        const email = (input?.value || '').trim();
+        if (!email) {
+            status.textContent = 'Enter an email address.';
+            status.style.color = '#df1b41';
+            return;
+        }
+        status.textContent = 'Sending…';
+        status.style.color = '#697386';
+        try {
+            const response = await fetch(`/api/public/invoices/${encodeURIComponent(this.token)}/email-copy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || 'Failed to send email');
+            status.textContent = `Sent to ${email}.`;
+            status.style.color = '#16794c';
+        } catch (error) {
+            status.textContent = error.message || 'Failed to send email.';
+            status.style.color = '#df1b41';
         }
     }
 }

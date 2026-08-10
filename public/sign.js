@@ -68,7 +68,9 @@ class SignPage {
         this.renderSignatures();
 
         if (c.status === 'signed') {
-            this.showSignedState(c.signedBy, c.signedAt);
+            this.showSignedState(c.signedBy, c.signedAt, {
+                clientEmail: c.clientEmail || ''
+            });
         } else {
             this.initPad();
         }
@@ -253,7 +255,7 @@ class SignPage {
         document.getElementById('signaturesGrid').innerHTML = clientSlot + companySlot;
     }
 
-    showSignedState(name, signedAt) {
+    showSignedState(name, signedAt, { autoEmailedTo = null, clientEmail = '' } = {}) {
         document.getElementById('signSection').style.display = 'none';
         const confirmation = document.getElementById('signedConfirmation');
         confirmation.style.display = 'block';
@@ -261,6 +263,46 @@ class SignPage {
         document.getElementById('signedDetails').textContent =
             `Signed by ${name || 'client'}${when ? ` on ${when}` : ''}. A copy has been recorded with a full audit trail.`;
         document.getElementById('signedPdfLink').href = `/api/public/contracts/${encodeURIComponent(this.token)}/pdf`;
+
+        const autoNote = document.getElementById('autoEmailNote');
+        if (autoEmailedTo) {
+            autoNote.style.display = 'block';
+            autoNote.textContent = `A signed copy was also emailed to ${autoEmailedTo}.`;
+        } else {
+            autoNote.style.display = 'none';
+            autoNote.textContent = '';
+        }
+        const emailInput = document.getElementById('emailCopyInput');
+        if (emailInput && !emailInput.value) {
+            emailInput.value = clientEmail || autoEmailedTo || '';
+        }
+    }
+
+    async emailCopy() {
+        const input = document.getElementById('emailCopyInput');
+        const status = document.getElementById('emailCopyStatus');
+        const email = (input?.value || '').trim();
+        if (!email) {
+            status.textContent = 'Enter an email address.';
+            status.style.color = '#df1b41';
+            return;
+        }
+        status.textContent = 'Sending…';
+        status.style.color = '#697386';
+        try {
+            const response = await fetch(`/api/public/contracts/${encodeURIComponent(this.token)}/email-copy`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || 'Failed to send email');
+            status.textContent = `Sent to ${email}.`;
+            status.style.color = '#16794c';
+        } catch (error) {
+            status.textContent = error.message || 'Failed to send email.';
+            status.style.color = '#df1b41';
+        }
     }
 
     // ---------- Signature methods ----------
@@ -406,7 +448,10 @@ class SignPage {
             }
 
             this.renderSignatures();
-            this.showSignedState(name, data.signedAt);
+            this.showSignedState(name, data.signedAt, {
+                autoEmailedTo: data.autoEmailedTo || null,
+                clientEmail: data.clientEmail || this.contract?.clientEmail || ''
+            });
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
         } catch (error) {
             this.showError(error.message);

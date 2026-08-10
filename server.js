@@ -2436,6 +2436,14 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
     });
 
     const result = await savedQuote.save();
+
+    if (result.project) {
+      const { Project, syncProjectDatesFromQuotes } = require('./lib/crm-models');
+      const project = await Project.findById(result.project);
+      const linkedQuotes = await SavedQuote.find({ project: result.project }, { quoteData: 1 });
+      await syncProjectDatesFromQuotes(project, linkedQuotes);
+    }
+
     res.json({ success: true, id: result._id, createdBy: userRecord?.name });
   } catch (error) {
     console.error('Error saving quote:', error);
@@ -2467,6 +2475,8 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
       return res.status(403).json({ error: 'You do not have permission to edit this quote' });
     }
 
+    const previousProjectId = existingQuote.project ? String(existingQuote.project) : null;
+
     // Update the quote but keep the original createdBy
     const updateFields = {
       quoteData,
@@ -2487,6 +2497,15 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
       updateFields,
       { new: true }
     );
+
+    const { Project, syncProjectDatesFromQuotes } = require('./lib/crm-models');
+    const nextProjectId = result?.project ? String(result.project) : null;
+    const projectIdsToSync = new Set([previousProjectId, nextProjectId].filter(Boolean));
+    for (const id of projectIdsToSync) {
+      const project = await Project.findById(id);
+      const linkedQuotes = await SavedQuote.find({ project: id }, { quoteData: 1 });
+      await syncProjectDatesFromQuotes(project, linkedQuotes);
+    }
 
     res.json({ success: true });
   } catch (error) {

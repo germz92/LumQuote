@@ -81,8 +81,18 @@
                 <div class="check">✓</div>
                 <h2 style="margin:0 0 6px">Agreement Signed</h2>
                 <p id="signedDetails" style="color:#697386"></p>
+                <p id="autoEmailNote" style="color:#697386; font-size:14px; display:none"></p>
                 <div class="public-doc-download">
                     <a id="signedPdfLink" href="#">Download signed copy (PDF)</a>
+                </div>
+                <div id="emailCopyBox" style="margin-top:20px; text-align:left; max-width:420px; margin-left:auto; margin-right:auto">
+                    <label for="emailCopyInput" style="display:block; font-size:14px; font-weight:600; margin-bottom:6px">Email me a copy</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap">
+                        <input type="email" id="emailCopyInput" placeholder="you@example.com"
+                               style="flex:1; min-width:180px; padding:10px 12px; border:1px solid #c7d2e0; border-radius:6px; font-size:15px">
+                        <button type="button" class="pay-button" style="margin:0; width:auto; padding:10px 16px" onclick="signPage.emailCopy()">Send</button>
+                    </div>
+                    <div id="emailCopyStatus" style="font-size:13px; margin-top:8px; color:#697386"></div>
                 </div>
             </div>
         </div>

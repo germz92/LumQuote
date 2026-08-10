@@ -22,6 +22,16 @@
                 <span>✓</span><span id="paidBannerText">This invoice has been paid. Thank you!</span>
             </div>
 
+            <div id="emailReceiptBox" style="display:none; margin:0 0 22px; max-width:420px">
+                <label for="emailReceiptInput" style="display:block; font-size:14px; font-weight:600; margin-bottom:6px">Email me a receipt</label>
+                <div style="display:flex; gap:8px; flex-wrap:wrap">
+                    <input type="email" id="emailReceiptInput" placeholder="you@example.com"
+                           style="flex:1; min-width:180px; padding:10px 12px; border:1px solid #c7d2e0; border-radius:6px; font-size:15px">
+                    <button type="button" class="pay-button" style="margin:0; width:auto; padding:10px 16px" onclick="invoicePage.emailCopy()">Send</button>
+                </div>
+                <div id="emailReceiptStatus" style="font-size:13px; margin-top:8px; color:#697386"></div>
+            </div>
+
             <div class="public-doc-header">
                 <div>
                     <h1 id="invoiceNumber"></h1>
