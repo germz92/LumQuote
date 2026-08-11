@@ -268,7 +268,7 @@ class ProjectsManager {
             : CRM.projectStatusChip(project.status);
 
         return `
-            <tr class="quote-row is-clickable${isBookedPlus ? ' project-row--booked' : ''}"${isBookedPlus ? ' title="Booked or later"' : ''} onclick="window.location.href='/projects/${project._id}'">
+            <tr class="quote-row is-clickable${isBookedPlus ? ' project-row--booked' : ''}"${isBookedPlus ? ' title="Booked (signed, invoiced, paid, or complete)"' : ''} onclick="window.location.href='/projects/${project._id}'">
                 <td class="quote-title-cell">
                     <div class="list-row-primary">
                         <span class="crm-project-name-wrap">
@@ -405,18 +405,36 @@ class ProjectsManager {
         }
     }
 
-    async deleteProject(id, name) {
+    async deleteProject(id, name, { force = false } = {}) {
         const confirmed = await showConfirmModal(
-            `Delete project "${name}"? Linked quotes are kept but unlinked. This cannot be undone.`,
-            'Delete Project', 'Delete'
+            force
+                ? `Force-delete project "${name}" and ALL of its invoices (including sent/paid test invoices)? Linked quotes are kept but unlinked. This cannot be undone.`
+                : `Delete project "${name}"? Linked quotes are kept but unlinked. This cannot be undone.`,
+            force ? 'Force Delete Project' : 'Delete Project',
+            force ? 'Force Delete' : 'Delete'
         );
         if (!confirmed) return;
         try {
-            await CRM.api(`/api/projects/${id}`, { method: 'DELETE' });
-            showAlertModal('Project deleted.', 'success', null, true);
+            const url = force ? `/api/projects/${id}?force=1` : `/api/projects/${id}`;
+            await CRM.api(url, { method: 'DELETE' });
+            showAlertModal(force ? 'Project and invoices force-deleted.' : 'Project deleted.', 'success', null, true);
             await this.loadProjects();
             this.render();
         } catch (error) {
+            const canForce = this.isCurrentUserAdmin()
+                && /sent or paid invoice|HAS_INVOICES|force delete/i.test(error.message || '');
+            if (!force && canForce) {
+                const doForce = await showConfirmModal(
+                    `${error.message}\n\nForce-delete this project and permanently remove those invoices? Use this for test data cleanup.`,
+                    'Force Delete?',
+                    'Force Delete',
+                    'Cancel'
+                );
+                if (doForce) {
+                    return this.deleteProject(id, name, { force: true });
+                }
+                return;
+            }
             showAlertModal(error.message, 'error');
         }
     }

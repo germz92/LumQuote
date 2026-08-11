@@ -162,7 +162,25 @@ class ProjectPage {
     fillOverviewForms() {
         const { project } = this.data;
         document.getElementById('projName').value = project.name || '';
-        document.getElementById('projStatus').value = project.status || 'lead';
+        const statusSelect = document.getElementById('projStatus');
+        // Booked is not offered as a new choice; keep it visible only for existing booked projects
+        let bookedOpt = statusSelect.querySelector('option[value="booked"]');
+        if ((project.status || '') === 'booked') {
+            if (!bookedOpt) {
+                bookedOpt = document.createElement('option');
+                bookedOpt.value = 'booked';
+                bookedOpt.textContent = 'Booked';
+                const quotedOpt = statusSelect.querySelector('option[value="quoted"]');
+                if (quotedOpt?.nextSibling) {
+                    statusSelect.insertBefore(bookedOpt, quotedOpt.nextSibling);
+                } else {
+                    statusSelect.appendChild(bookedOpt);
+                }
+            }
+        } else if (bookedOpt) {
+            bookedOpt.remove();
+        }
+        statusSelect.value = project.status || 'lead';
         document.getElementById('projStart').value = project.startDate || '';
         document.getElementById('projEnd').value = project.endDate || '';
         document.getElementById('projNotes').value = project.notes || '';

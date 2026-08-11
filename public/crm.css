@@ -47,7 +47,7 @@
   flex-wrap: wrap;
 }
 
-/* Booked+ marker: left rail only (no chip) */
+/* Booked (booked→complete) marker: left rail only (no chip) */
 .projects-table tr.project-row--booked td:first-child {
   box-shadow: inset 3px 0 0 var(--color-primary);
 }
