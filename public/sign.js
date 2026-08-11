@@ -205,7 +205,8 @@ class SignPage {
     signatureSlot({ signatureHtml, caption, pending }) {
         return `
             <div class="public-sig-slot">
-                <div class="public-sig-line">${signatureHtml || ''}</div>
+                <div class="public-sig-pad">${signatureHtml || '&nbsp;'}</div>
+                <div class="public-sig-rule"></div>
                 <div class="public-sig-caption">${caption}</div>
                 ${pending ? `<div class="public-sig-pending">${pending}</div>` : ''}
             </div>`;

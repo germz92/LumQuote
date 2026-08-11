@@ -416,9 +416,47 @@ function sortServicesWithSubservices(services) {
   return result;
 }
 
+async function validateServiceParent(body, excludeId = null) {
+  const isSubservice = !!body.isSubservice;
+  const dependsOn = body.dependsOn || null;
+
+  if (Object.prototype.hasOwnProperty.call(body, 'dependsOn') && dependsOn === '') {
+    body.dependsOn = null;
+  }
+
+  if (isSubservice && !dependsOn) {
+    return 'Subservices must have a parent service selected.';
+  }
+
+  if (dependsOn) {
+    if (excludeId && String(dependsOn) === String(excludeId)) {
+      return 'A service cannot depend on itself.';
+    }
+    const parent = await Service.findById(dependsOn).select('name isSubservice');
+    if (!parent) {
+      return 'Selected parent service was not found.';
+    }
+    if (isSubservice && parent.isSubservice) {
+      return 'A subservice must attach to a main parent service, not another subservice.';
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'dependsOn') && !dependsOn) {
+    body.dependsOn = null;
+    body.dependencyType = null;
+  }
+
+  return null;
+}
+
 // Create service
 app.post('/api/services', async (req, res) => {
   try {
+    const validationError = await validateServiceParent(req.body);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
     // Auto-assign sortOrder if not provided
     if (!req.body.sortOrder) {
       const maxSortOrder = await Service.findOne().sort({ sortOrder: -1 }).select('sortOrder');
@@ -437,6 +475,11 @@ app.post('/api/services', async (req, res) => {
 // Update service
 app.put('/api/services/:id', async (req, res) => {
   try {
+    const validationError = await validateServiceParent(req.body, req.params.id);
+    if (validationError) {
+      return res.status(400).json({ error: validationError });
+    }
+
     const service = await Service.findByIdAndUpdate(req.params.id, req.body, { new: true }).populate('dependsOn', 'name');
     if (!service) {
       return res.status(404).json({ error: 'Service not found' });

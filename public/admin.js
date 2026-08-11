@@ -4,30 +4,62 @@ class AdminPanel {
         this.editingService = null;
         this.draggedElement = null;
         this.draggedService = null;
+        this.isServiceDragging = false;
+        this.dropTargetElement = null;
+        this.dropInsertAfter = false;
         this.init();
     }
 
     async init() {
-        await this.loadServices();
-        this.setupEventListeners();
-        this.populateDependencyDropdown();
-        this.renderServices();
+        try {
+            await this.loadServices();
+            this.setupEventListeners();
+            this.populateDependencyDropdown();
+            this.renderServices();
+        } catch (error) {
+            console.error('Admin services init failed:', error);
+            const container = document.getElementById('services-container');
+            if (container) {
+                container.innerHTML = '<p style="text-align: center; color: #df1b41;">Could not load services. Refresh the page and try again.</p>';
+            }
+        }
     }
 
     async loadServices() {
         try {
-            const response = await fetch('/api/services');
-            this.services = await response.json();
+            const data = window.CRM
+                ? await CRM.api('/api/services')
+                : await fetch('/api/services', { credentials: 'include' }).then(async (response) => {
+                    const json = await response.json();
+                    if (!response.ok) throw new Error(json.error || 'Failed to load services');
+                    return json;
+                });
+            this.services = Array.isArray(data) ? data : [];
         } catch (error) {
             console.error('Error loading services:', error);
             this.services = [];
+            if (typeof showAlertModal === 'function') {
+                showAlertModal(error.message || 'Failed to load services.', 'error');
+            }
         }
     }
 
     setupEventListeners() {
         document.getElementById('service-form').addEventListener('submit', (e) => this.handleFormSubmit(e));
-        document.getElementById('cancel-edit').addEventListener('click', () => this.cancelEdit());
-        
+        document.getElementById('cancel-edit').addEventListener('click', () => this.closeServiceModal());
+
+        const modal = document.getElementById('serviceModal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) this.closeServiceModal();
+            });
+        }
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal?.style.display === 'flex') {
+                this.closeServiceModal();
+            }
+        });
+
         // Handle dependency selection
         document.getElementById('service-dependency').addEventListener('change', (e) => {
             const dependencyTypeSelect = document.getElementById('dependency-type');
@@ -57,21 +89,31 @@ class AdminPanel {
         document.getElementById('is-subservice').addEventListener('change', (e) => {
             const dependencySelect = document.getElementById('service-dependency');
             const dependencyTypeSelect = document.getElementById('dependency-type');
-            
+            const previousValue = dependencySelect.value;
+
+            // Rebuild parent list: subservices may only attach to main services
+            this.populateDependencyDropdown();
+            if (previousValue && [...dependencySelect.options].some((o) => o.value === previousValue)) {
+                dependencySelect.value = previousValue;
+            } else if (e.target.checked) {
+                dependencySelect.value = '';
+            }
+
             if (e.target.checked) {
-                // If dependency is already selected, auto-set to same_day
                 if (dependencySelect.value) {
+                    dependencyTypeSelect.disabled = false;
+                    dependencyTypeSelect.innerHTML = `
+                        <option value="">Select dependency type</option>
+                        <option value="same_day">Same Day</option>
+                        <option value="same_quote">Same Quote</option>
+                    `;
                     dependencyTypeSelect.value = 'same_day';
                     dependencyTypeSelect.disabled = true;
                 } else {
-                    // Show helpful message but allow the checkbox to stay checked
-                    showAlertModal('Remember to select a dependency service for this subservice before saving.', 'info');
+                    showAlertModal('Select a main parent service in Parent / Dependency for this subservice.', 'info');
                 }
-            } else {
-                // Re-enable dependency type selection if dependency is selected
-                if (dependencySelect.value) {
-                    dependencyTypeSelect.disabled = false;
-                }
+            } else if (dependencySelect.value) {
+                dependencyTypeSelect.disabled = false;
             }
         });
     }
@@ -87,18 +129,25 @@ class AdminPanel {
             price: parseFloat(document.getElementById('service-price').value),
             category: document.getElementById('service-category').value,
             description: document.getElementById('service-description').value.trim(),
-            isSubservice: isSubservice
+            isSubservice: isSubservice,
+            dependsOn: null,
+            dependencyType: null
         };
 
-        // Validate subservice requirements
         if (isSubservice && !dependsOnValue) {
-            showAlertModal('Subservices must have a dependency service selected.', 'error');
+            showAlertModal('Subservices must have a parent service selected.', 'error');
             return;
         }
 
-        // Only add dependency fields if a dependency is selected
         if (dependsOnValue) {
-            const dependencyTypeValue = document.getElementById('dependency-type').value;
+            const parent = this.findServiceById(dependsOnValue);
+            if (isSubservice && parent?.isSubservice) {
+                showAlertModal('A subservice must attach to a main parent service, not another subservice.', 'error');
+                return;
+            }
+            const dependencyTypeValue = isSubservice
+                ? 'same_day'
+                : document.getElementById('dependency-type').value;
             if (!dependencyTypeValue) {
                 showAlertModal('Please select a dependency type when adding a dependency.', 'error');
                 return;
@@ -108,33 +157,39 @@ class AdminPanel {
         }
 
         try {
-            let response;
             if (this.editingService) {
-                response = await fetch(`/api/services/${this.editingService._id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                });
+                if (window.CRM?.api) {
+                    await CRM.api(`/api/services/${this.editingService._id}`, { method: 'PUT', body: formData });
+                } else {
+                    const response = await fetch(`/api/services/${this.editingService._id}`, {
+                        method: 'PUT',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    if (!response.ok) throw new Error('Failed to save service');
+                }
+            } else if (window.CRM?.api) {
+                await CRM.api('/api/services', { method: 'POST', body: formData });
             } else {
-                response = await fetch('/api/services', {
+                const response = await fetch('/api/services', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
+                if (!response.ok) throw new Error('Failed to save service');
             }
 
-            if (response.ok) {
-                await this.loadServices();
-                this.populateDependencyDropdown();
-                this.renderServices();
-                this.resetForm();
-                showAlertModal(this.editingService ? 'Service updated successfully!' : 'Service added successfully!', 'success', null, true);
-            } else {
-                throw new Error('Failed to save service');
-            }
+            const wasEditing = !!this.editingService;
+            await this.loadServices();
+            this.populateDependencyDropdown();
+            this.renderServices();
+            this.closeServiceModal();
+            showAlertModal(wasEditing ? 'Service updated successfully!' : 'Service added successfully!', 'success', null, true);
         } catch (error) {
             console.error('Error saving service:', error);
-            showAlertModal('Error saving service. Please try again.', 'error');
+            showAlertModal(error.message || 'Error saving service. Please try again.', 'error');
         }
     }
 
@@ -169,16 +224,38 @@ class AdminPanel {
         }
     }
 
+    openAddServiceModal() {
+        this.editingService = null;
+        this.resetForm();
+        this.populateDependencyDropdown();
+        document.getElementById('serviceModalTitle').textContent = 'Add Service';
+        document.getElementById('form-button-text').textContent = 'Add Service';
+        this.showServiceModal();
+    }
+
+    showServiceModal() {
+        const modal = document.getElementById('serviceModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        setTimeout(() => document.getElementById('service-name')?.focus(), 50);
+    }
+
+    closeServiceModal() {
+        const modal = document.getElementById('serviceModal');
+        if (modal) modal.style.display = 'none';
+        this.resetForm();
+    }
+
     editService(service) {
         this.editingService = service;
-        
+        this.populateDependencyDropdown();
+
         document.getElementById('service-name').value = service.name;
         document.getElementById('service-price').value = service.price;
         document.getElementById('service-category').value = service.category;
         document.getElementById('service-description').value = service.description || '';
         document.getElementById('is-subservice').checked = service.isSubservice || false;
-        
-        // Handle dependencies
+
         if (service.dependsOn) {
             document.getElementById('service-dependency').value = service.dependsOn._id || service.dependsOn;
             const dependencyTypeSelect = document.getElementById('dependency-type');
@@ -189,8 +266,6 @@ class AdminPanel {
                 <option value="same_quote">Same Quote</option>
             `;
             dependencyTypeSelect.value = service.dependencyType || '';
-            
-            // If it's a subservice, disable dependency type selection
             if (service.isSubservice) {
                 dependencyTypeSelect.disabled = true;
             }
@@ -199,268 +274,394 @@ class AdminPanel {
             document.getElementById('dependency-type').disabled = true;
             document.getElementById('dependency-type').innerHTML = '<option value="">Select dependency first</option>';
         }
-        
-        document.getElementById('form-button-text').textContent = 'Update Service';
-        document.getElementById('cancel-edit').style.display = 'inline-block';
-        
-        document.getElementById('service-name').focus();
-    }
 
-    cancelEdit() {
-        this.editingService = null;
-        this.resetForm();
+        document.getElementById('serviceModalTitle').textContent = 'Edit Service';
+        document.getElementById('form-button-text').textContent = 'Update Service';
+        this.showServiceModal();
     }
 
     resetForm() {
-        document.getElementById('service-form').reset();
+        document.getElementById('service-form')?.reset();
         document.getElementById('form-button-text').textContent = 'Add Service';
-        document.getElementById('cancel-edit').style.display = 'none';
-        document.getElementById('dependency-type').disabled = true;
-        document.getElementById('dependency-type').innerHTML = '<option value="">Select dependency first</option>';
-        document.getElementById('is-subservice').checked = false;
+        document.getElementById('serviceModalTitle').textContent = 'Add Service';
+        const dependencyType = document.getElementById('dependency-type');
+        if (dependencyType) {
+            dependencyType.disabled = true;
+            dependencyType.innerHTML = '<option value="">Select dependency first</option>';
+        }
+        const isSubservice = document.getElementById('is-subservice');
+        if (isSubservice) isSubservice.checked = false;
         this.editingService = null;
     }
 
     populateDependencyDropdown() {
         const dependencySelect = document.getElementById('service-dependency');
-        dependencySelect.innerHTML = '<option value="">No dependency</option>';
-        
-        this.services.forEach(service => {
-            // Don't allow a service to depend on itself when editing
-            if (!this.editingService || service._id !== this.editingService._id) {
-                dependencySelect.innerHTML += `<option value="${service._id}">${service.name}</option>`;
-            }
+        if (!dependencySelect) return;
+        const isSubservice = !!document.getElementById('is-subservice')?.checked;
+        dependencySelect.innerHTML = isSubservice
+            ? '<option value="">Select parent service...</option>'
+            : '<option value="">No dependency</option>';
+
+        const editingId = this.editingService ? this.serviceId(this.editingService._id) : '';
+        (Array.isArray(this.services) ? this.services : []).forEach((service) => {
+            if (editingId && this.serviceId(service._id) === editingId) return;
+            // Subservices can only attach under main services
+            if (isSubservice && service.isSubservice) return;
+            const opt = document.createElement('option');
+            opt.value = service._id;
+            opt.textContent = service.name;
+            dependencySelect.appendChild(opt);
         });
+    }
+
+    editServiceById(serviceId) {
+        const service = (Array.isArray(this.services) ? this.services : [])
+            .find((s) => String(s._id) === String(serviceId));
+        if (!service) {
+            showAlertModal('Service not found. Refresh and try again.', 'error');
+            return;
+        }
+        this.editService(service);
     }
 
     renderServices() {
         const container = document.getElementById('services-container');
-        
-        if (this.services.length === 0) {
+        if (!container) return;
+
+        const services = Array.isArray(this.services) ? this.services : [];
+        if (services.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: #64748b;">No services available. Add your first service above.</p>';
             return;
         }
 
-        container.innerHTML = this.services.map(service => {
+        container.innerHTML = services.map((service) => {
             let dependencyText = '';
             if (service.dependsOn) {
                 const dependencyName = service.dependsOn.name || 'Unknown Service';
                 const dependencyTypeText = service.dependencyType === 'same_day' ? 'Same Day' : 'Same Quote';
-                dependencyText = `<p><strong>Depends on:</strong> ${dependencyName} (${dependencyTypeText})</p>`;
+                dependencyText = `<p><strong>Depends on:</strong> ${this.escapeHtml(dependencyName)} (${dependencyTypeText})</p>`;
             }
-            
-            const isSubservice = service.isSubservice;
-            const indentClass = isSubservice ? 'subservice-item' : '';
-            
+
+            const isSubservice = !!service.isSubservice;
+            const parentId = service.dependsOn?._id || service.dependsOn || '';
+            const parentService = parentId ? this.findServiceById(parentId) : null;
+            const hasInvalidParent = isSubservice && (!parentService || parentService.isSubservice);
+            const indentClass = [
+                isSubservice ? 'subservice-item' : '',
+                hasInvalidParent ? 'service-item-orphan' : ''
+            ].filter(Boolean).join(' ');
+            const price = Number(service.price) || 0;
+
             return `
-                <div class="service-item ${indentClass}" 
-                     draggable="true" 
-                     data-service-id="${service._id}"
+                <div class="service-item ${indentClass}"
+                     data-service-id="${this.escapeHtml(String(service._id))}"
                      data-is-subservice="${isSubservice}"
-                     data-parent-id="${service.dependsOn?._id || ''}"
-                     ondragstart="adminPanel.handleDragStart(event)"
-                     ondragover="adminPanel.handleDragOver(event)"
-                     ondrop="adminPanel.handleDrop(event)"
-                     ondragend="adminPanel.handleDragEnd(event)">
+                     data-parent-id="${this.escapeHtml(String(parentId))}">
+                    <button type="button" class="service-drag-handle" title="Drag to reorder or onto a parent" aria-label="Drag to reorder">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <circle cx="9" cy="7" r="1.5"></circle><circle cx="15" cy="7" r="1.5"></circle>
+                            <circle cx="9" cy="12" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle>
+                            <circle cx="9" cy="17" r="1.5"></circle><circle cx="15" cy="17" r="1.5"></circle>
+                        </svg>
+                    </button>
                     <div class="service-info">
                         <div class="service-details">
-                            <h4>${isSubservice ? '└─ ' : ''}${service.name}${isSubservice ? ' (Subservice)' : ''}</h4>
-                            <p>Category: ${service.category}</p>
-                            ${service.description ? `<p><strong>Description:</strong> ${service.description}</p>` : ''}
+                            <h4>${isSubservice ? '└─ ' : ''}${this.escapeHtml(service.name)}${isSubservice ? ' (Subservice)' : ''}</h4>
+                            <p>Category: ${this.escapeHtml(service.category || '')}</p>
+                            ${service.description ? `<p><strong>Description:</strong> ${this.escapeHtml(service.description)}</p>` : ''}
                             ${dependencyText}
+                            ${hasInvalidParent ? '<p class="service-orphan-note"><strong>Needs parent:</strong> Edit or drag onto a main service to attach it.</p>' : ''}
                         </div>
                     </div>
-                    <div class="service-price">${service.price.toLocaleString('en-US', { 
-                    style: 'currency', 
-                    currency: 'USD',
-                    minimumFractionDigits: service.price % 1 !== 0 ? 2 : 0,
-                    maximumFractionDigits: 2
-                })}</div>
+                    <div class="service-price">${price.toLocaleString('en-US', {
+                        style: 'currency',
+                        currency: 'USD',
+                        minimumFractionDigits: price % 1 !== 0 ? 2 : 0,
+                        maximumFractionDigits: 2
+                    })}</div>
                     <div class="service-actions">
-                        <button class="edit-btn" onclick="adminPanel.editService(${JSON.stringify(service).replace(/"/g, '&quot;')})">
+                        <button type="button" class="edit-btn" onclick="adminPanel.editServiceById('${this.escapeHtml(String(service._id))}')">
                             Edit
                         </button>
-                        <button class="delete-btn" onclick="adminPanel.deleteService('${service._id}')">
+                        <button type="button" class="delete-btn" onclick="adminPanel.deleteService('${this.escapeHtml(String(service._id))}')">
                             Delete
                         </button>
                     </div>
                 </div>
             `;
         }).join('');
+
+        this.bindServiceDragHandlers();
     }
 
-
-
-    // Drag and Drop Methods
-    handleDragStart(event) {
-        this.draggedElement = event.target;
-        this.draggedService = this.services.find(s => s._id === event.target.dataset.serviceId);
-        
-        event.target.classList.add('dragging');
-        event.dataTransfer.effectAllowed = 'move';
-        
-        // Set drag data
-        event.dataTransfer.setData('text/plain', event.target.dataset.serviceId);
+    serviceId(value) {
+        if (value == null) return '';
+        if (typeof value === 'object' && value._id != null) return String(value._id);
+        return String(value);
     }
 
-    handleDragOver(event) {
+    findServiceById(id) {
+        const needle = this.serviceId(id);
+        return (Array.isArray(this.services) ? this.services : [])
+            .find((s) => this.serviceId(s._id) === needle);
+    }
+
+    bindServiceDragHandlers() {
+        const container = document.getElementById('services-container');
+        if (!container) return;
+
+        container.querySelectorAll('.service-item').forEach((item) => {
+            const handle = item.querySelector('.service-drag-handle');
+            if (!handle) return;
+            handle.addEventListener('pointerdown', (event) => this.onServicePointerDown(event, item));
+        });
+    }
+
+    onServicePointerDown(event, item) {
+        if (event.button != null && event.button !== 0) return;
         event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-        
-        const targetElement = event.currentTarget;
-        const targetServiceId = targetElement.dataset.serviceId;
-        
-        if (!this.draggedService || targetServiceId === this.draggedService._id) {
-            return;
-        }
-        
-        // Check if this is a valid drop target
-        if (this.isValidDropTarget(targetElement)) {
-            const rect = targetElement.getBoundingClientRect();
-            const midpoint = rect.top + rect.height / 2;
-            
-            // Clear previous drop indicators
-            document.querySelectorAll('.service-item').forEach(el => {
-                el.classList.remove('drag-over', 'drag-over-bottom');
-            });
-            
-            // Add appropriate drop indicator
-            if (event.clientY < midpoint) {
-                targetElement.classList.add('drag-over');
-            } else {
-                targetElement.classList.add('drag-over-bottom');
-            }
+
+        this.draggedElement = item;
+        this.draggedService = this.findServiceById(item.dataset.serviceId);
+        this.dropTargetElement = null;
+        this.dropInsertAfter = false;
+        if (!this.draggedService) return;
+
+        this.isServiceDragging = true;
+        item.classList.add('dragging');
+        document.body.classList.add('is-service-reordering');
+
+        this._onServicePointerMove = (e) => this.onServicePointerMove(e);
+        this._onServicePointerUp = (e) => this.onServicePointerUp(e);
+        this._onServiceKeyDown = (e) => {
+            if (e.key === 'Escape') this.cancelServiceDrag();
+        };
+
+        document.addEventListener('pointermove', this._onServicePointerMove);
+        document.addEventListener('pointerup', this._onServicePointerUp);
+        document.addEventListener('pointercancel', this._onServicePointerUp);
+        document.addEventListener('keydown', this._onServiceKeyDown);
+
+        try {
+            event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+            // ignore capture failures
         }
     }
 
-    handleDrop(event) {
-        event.preventDefault();
-        
-        const targetElement = event.currentTarget;
-        const targetServiceId = targetElement.dataset.serviceId;
-        
-        if (!this.draggedService || !this.isValidDropTarget(targetElement)) {
-            this.clearDragStyles();
-            return;
-        }
-        
-        const targetService = this.services.find(s => s._id === targetServiceId);
-        if (!targetService) {
-            this.clearDragStyles();
-            return;
-        }
-        
-        // Calculate new position
+    onServicePointerMove(event) {
+        if (!this.isServiceDragging || !this.draggedService) return;
+
+        const el = document.elementFromPoint(event.clientX, event.clientY);
+        const targetElement = el?.closest?.('.service-item');
+
+        document.querySelectorAll('.service-item').forEach((node) => {
+            node.classList.remove('drag-over', 'drag-over-bottom');
+        });
+
+        this.dropTargetElement = null;
+        this.dropInsertAfter = false;
+
+        if (!targetElement || targetElement === this.draggedElement) return;
+        if (!this.isValidDropTarget(targetElement)) return;
+
         const rect = targetElement.getBoundingClientRect();
-        const midpoint = rect.top + rect.height / 2;
-        const insertAfter = event.clientY >= midpoint;
-        
-        this.reorderServices(this.draggedService, targetService, insertAfter);
-        this.clearDragStyles();
+        const insertAfter = event.clientY >= rect.top + rect.height / 2;
+        targetElement.classList.add(insertAfter ? 'drag-over-bottom' : 'drag-over');
+        this.dropTargetElement = targetElement;
+        this.dropInsertAfter = insertAfter;
     }
 
-    handleDragEnd(event) {
+    onServicePointerUp() {
+        if (!this.isServiceDragging) return;
+
+        const draggedService = this.draggedService;
+        const targetElement = this.dropTargetElement;
+        const insertAfter = this.dropInsertAfter;
+        const targetService = targetElement
+            ? this.findServiceById(targetElement.dataset.serviceId)
+            : null;
+
+        this.endServiceDrag();
+
+        if (draggedService && targetService) {
+            this.reorderOrReparentService(draggedService, targetService, insertAfter);
+        }
+    }
+
+    cancelServiceDrag() {
+        this.endServiceDrag();
+    }
+
+    endServiceDrag() {
+        this.isServiceDragging = false;
+        document.body.classList.remove('is-service-reordering');
+        if (this._onServicePointerMove) {
+            document.removeEventListener('pointermove', this._onServicePointerMove);
+            this._onServicePointerMove = null;
+        }
+        if (this._onServicePointerUp) {
+            document.removeEventListener('pointerup', this._onServicePointerUp);
+            document.removeEventListener('pointercancel', this._onServicePointerUp);
+            this._onServicePointerUp = null;
+        }
+        if (this._onServiceKeyDown) {
+            document.removeEventListener('keydown', this._onServiceKeyDown);
+            this._onServiceKeyDown = null;
+        }
         this.clearDragStyles();
         this.draggedElement = null;
         this.draggedService = null;
+        this.dropTargetElement = null;
+        this.dropInsertAfter = false;
     }
 
     isValidDropTarget(targetElement) {
-        const draggedIsSubservice = this.draggedService.isSubservice;
-        const draggedParentId = this.draggedService.dependsOn?._id;
-        
+        if (!this.draggedService || !targetElement) return false;
+
+        const draggedIsSubservice = !!this.draggedService.isSubservice;
+        const draggedParentId = this.serviceId(this.draggedService.dependsOn);
+
         const targetIsSubservice = targetElement.dataset.isSubservice === 'true';
-        const targetParentId = targetElement.dataset.parentId;
-        
+        const targetParentId = this.serviceId(targetElement.dataset.parentId);
+
         if (draggedIsSubservice) {
-            // Subservices can only be reordered within their parent's group
             if (targetIsSubservice) {
-                // Both are subservices - must have same parent
-                return draggedParentId === targetParentId;
-            } else {
-                // Target is parent service - only valid if it's the subservice's parent
-                return draggedParentId === targetElement.dataset.serviceId;
+                // Reorder within the same parent group only
+                return !!draggedParentId && draggedParentId === targetParentId;
             }
-        } else {
-            // Parent services can be reordered with other parent services only
-            return !targetIsSubservice;
+            // Dropping on any main service reorders under it (and reparents if different)
+            return true;
+        }
+
+        return !targetIsSubservice;
+    }
+
+    async reorderOrReparentService(draggedService, targetService, insertAfter) {
+        try {
+            let workingDragged = draggedService;
+            const draggedId = this.serviceId(draggedService._id);
+
+            // Subservice dropped on a different main parent → reattach first
+            if (draggedService.isSubservice && !targetService.isSubservice) {
+                const newParentId = this.serviceId(targetService._id);
+                const oldParentId = this.serviceId(draggedService.dependsOn);
+                if (newParentId && newParentId !== oldParentId) {
+                    const body = {
+                        dependsOn: newParentId,
+                        dependencyType: draggedService.dependencyType || 'same_day',
+                        isSubservice: true
+                    };
+                    if (window.CRM?.api) {
+                        await CRM.api(`/api/services/${draggedId}`, { method: 'PUT', body });
+                    } else {
+                        const response = await fetch(`/api/services/${draggedId}`, {
+                            method: 'PUT',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(body)
+                        });
+                        if (!response.ok) throw new Error('Failed to update parent');
+                    }
+                    workingDragged = {
+                        ...draggedService,
+                        dependsOn: { _id: newParentId, name: targetService.name },
+                        isSubservice: true
+                    };
+                    // Keep local list in sync before reorder math
+                    const local = this.findServiceById(draggedId);
+                    if (local) {
+                        local.dependsOn = workingDragged.dependsOn;
+                        local.isSubservice = true;
+                    }
+                }
+            }
+
+            await this.reorderServices(workingDragged, targetService, insertAfter);
+        } catch (error) {
+            console.error('Error moving service:', error);
+            showAlertModal(error.message || 'Error moving service. Please try again.', 'error');
+            await this.loadServices();
+            this.renderServices();
         }
     }
 
     async reorderServices(draggedService, targetService, insertAfter) {
         try {
-            // Create a copy of services array for manipulation
             const newOrder = [...this.services];
-            
-            // Remove dragged service from current position
-            const draggedIndex = newOrder.findIndex(s => s._id === draggedService._id);
+            const draggedId = this.serviceId(draggedService._id);
+            const targetId = this.serviceId(targetService._id);
+
+            const draggedIndex = newOrder.findIndex((s) => this.serviceId(s._id) === draggedId);
+            if (draggedIndex < 0) return;
             newOrder.splice(draggedIndex, 1);
-            
-            // If dragging a parent service, also move its subservices
+
             let subservicesToMove = [];
             if (!draggedService.isSubservice) {
-                subservicesToMove = newOrder.filter(s => s.isSubservice && s.dependsOn?._id === draggedService._id);
-                // Remove subservices from their current positions
-                subservicesToMove.forEach(sub => {
-                    const subIndex = newOrder.findIndex(s => s._id === sub._id);
-                    if (subIndex > -1) {
-                        newOrder.splice(subIndex, 1);
-                    }
+                subservicesToMove = newOrder.filter((s) =>
+                    s.isSubservice && this.serviceId(s.dependsOn) === draggedId
+                );
+                subservicesToMove.forEach((sub) => {
+                    const subIndex = newOrder.findIndex((s) => this.serviceId(s._id) === this.serviceId(sub._id));
+                    if (subIndex > -1) newOrder.splice(subIndex, 1);
                 });
             }
-            
-            // Find new insertion point
-            let targetIndex = newOrder.findIndex(s => s._id === targetService._id);
+
+            let targetIndex = newOrder.findIndex((s) => this.serviceId(s._id) === targetId);
+            if (targetIndex < 0) targetIndex = newOrder.length;
             if (insertAfter) {
                 targetIndex++;
-                // If target is a parent service and we're inserting after, skip its subservices
                 if (!targetService.isSubservice) {
-                    while (targetIndex < newOrder.length && 
-                           newOrder[targetIndex].isSubservice && 
-                           newOrder[targetIndex].dependsOn?._id === targetService._id) {
+                    while (
+                        targetIndex < newOrder.length &&
+                        newOrder[targetIndex].isSubservice &&
+                        this.serviceId(newOrder[targetIndex].dependsOn) === targetId
+                    ) {
                         targetIndex++;
                     }
                 }
             }
-            
-            // Insert dragged service and its subservices
+
             newOrder.splice(targetIndex, 0, draggedService);
             if (subservicesToMove.length > 0) {
                 newOrder.splice(targetIndex + 1, 0, ...subservicesToMove);
             }
-            
-            // Create service updates with new sortOrder
+
             const serviceUpdates = newOrder.map((service, index) => ({
-                id: service._id,
+                id: this.serviceId(service._id),
                 sortOrder: index + 1
             }));
-            
-            // Send update to server
-            const response = await fetch('/api/services/reorder', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ serviceUpdates })
-            });
-            
-            if (response.ok) {
-                // Reload services to get updated order
-                await this.loadServices();
-                this.renderServices();
-                showAlertModal('Services reordered successfully!', 'success', null, true);
+
+            if (window.CRM?.api) {
+                await CRM.api('/api/services/reorder', {
+                    method: 'POST',
+                    body: { serviceUpdates }
+                });
             } else {
-                throw new Error('Failed to update service order');
+                const response = await fetch('/api/services/reorder', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ serviceUpdates })
+                });
+                if (!response.ok) throw new Error('Failed to update service order');
             }
-            
+
+            await this.loadServices();
+            this.populateDependencyDropdown();
+            this.renderServices();
+            showAlertModal('Services updated successfully!', 'success', null, true);
         } catch (error) {
             console.error('Error reordering services:', error);
-            showAlertModal('Error reordering services. Please try again.', 'error');
+            showAlertModal(error.message || 'Error reordering services. Please try again.', 'error');
         }
     }
 
     clearDragStyles() {
-        document.querySelectorAll('.service-item').forEach(el => {
+        document.querySelectorAll('.service-item').forEach((el) => {
             el.classList.remove('dragging', 'drag-over', 'drag-over-bottom');
         });
+        document.body.classList.remove('is-service-reordering');
     }
 
     escapeHtml(text) {
@@ -497,68 +698,7 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Initialize admin panel when page loads
-let adminPanel;
+// Initialize admin panel when page loads (window so inline onclick handlers can reach it)
 document.addEventListener('DOMContentLoaded', () => {
-    adminPanel = new AdminPanel();
-});
-
-let currentPromptCallback = null;
-
-function showPromptModal(message, defaultValue = '', title = 'Input Required', placeholder = 'Enter value') {
-    return new Promise((resolve) => {
-        const modal = document.getElementById('promptModal');
-        const titleEl = document.getElementById('promptModalTitle');
-        const labelEl = document.getElementById('promptModalLabel');
-        const inputEl = document.getElementById('promptModalInput');
-        const form = document.getElementById('promptForm');
-        
-        // Set content
-        titleEl.textContent = title;
-        labelEl.textContent = message;
-        inputEl.value = defaultValue;
-        inputEl.placeholder = placeholder;
-        
-        // Set callback
-        currentPromptCallback = resolve;
-        
-        // Show modal
-        modal.style.display = 'flex';
-        
-        // Focus management
-        setTimeout(() => {
-            inputEl.focus();
-            inputEl.select();
-        }, 100);
-        
-        // Handle form submission
-        form.onsubmit = (e) => {
-            e.preventDefault();
-            hidePromptModal(inputEl.value.trim());
-        };
-    });
-}
-
-function hidePromptModal(result) {
-    const modal = document.getElementById('promptModal');
-    if (modal) {
-        modal.classList.add('closing');
-        setTimeout(() => {
-            modal.style.display = 'none';
-            modal.classList.remove('closing');
-            if (currentPromptCallback) {
-                currentPromptCallback(result);
-                currentPromptCallback = null;
-            }
-        }, 200);
-    }
-}
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-        const promptModal = document.getElementById('promptModal');
-        if (promptModal && promptModal.style.display === 'flex') {
-            hidePromptModal(null);
-        }
-    }
+    window.adminPanel = new AdminPanel();
 });

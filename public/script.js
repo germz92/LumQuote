@@ -30,6 +30,13 @@ class QuoteCalculator {
         
         // Per-event discount toggle
         this.perEventDiscountEnabled = false;
+
+        // Undo / redo for quote composition edits
+        this.undoStack = [];
+        this.redoStack = [];
+        this.historyBaseline = null;
+        this.isApplyingHistory = false;
+        this.maxHistory = 40;
         
         // Drag and drop state
         this.draggedElement = null;
@@ -66,10 +73,12 @@ class QuoteCalculator {
         }
         this.setupEventListeners();
         this.renderDays();
+        this.updateDaysDisplay();
         this.updateTotal();
         this.renderMarkups();
         this.applyPerEventDiscountState();
         this.updateQuoteActionsMenu();
+        this.resetHistory();
         if (this.currentQuoteName) {
             this.syncPersistedSnapshot();
             this.updateSaveStatus('saved');
@@ -227,6 +236,7 @@ class QuoteCalculator {
             this.updateSaveStatus('saved');
         }
 
+        this.resetHistory();
         console.log('🗑️ Draft cleared from localStorage');
     }
 
@@ -266,12 +276,139 @@ class QuoteCalculator {
     setupEventListeners() {
         document.getElementById('increase-days').addEventListener('click', () => this.addDay());
         document.getElementById('decrease-days').addEventListener('click', () => this.removeDay());
+        document.getElementById('shift-days-back')?.addEventListener('click', () => this.shiftAllDates(-1));
+        document.getElementById('shift-days-forward')?.addEventListener('click', () => this.shiftAllDates(1));
+        document.getElementById('undoQuoteBtn')?.addEventListener('click', () => this.undoQuoteEdit());
+        document.getElementById('redoQuoteBtn')?.addEventListener('click', () => this.redoQuoteEdit());
         document.getElementById('generate-pdf').addEventListener('click', () => this.generatePDF());
         document.getElementById('export-excel').addEventListener('click', () => this.exportExcel());
         document.getElementById('export-docx').addEventListener('click', () => this.exportDocx());
         
         // Save modal form submission
         document.getElementById('saveQuoteForm').addEventListener('submit', (e) => this.saveQuoteFromModal(e));
+
+        document.addEventListener('keydown', (e) => {
+            const target = e.target;
+            const tag = target?.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) {
+                return;
+            }
+            const mod = e.metaKey || e.ctrlKey;
+            if (!mod) return;
+            if (e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                this.undoQuoteEdit();
+            } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+                e.preventDefault();
+                this.redoQuoteEdit();
+            }
+        });
+    }
+
+    cloneQuoteEditState() {
+        return JSON.parse(JSON.stringify({
+            days: this.days,
+            discountPercentage: this.discountPercentage,
+            markups: this.markups,
+            perEventDiscountEnabled: this.perEventDiscountEnabled
+        }));
+    }
+
+    resetHistory() {
+        this.undoStack = [];
+        this.redoStack = [];
+        this.historyBaseline = this.cloneQuoteEditState();
+        this.updateHistoryButtons();
+    }
+
+    recordQuoteHistory() {
+        if (this.isApplyingHistory || this.isHydratingQuote) return;
+        const current = this.cloneQuoteEditState();
+        if (!this.historyBaseline) {
+            this.historyBaseline = current;
+            this.updateHistoryButtons();
+            return;
+        }
+        if (JSON.stringify(this.historyBaseline) === JSON.stringify(current)) return;
+        this.undoStack.push(this.historyBaseline);
+        if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
+        this.redoStack = [];
+        this.historyBaseline = current;
+        this.updateHistoryButtons();
+    }
+
+    applyQuoteEditState(state) {
+        this.days = Array.isArray(state.days) && state.days.length
+            ? JSON.parse(JSON.stringify(state.days))
+            : [{ services: [], date: null }];
+        this.discountPercentage = state.discountPercentage || 0;
+        this.markups = Array.isArray(state.markups)
+            ? JSON.parse(JSON.stringify(state.markups))
+            : [];
+        this.perEventDiscountEnabled = !!state.perEventDiscountEnabled;
+
+        this.days.forEach((day) => {
+            if (day.date === undefined) day.date = null;
+            if (!Array.isArray(day.services)) day.services = [];
+            day.services.forEach((service) => {
+                if (!service.quantity) service.quantity = 1;
+                if (service.tentative === undefined) service.tentative = false;
+                if (!service.discount) {
+                    service.discount = { type: 'percentage', value: 0, applied: false };
+                }
+            });
+        });
+
+        const discountInput = document.getElementById('discountInput');
+        if (discountInput) discountInput.value = this.discountPercentage || '';
+        const discountBtn = document.getElementById('discountBtn');
+        if (discountBtn) {
+            discountBtn.textContent = this.discountPercentage > 0
+                ? `Modify Discount (${this.discountPercentage}%)`
+                : 'Apply Discount';
+        }
+
+        this.renderDays();
+        this.renderMarkups();
+        this.updateDaysDisplay();
+        this.applyPerEventDiscountState();
+        this.updateTotal();
+        this.saveDraftToLocalStorage();
+    }
+
+    undoQuoteEdit() {
+        if (!this.undoStack.length || this.isApplyingHistory) return;
+        this.isApplyingHistory = true;
+        try {
+            this.redoStack.push(this.cloneQuoteEditState());
+            const previous = this.undoStack.pop();
+            this.applyQuoteEditState(previous);
+            this.historyBaseline = this.cloneQuoteEditState();
+        } finally {
+            this.isApplyingHistory = false;
+            this.updateHistoryButtons();
+        }
+    }
+
+    redoQuoteEdit() {
+        if (!this.redoStack.length || this.isApplyingHistory) return;
+        this.isApplyingHistory = true;
+        try {
+            this.undoStack.push(this.cloneQuoteEditState());
+            const next = this.redoStack.pop();
+            this.applyQuoteEditState(next);
+            this.historyBaseline = this.cloneQuoteEditState();
+        } finally {
+            this.isApplyingHistory = false;
+            this.updateHistoryButtons();
+        }
+    }
+
+    updateHistoryButtons() {
+        const undoBtn = document.getElementById('undoQuoteBtn');
+        const redoBtn = document.getElementById('redoQuoteBtn');
+        if (undoBtn) undoBtn.disabled = this.undoStack.length === 0;
+        if (redoBtn) redoBtn.disabled = this.redoStack.length === 0;
     }
 
     addDay() {
@@ -294,12 +431,43 @@ class QuoteCalculator {
         }
     }
 
+    /** Shift every dated day by `deltaDays` (e.g. Sep 1–3 +1 → Sep 2–4). */
+    shiftAllDates(deltaDays) {
+        const delta = Number(deltaDays);
+        if (!delta || !Number.isFinite(delta)) return;
+
+        const datedDays = this.days.filter((day) => day.date);
+        if (datedDays.length === 0) {
+            showAlertModal('Set at least one day date before shifting.', 'info');
+            return;
+        }
+
+        this.days.forEach((day) => {
+            if (!day.date) return;
+            const date = this.parseStoredDate(day.date);
+            if (!date || Number.isNaN(date.getTime())) return;
+            date.setDate(date.getDate() + delta);
+            day.date = this.formatDateForStorage(date);
+        });
+
+        this.updateDaysDisplay();
+        this.renderDays();
+        this.markQuoteAsModified();
+        this.saveDraftToLocalStorage();
+    }
+
     updateDaysDisplay() {
         document.getElementById('days-count').textContent = this.days.length;
         
         // Update button states
         const decreaseBtn = document.getElementById('decrease-days');
         decreaseBtn.disabled = this.days.length <= 1;
+
+        const hasDatedDays = this.days.some((day) => !!day.date);
+        const shiftBackBtn = document.getElementById('shift-days-back');
+        const shiftForwardBtn = document.getElementById('shift-days-forward');
+        if (shiftBackBtn) shiftBackBtn.disabled = !hasDatedDays;
+        if (shiftForwardBtn) shiftForwardBtn.disabled = !hasDatedDays;
     }
 
     getServiceById(serviceId) {
@@ -626,77 +794,25 @@ class QuoteCalculator {
     }
 
     addServiceSelector(dayIndex) {
-        // Find the add service button that was clicked
         const container = document.getElementById('days-container');
         const addButtons = container.querySelectorAll('.add-service-btn');
         let targetAddRow = null;
-        
-        // Find which add button corresponds to this dayIndex
+
         addButtons.forEach(button => {
-            const buttonText = button.textContent.trim();
-            if (buttonText === '+ Add Service') {
-                const row = button.closest('.day-row');
-                // Check if this is the right day by counting previous add-service-rows
-                const allAddRows = Array.from(container.querySelectorAll('.add-service-row'));
-                const thisRowIndex = allAddRows.indexOf(row);
-                if (thisRowIndex === dayIndex) {
-                    targetAddRow = row;
-                }
-            }
+            if (button.textContent.trim() !== '+ Add Service') return;
+            const row = button.closest('.day-row');
+            const allAddRows = Array.from(container.querySelectorAll('.add-service-row'));
+            if (allAddRows.indexOf(row) === dayIndex) targetAddRow = row;
         });
-        
+
         if (!targetAddRow) return;
-        
-        // Create dropdown row
+
+        // Close any other open service pickers
+        document.querySelectorAll('.service-picker-menu-portal').forEach((el) => el.remove());
+        container.querySelectorAll('.day-row.service-picker-row').forEach((row) => row.remove());
+
         const dropdownRow = document.createElement('div');
-        dropdownRow.className = 'day-row';
-        
-        const dropdown = document.createElement('select');
-        dropdown.className = 'service-dropdown';
-        dropdown.innerHTML = `
-            <option value="">Select a service...</option>
-            ${this.services.map(service => `
-                <option value="${service._id}" data-name="${service.name}" data-price="${service.price}">
-                    ${service.isSubservice ? '└─ ' : ''}${service.name} - ${this.formatCurrency(service.price)}
-                </option>
-            `).join('')}
-        `;
-
-        dropdown.addEventListener('change', async (e) => {
-            if (e.target.value) {
-                const option = e.target.selectedOptions[0];
-                const service = {
-                    id: e.target.value,
-                    name: option.dataset.name,
-                    price: parseFloat(option.dataset.price)
-                };
-                
-                // Validate dependencies before adding (skip in override mode)
-                if (this.isOverrideMode) {
-                    // In override mode, bypass all dependency checks
-                    this.addServiceToDay(dayIndex, service);
-                    dropdownRow.remove();
-                } else {
-                    const canAdd = await this.validateServiceDependency(service.id, dayIndex);
-                    if (canAdd.success) {
-                        this.addServiceToDay(dayIndex, service);
-                        dropdownRow.remove();
-                    } else {
-                        // Show error and don't add service
-                        this.showDependencyError(canAdd.error);
-                        dropdown.value = ''; // Reset dropdown
-                    }
-                }
-            }
-        });
-
-        dropdown.addEventListener('blur', () => {
-            if (!dropdown.value) {
-                dropdownRow.remove();
-            }
-        });
-
-        // Structure the dropdown row with 4 columns
+        dropdownRow.className = 'day-row service-picker-row';
         dropdownRow.innerHTML = `
             <div class="day-cell"></div>
             <div class="service-cell">
@@ -705,10 +821,155 @@ class QuoteCalculator {
             <div class="quantity-cell"></div>
             <div class="price-cell"></div>
         `;
-        
-        dropdownRow.querySelector('.service-dropdown-container').appendChild(dropdown);
+
+        const picker = document.createElement('div');
+        picker.className = 'service-picker is-open';
+        picker.innerHTML = `
+            <button type="button" class="service-picker-trigger" aria-haspopup="listbox" aria-expanded="true">
+                <span class="service-picker-label">Select a service...</span>
+                <span class="service-picker-caret" aria-hidden="true"></span>
+            </button>
+        `;
+
+        const menu = document.createElement('div');
+        menu.className = 'service-picker-menu service-picker-menu-portal is-open';
+        menu.setAttribute('role', 'listbox');
+        menu.innerHTML = `
+            <div class="service-picker-search-wrap">
+                <input type="search" class="service-picker-search" placeholder="Search services..." autocomplete="off">
+            </div>
+            <div class="service-picker-options"></div>
+            <div class="service-picker-empty" hidden>No matching services</div>
+        `;
+
+        const optionsEl = menu.querySelector('.service-picker-options');
+        const emptyEl = menu.querySelector('.service-picker-empty');
+        const searchInput = menu.querySelector('.service-picker-search');
+        const trigger = picker.querySelector('.service-picker-trigger');
+        let activeIndex = -1;
+        let closed = false;
+
+        const optionButtons = () => Array.from(optionsEl.querySelectorAll('.service-picker-option'));
+
+        const syncActiveOption = () => {
+            optionButtons().forEach((btn, i) => btn.classList.toggle('is-active', i === activeIndex));
+            const active = optionButtons()[activeIndex];
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        };
+
+        const renderOptions = (filter = '') => {
+            const term = filter.trim().toLowerCase();
+            const matches = (this.services || []).filter((service) =>
+                !term || String(service.name || '').toLowerCase().includes(term)
+            );
+            emptyEl.hidden = matches.length > 0;
+            optionsEl.innerHTML = matches.map((service) => `
+                <button type="button"
+                    class="service-picker-option${service.isSubservice ? ' is-subservice' : ''}"
+                    role="option"
+                    data-id="${this.escapeHtml(String(service._id))}"
+                    data-name="${this.escapeHtml(service.name || '')}"
+                    data-price="${Number(service.price) || 0}">
+                    <span class="service-picker-option-name">${service.isSubservice ? '<span class="service-picker-nest">└</span>' : ''}${this.escapeHtml(service.name || '')}</span>
+                    <span class="service-picker-option-price">${this.formatCurrency(service.price)}</span>
+                </button>
+            `).join('');
+            activeIndex = matches.length ? 0 : -1;
+            syncActiveOption();
+        };
+
+        const positionMenu = () => {
+            const rect = trigger.getBoundingClientRect();
+            const width = Math.max(rect.width, Math.min(420, window.innerWidth - 24));
+            const left = Math.min(rect.left, window.innerWidth - width - 12);
+            menu.style.top = `${Math.round(rect.bottom + 6)}px`;
+            menu.style.left = `${Math.round(Math.max(12, left))}px`;
+            menu.style.width = `${Math.round(width)}px`;
+        };
+
+        const closePicker = () => {
+            if (closed) return;
+            closed = true;
+            document.removeEventListener('mousedown', onOutside, true);
+            document.removeEventListener('keydown', onKeydown, true);
+            window.removeEventListener('resize', positionMenu);
+            window.removeEventListener('scroll', positionMenu, true);
+            menu.remove();
+            dropdownRow.remove();
+        };
+
+        const selectService = async (btn) => {
+            if (!btn) return;
+            const service = {
+                id: btn.dataset.id,
+                name: btn.dataset.name,
+                price: parseFloat(btn.dataset.price)
+            };
+
+            if (this.isOverrideMode) {
+                this.addServiceToDay(dayIndex, service);
+                closePicker();
+                return;
+            }
+
+            const canAdd = await this.validateServiceDependency(service.id, dayIndex);
+            if (canAdd.success) {
+                this.addServiceToDay(dayIndex, service);
+                closePicker();
+            } else {
+                this.showDependencyError(canAdd.error);
+            }
+        };
+
+        const onOutside = (e) => {
+            if (!picker.contains(e.target) && !menu.contains(e.target)) closePicker();
+        };
+
+        const onKeydown = (e) => {
+            const options = optionButtons();
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closePicker();
+                return;
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!options.length) return;
+                activeIndex = (activeIndex + 1) % options.length;
+                syncActiveOption();
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!options.length) return;
+                activeIndex = (activeIndex - 1 + options.length) % options.length;
+                syncActiveOption();
+                return;
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                selectService(options[activeIndex]);
+            }
+        };
+
+        optionsEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('.service-picker-option');
+            if (btn) selectService(btn);
+        });
+        searchInput.addEventListener('input', () => renderOptions(searchInput.value));
+        trigger.addEventListener('click', () => closePicker());
+
+        dropdownRow.querySelector('.service-dropdown-container').appendChild(picker);
         container.insertBefore(dropdownRow, targetAddRow);
-        dropdown.focus();
+        document.body.appendChild(menu);
+        renderOptions();
+        positionMenu();
+
+        document.addEventListener('mousedown', onOutside, true);
+        document.addEventListener('keydown', onKeydown, true);
+        window.addEventListener('resize', positionMenu);
+        window.addEventListener('scroll', positionMenu, true);
+        setTimeout(() => searchInput.focus(), 0);
     }
 
     addServiceToDay(dayIndex, service) {
@@ -742,6 +1003,7 @@ class QuoteCalculator {
             this.days[dayIndex].services.splice(serviceIndex, 1);
             this.renderDays();
             this.updateTotal();
+            this.markQuoteAsModified();
             return;
         }
         
@@ -762,7 +1024,7 @@ class QuoteCalculator {
         this.days[dayIndex].services.splice(serviceIndex, 1);
         this.renderDays();
         this.updateTotal();
-        this.saveDraftToLocalStorage();
+        this.markQuoteAsModified();
     }
 
     countServiceInstances(serviceId, excludeDayIndex = -1, excludeServiceIndex = -1) {
@@ -854,7 +1116,7 @@ class QuoteCalculator {
         this.days[dayIndex].services[serviceIndex].quantity = quantity;
         this.renderDays();
         this.updateTotal();
-        this.saveDraftToLocalStorage();
+        this.markQuoteAsModified();
     }
 
     calculateDayTotal(dayIndex) {
@@ -1841,6 +2103,7 @@ class QuoteCalculator {
         this.saveDraftToLocalStorage(true);
         this.syncPersistedSnapshot();
         this.updateSaveStatus('saved');
+        this.resetHistory();
     }
 
     // Trigger auto-save (debounced)
@@ -2473,6 +2736,7 @@ class QuoteCalculator {
             this.updateQuoteActionsMenu();
             this.saveDraftToLocalStorage(true);
             this.updateSaveStatus('saved');
+            this.resetHistory();
         } finally {
             this.isHydratingQuote = false;
         }
@@ -2549,9 +2813,10 @@ class QuoteCalculator {
 
     markQuoteAsModified() {
         this.updateClientDisplay();
-        if (this.isHydratingQuote) {
+        if (this.isHydratingQuote || this.isApplyingHistory) {
             return;
         }
+        this.recordQuoteHistory();
         if (!this.invoiceEditMode && !this.currentQuoteName) {
             this.currentQuoteName = this.generateUntitledQuoteName();
             this.currentQuoteTitle = this.currentQuoteName;
@@ -2928,7 +3193,7 @@ class QuoteCalculator {
         
         // Update the display
         this.updateTotal();
-        this.saveDraftToLocalStorage();
+        this.markQuoteAsModified();
         
         // Update button text
         const button = document.getElementById('discountBtn');
@@ -2943,7 +3208,7 @@ class QuoteCalculator {
         this.discountPercentage = 0;
         document.getElementById('discountInput').value = '';
         this.updateTotal();
-        this.saveDraftToLocalStorage();
+        this.markQuoteAsModified();
         
         // Hide input container and reset button
         document.getElementById('discountInputContainer').style.display = 'none';
@@ -3041,7 +3306,7 @@ class QuoteCalculator {
         this.closeServiceDiscountModal();
         this.renderDays();
         this.updateTotal();
-        this.saveDraftToLocalStorage();
+        this.markQuoteAsModified();
     }
     
     removeServiceDiscount() {
@@ -3059,7 +3324,7 @@ class QuoteCalculator {
         this.closeServiceDiscountModal();
         this.renderDays();
         this.updateTotal();
-        this.saveDraftToLocalStorage();
+        this.markQuoteAsModified();
     }
     
     closeServiceDiscountModal() {
@@ -3071,7 +3336,7 @@ class QuoteCalculator {
     togglePerEventDiscount() {
         this.perEventDiscountEnabled = !this.perEventDiscountEnabled;
         this.applyPerEventDiscountState();
-        this.saveDraftToLocalStorage();
+        this.markQuoteAsModified();
     }
 
     applyPerEventDiscountState() {
@@ -3423,6 +3688,7 @@ class QuoteCalculator {
         this.days[dayIndex].date = this.formatDateForStorage(selectedDate);
         this.hideCalendarModal();
         this.renderDays();
+        this.updateDaysDisplay();
         this.markQuoteAsModified(); // Mark as modified when dates change
         this.saveDraftToLocalStorage();
     }
@@ -3431,6 +3697,7 @@ class QuoteCalculator {
         this.days[dayIndex].date = null;
         this.hideCalendarModal(); // Changed from hideCalendar()
         this.renderDays();
+        this.updateDaysDisplay();
         this.markQuoteAsModified(); // Mark as modified when dates change
         this.saveDraftToLocalStorage();
     }
@@ -3448,6 +3715,7 @@ class QuoteCalculator {
         this.days[dayIndex].date = this.formatDateForStorage(today);
         this.hideCalendarModal(); // Changed from hideCalendar()
         this.renderDays();
+        this.updateDaysDisplay();
         this.markQuoteAsModified(); // Mark as modified when dates change
         this.saveDraftToLocalStorage();
     }

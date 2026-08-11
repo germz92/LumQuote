@@ -33,92 +33,116 @@
                 <!-- ============ OVERVIEW ============ -->
                 <div class="crm-panel is-active" id="panel-overview">
                     <div class="crm-overview-grid">
-                    <div class="crm-card">
-                        <div class="crm-card-header">
-                            <h3>Project Info</h3>
-                            <span id="projectStatusChip"></span>
+                        <div class="crm-card crm-overview-card">
+                            <div class="crm-card-header">
+                                <h3>Project Info</h3>
+                                <span id="projectStatusChip"></span>
+                            </div>
+                            <div class="crm-overview-card-body">
+                                <div class="crm-form-grid">
+                                    <div class="form-group form-group--full">
+                                        <label for="projName">Project Name</label>
+                                        <input type="text" id="projName">
+                                    </div>
+                                    <div class="form-group form-group--full">
+                                        <label for="projStatus">Status</label>
+                                        <select id="projStatus">
+                                            <option value="lead">Lead</option>
+                                            <option value="quoted">Quoted</option>
+                                            <option value="booked">Booked</option>
+                                            <option value="contract_signed">Contract Signed</option>
+                                            <option value="invoiced">Invoiced</option>
+                                            <option value="paid">Paid</option>
+                                            <option value="complete">Complete</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="projStart">Start Date</label>
+                                        <input type="date" id="projStart">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="projEnd">End Date</label>
+                                        <input type="date" id="projEnd">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="crm-actions-row">
+                                <button class="primary-button" id="saveProjectBtn" onclick="projectPage.saveProject()">Save Project</button>
+                                <button type="button" class="secondary-button" id="shareProjectBtn" onclick="projectPage.openShareModal()" style="display:none">Share</button>
+                                <button type="button" class="secondary-button" id="transferLumDashBtn" onclick="projectPage.transferToLumDash()">Transfer to LumDash</button>
+                                <span class="crm-inline-note" id="projectSaveNote"></span>
+                            </div>
                         </div>
-                        <div class="crm-form-grid">
-                            <div class="form-group form-group--full">
-                                <label for="projName">Project Name</label>
-                                <input type="text" id="projName">
-                            </div>
-                            <div class="form-group form-group--full">
-                                <label for="projStatus">Status</label>
-                                <select id="projStatus">
-                                    <option value="lead">Lead</option>
-                                    <option value="quoted">Quoted</option>
-                                    <option value="booked">Booked</option>
-                                    <option value="contract_signed">Contract Signed</option>
-                                    <option value="invoiced">Invoiced</option>
-                                    <option value="paid">Paid</option>
-                                    <option value="complete">Complete</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="projStart">Start Date</label>
-                                <input type="date" id="projStart">
-                            </div>
-                            <div class="form-group">
-                                <label for="projEnd">End Date</label>
-                                <input type="date" id="projEnd">
-                            </div>
-                            <div class="form-group form-group--full">
-                                <label for="projNotes">Notes</label>
-                                <textarea id="projNotes" rows="3" placeholder="Internal notes about this project"></textarea>
-                            </div>
-                        </div>
-                        <div class="crm-actions-row">
-                            <button class="primary-button" id="saveProjectBtn" onclick="projectPage.saveProject()">Save Project</button>
-                            <button type="button" class="secondary-button" id="shareProjectBtn" onclick="projectPage.openShareModal()" style="display:none">Share</button>
-                            <button type="button" class="secondary-button" id="transferLumDashBtn" onclick="projectPage.transferToLumDash()">Transfer to LumDash</button>
-                            <span class="crm-inline-note" id="projectSaveNote"></span>
-                        </div>
-                    </div>
 
-                    <div class="crm-card">
-                        <div class="crm-card-header">
-                            <h3>Client</h3>
+                        <div class="crm-card crm-overview-card">
+                            <div class="crm-card-header">
+                                <h3>Client</h3>
+                            </div>
+                            <div class="crm-overview-card-body">
+                                <div class="crm-form-grid">
+                                    <div class="form-group">
+                                        <label for="clientName">Name</label>
+                                        <input type="text" id="clientName" placeholder="Client full name">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="clientCompany">Company</label>
+                                        <input type="text" id="clientCompany">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="clientEmail">Email</label>
+                                        <input type="email" id="clientEmail">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="clientPhone">Phone</label>
+                                        <input type="tel" id="clientPhone">
+                                    </div>
+                                    <div class="form-group form-group--full">
+                                        <label for="clientStreet">Street Address</label>
+                                        <input type="text" id="clientStreet">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="clientCity">City</label>
+                                        <input type="text" id="clientCity">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="clientState">State</label>
+                                        <input type="text" id="clientState">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="clientZip">ZIP</label>
+                                        <input type="text" id="clientZip">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="crm-actions-row">
+                                <button class="primary-button" onclick="projectPage.saveClient()">Save Client</button>
+                                <span class="crm-inline-note" id="clientSaveNote"></span>
+                            </div>
                         </div>
-                        <div class="crm-form-grid">
-                            <div class="form-group">
-                                <label for="clientName">Name</label>
-                                <input type="text" id="clientName" placeholder="Client full name">
+
+                        <div class="crm-card crm-overview-card crm-notes-card">
+                            <div class="crm-card-header">
+                                <h3>Notes</h3>
                             </div>
-                            <div class="form-group">
-                                <label for="clientCompany">Company</label>
-                                <input type="text" id="clientCompany">
+                            <div class="crm-overview-card-body">
+                                <textarea id="projNotes" class="crm-notes-textarea" rows="8" placeholder="Internal notes about this project" aria-label="Project notes"></textarea>
                             </div>
-                            <div class="form-group">
-                                <label for="clientEmail">Email</label>
-                                <input type="email" id="clientEmail">
-                            </div>
-                            <div class="form-group">
-                                <label for="clientPhone">Phone</label>
-                                <input type="tel" id="clientPhone">
-                            </div>
-                            <div class="form-group form-group--full">
-                                <label for="clientStreet">Street Address</label>
-                                <input type="text" id="clientStreet">
-                            </div>
-                            <div class="form-group">
-                                <label for="clientCity">City</label>
-                                <input type="text" id="clientCity">
-                            </div>
-                            <div class="form-group">
-                                <label for="clientState">State</label>
-                                <input type="text" id="clientState">
-                            </div>
-                            <div class="form-group">
-                                <label for="clientZip">ZIP</label>
-                                <input type="text" id="clientZip">
+                            <div class="crm-actions-row">
+                                <button type="button" class="primary-button" id="saveNotesBtn" onclick="projectPage.saveNotes()">Save Notes</button>
+                                <span class="crm-inline-note" id="notesSaveNote"></span>
                             </div>
                         </div>
-                        <div class="crm-actions-row">
-                            <button class="primary-button" onclick="projectPage.saveClient()">Save Client</button>
-                            <span class="crm-inline-note" id="clientSaveNote"></span>
+
+                        <div class="crm-card crm-overview-card crm-activity-card">
+                            <div class="crm-card-header">
+                                <h3>Activity</h3>
+                            </div>
+                            <div class="crm-overview-card-body">
+                                <div id="projectActivityList" class="crm-activity-list">
+                                    <p class="crm-inline-note" style="margin:0">No activity yet.</p>
+                                </div>
+                            </div>
                         </div>
-                    </div>
                     </div>
                 </div>
 

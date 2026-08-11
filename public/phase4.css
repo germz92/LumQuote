@@ -365,16 +365,23 @@ body[data-app-page="admin"] .admin-section {
   color: var(--color-text);
 }
 
-.admin-card .add-service-form {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 0;
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.admin-card-header h3 {
   margin: 0;
 }
 
-.admin-card .add-service-form h3 {
-  display: none;
+.service-modal-content {
+  max-width: 520px;
+  width: min(520px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .admin-card .services-list {

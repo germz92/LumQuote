@@ -538,22 +538,194 @@ body {
 .service-dropdown-container {
     display: flex;
     align-items: center;
-}
-
-.service-dropdown {
     width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: white;
-    font-size: 16px;
-    cursor: pointer;
+    position: relative;
+    z-index: 20;
 }
 
-.service-dropdown:focus {
+.service-picker {
+    position: relative;
+    width: 100%;
+}
+
+.service-picker-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 8px 12px;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: var(--shadow-focus);
+    text-align: left;
+}
+
+.service-picker-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.service-picker-caret {
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--color-text-muted);
+    border-bottom: 2px solid var(--color-text-muted);
+    transform: rotate(45deg);
+    margin-top: -4px;
+    flex-shrink: 0;
+}
+
+.service-picker.is-open .service-picker-caret {
+    transform: rotate(-135deg);
+    margin-top: 2px;
+}
+
+.service-picker-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    min-width: min(420px, 92vw);
+    max-height: min(360px, 50vh);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    z-index: 50;
+}
+
+.service-picker.is-open .service-picker-menu,
+.service-picker-menu-portal.is-open {
+    display: flex;
+    flex-direction: column;
+}
+
+.service-picker-menu-portal {
+    position: fixed;
+    z-index: 1200;
+    min-width: 0;
+}
+
+.service-picker-search-wrap {
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+}
+
+.service-picker-search {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+}
+
+.service-picker-search:focus {
     outline: none;
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-focus);
+}
+
+.service-picker-options {
+    overflow-y: auto;
+    max-height: 280px;
+    padding: var(--space-1);
+}
+
+.service-picker-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 10px 12px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.service-picker-option:hover,
+.service-picker-option.is-active {
+    background: var(--color-primary-muted);
+    color: var(--color-text);
+}
+
+.service-picker-option.is-subservice {
+    padding-left: 28px;
+    color: var(--color-text-secondary);
+}
+
+.service-picker-nest {
+    display: inline-block;
+    margin-right: 6px;
+    color: var(--color-text-muted);
+}
+
+.service-picker-option-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.service-picker-option-price {
+    flex-shrink: 0;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-success);
+    font-variant-numeric: tabular-nums;
+}
+
+.service-picker-empty {
+    padding: 16px 12px;
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* Native selects — closed-state theme (menu is OS-native) */
+.form-group select,
+.sort-select,
+.search-sort-controls select,
+.discount-type-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: var(--color-surface);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23697386' d='M1.4.6 6 5.2 10.6.6 12 2 6 8 0 2z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px 8px;
+    padding-right: 36px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    box-shadow: var(--shadow-sm);
+}
+
+.form-group select:focus,
+.sort-select:focus,
+.search-sort-controls select:focus,
+.discount-type-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-focus);
 }
 
 .selected-services {
@@ -1617,6 +1789,16 @@ body {
     border-left: 3px solid #e2e8f0;
 }
 
+.service-item.service-item-orphan {
+    border-color: #fbbf24;
+    background: #fffbeb;
+}
+
+.service-orphan-note {
+    color: #b45309 !important;
+    margin-top: 4px;
+}
+
 .service-info {
     display: flex;
     align-items: center;
@@ -1676,31 +1858,64 @@ body {
 
 /* Drag and Drop Styles */
 .service-item {
-    cursor: move;
-    user-select: none;
-    transition: all 0.2s ease;
+    cursor: default;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
     position: relative;
+    gap: 12px;
+}
+
+.service-drag-handle {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-md, 6px);
+    background: transparent;
+    color: var(--color-text-muted, #697386);
+    cursor: grab;
+    touch-action: none;
+}
+
+.service-drag-handle:hover {
+    background: var(--color-bg, #f6f9fc);
+    color: var(--color-text, #0a2540);
+}
+
+.service-drag-handle:active,
+body.is-service-reordering .service-drag-handle {
+    cursor: grabbing;
+}
+
+body.is-service-reordering {
+    cursor: grabbing;
+    user-select: none;
+}
+
+body.is-service-reordering * {
+    cursor: grabbing !important;
 }
 
 .service-item:hover:not(.dragging) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
 }
 
 .service-item.dragging {
-    opacity: 0.5;
-    transform: rotate(3deg);
-    z-index: 1000;
+    opacity: 0.45;
+    z-index: 2;
+    background: var(--color-primary-muted, #f0efff);
 }
 
 .service-item.drag-over {
-    border-top: 3px solid #4f46e5;
-    transform: translateY(2px);
+    border-top: 3px solid var(--color-primary, #635bff);
 }
 
 .service-item.drag-over-bottom {
-    border-bottom: 3px solid #4f46e5;
-    transform: translateY(-2px);
+    border-bottom: 3px solid var(--color-primary, #635bff);
 }
 
 .services-list {
@@ -1791,8 +2006,9 @@ body {
         padding: 20px 32px;
     }
     
-    .service-dropdown {
+    .service-picker-trigger {
         padding: 12px 16px;
+        font-size: var(--font-size-base);
     }
     
     .service-tag {
@@ -2427,9 +2643,14 @@ body {
         line-height: 1.1;
     }
     
-    .service-dropdown {
+    .service-picker-trigger,
+    .service-picker-search,
+    .service-picker-option {
         font-size: 16px;
-        padding: 8px 10px;
+    }
+
+    .service-picker-menu {
+        min-width: 100%;
     }
     
     .quantity-input {

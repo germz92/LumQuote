@@ -95,8 +95,25 @@
                                 <span class="counter-display" id="days-count">1</span>
                                 <button type="button" class="counter-btn" id="increase-days">+</button>
                             </div>
+                            <label for="shift-days">Shift</label>
+                            <div class="counter-control">
+                                <button type="button" class="counter-btn" id="shift-days-back" title="Shift all dates back one day">−</button>
+                                <button type="button" class="counter-btn" id="shift-days-forward" title="Shift all dates forward one day">+</button>
+                            </div>
                         </div>
                         <div class="builder-toolbar-actions">
+                            <button type="button" class="btn btn-secondary btn-md builder-history-btn" id="undoQuoteBtn" title="Undo (Ctrl+Z)" aria-label="Undo" disabled>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M9 14 4 9l5-5"></path>
+                                    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path>
+                                </svg>
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-md builder-history-btn" id="redoQuoteBtn" title="Redo (Ctrl+Y)" aria-label="Redo" disabled>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="m15 14 5-5-5-5"></path>
+                                    <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"></path>
+                                </svg>
+                            </button>
                             <button type="button" class="btn btn-primary btn-md" id="commitInvoiceBtn" onclick="calculator.commitToInvoice()" title="Commit to Invoice" style="display: none;">Commit to Invoice</button>
                             <button type="button" class="btn btn-primary btn-md" onclick="showSaveModal()" title="Save">Save</button>
                             <button type="button" class="btn btn-secondary btn-md builder-toolbar-desktop-only" onclick="showLoadModal()" title="Load">Load</button>

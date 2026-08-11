@@ -29,74 +29,18 @@
                 <p class="subtitle">Add, edit, or remove photography services and their prices</p>
 
                 <div class="admin-card">
-                <h3>Add New Service</h3>
-                <div class="add-service-form">
-                    <form id="service-form">
-                        <div class="form-group">
-                            <label for="service-name">Service Name</label>
-                            <input type="text" id="service-name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="service-price">Price ($)</label>
-                            <input type="number" id="service-price" min="0" step="0.01" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="service-category">Category</label>
-                            <select id="service-category">
-                                <option value="Photography">Photography</option>
-                                <option value="Videography">Videography</option>
-                                <option value="Headshot Booth">Headshot Booth</option>
-                                <option value="AI">AI</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="service-description">Description (Optional)</label>
-                            <textarea id="service-description" maxlength="200" placeholder="Enter service description (max 200 characters)"></textarea>
-                            <small class="form-help">General service information that will appear in quotes</small>
-                        </div>
-                        <div class="form-group">
-                            <label for="service-dependency">Dependency (Optional)</label>
-                            <select id="service-dependency">
-                                <option value="">No dependency</option>
-                                <!-- Options will be populated dynamically -->
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="dependency-type">Dependency Type</label>
-                            <select id="dependency-type" disabled>
-                                <option value="">Select dependency first</option>
-                                <option value="same_day">Same Day</option>
-                                <option value="same_quote">Same Quote</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="is-subservice">
-                                <span class="checkbox-text">Is Subservice</span>
-                            </label>
-                            <small class="form-help">Subservices will be indented and automatically set to "Same Day" dependency</small>
-                        </div>
-                        <button type="submit" class="primary-button">
-                            <span id="form-button-text">Add Service</span>
-                        </button>
-                        <button type="button" id="cancel-edit" class="secondary-button" style="display: none;">
-                            Cancel Edit
-                        </button>
-                    </form>
-                </div>
-                </div>
-
-                <div class="admin-card">
-                <h3>Current Services</h3>
-                <div class="services-list">
-                    <div class="drag-instructions">
-                        <p><strong>💡 Tip:</strong> Drag and drop services to reorder them. Subservices can only be reordered within their parent group, and parent services move with all their subservices.</p>
+                    <div class="admin-card-header">
+                        <h3>Services</h3>
+                        <button type="button" class="primary-button" onclick="adminPanel.openAddServiceModal()">+ Add Service</button>
                     </div>
-                    <div id="services-container">
-                        <!-- Services will be loaded here -->
+                    <div class="services-list">
+                        <div class="drag-instructions">
+                            <p><strong>Tip:</strong> Drag the ⠿ handle to reorder. Subservices can only move within their parent group, and parent services move with all their subservices.</p>
+                        </div>
+                        <div id="services-container">
+                            <!-- Services will be loaded here -->
+                        </div>
                     </div>
-                </div>
                 </div>
             </div>
 
@@ -251,22 +195,64 @@
         </div>
     </div>
 
-    <!-- Prompt Modal -->
-    <div id="promptModal" class="modal" style="display: none;">
-        <div class="modal-content prompt-modal-content">
+    <div id="serviceModal" class="modal" style="display: none;">
+        <div class="modal-content service-modal-content">
             <div class="modal-header">
-                <h2 id="promptModalTitle">Input Required</h2>
-                <span class="close" onclick="hidePromptModal(null)">&times;</span>
+                <h2 id="serviceModalTitle">Add Service</h2>
+                <span class="close" onclick="adminPanel.closeServiceModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <form id="promptForm">
+                <form id="service-form">
                     <div class="form-group">
-                        <label id="promptModalLabel" for="promptModalInput">Please enter:</label>
-                        <input type="text" id="promptModalInput" placeholder="Enter value">
+                        <label for="service-name">Service Name</label>
+                        <input type="text" id="service-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="service-price">Price ($)</label>
+                        <input type="number" id="service-price" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="service-category">Category</label>
+                        <select id="service-category">
+                            <option value="Photography">Photography</option>
+                            <option value="Videography">Videography</option>
+                            <option value="Headshot Booth">Headshot Booth</option>
+                            <option value="AI">AI</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="service-description">Description (Optional)</label>
+                        <textarea id="service-description" maxlength="200" placeholder="Enter service description (max 200 characters)"></textarea>
+                        <small class="form-help">General service information that will appear in quotes</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="service-dependency">Parent / Dependency</label>
+                        <select id="service-dependency">
+                            <option value="">No dependency</option>
+                        </select>
+                        <small class="form-help" id="service-dependency-help">Required for subservices — choose the main parent service it belongs under.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="dependency-type">Dependency Type</label>
+                        <select id="dependency-type" disabled>
+                            <option value="">Select dependency first</option>
+                            <option value="same_day">Same Day</option>
+                            <option value="same_quote">Same Quote</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="is-subservice">
+                            <span class="checkbox-text">Is Subservice</span>
+                        </label>
+                        <small class="form-help">Indents this under its parent in the list. Parent must be a main service (not another subservice).</small>
                     </div>
                     <div class="modal-buttons">
-                        <button type="button" class="secondary-button" onclick="hidePromptModal(null)">Cancel</button>
-                        <button type="submit" class="primary-button">OK</button>
+                        <button type="button" id="cancel-edit" class="secondary-button">Cancel</button>
+                        <button type="submit" class="primary-button">
+                            <span id="form-button-text">Add Service</span>
+                        </button>
                     </div>
                 </form>
             </div>

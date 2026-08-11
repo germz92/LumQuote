@@ -250,15 +250,13 @@ class ProjectsManager {
                 <div class="quote-overflow-dropdown list-overflow-dropdown" style="display: none;">
                     <button class="overflow-menu-item" onclick="window.location.href='/projects/${project._id}'">Open</button>
                     ${canShare ? `<button class="overflow-menu-item" onclick="projectsManager.openShareModal('${project._id}')">Share</button>` : ''}
+                    ${canEdit ? `<button class="overflow-menu-item" onclick="projectsManager.transferToLumDash('${project._id}')">Transfer to LumDash</button>` : ''}
                     ${canEdit ? `<button class="overflow-menu-item" onclick="projectsManager.toggleArchive('${project._id}', ${!project.archived})">${project.archived ? 'Unarchive' : 'Archive'}</button>` : ''}
                     ${canDelete ? `<button class="overflow-menu-item danger" onclick="projectsManager.deleteProject('${project._id}', '${CRM.escapeJs(project.name)}')">Delete</button>` : ''}
                 </div>
             </div>`;
 
         const isBookedPlus = CRM.isBookedPlus(project.status);
-        const bookedBadge = isBookedPlus
-            ? '<span class="crm-chip crm-chip--booked crm-booked-badge" title="Booked or later">Booked</span>'
-            : '';
         // Share badge only for non-admin users who were shared in (matches quotes list)
         const showSharedBadge = !this.isCurrentUserAdmin() && !project.isOwner && project.accessLevel;
         const sharedBadge = showSharedBadge
@@ -270,12 +268,11 @@ class ProjectsManager {
             : CRM.projectStatusChip(project.status);
 
         return `
-            <tr class="quote-row is-clickable${isBookedPlus ? ' project-row--booked' : ''}" onclick="window.location.href='/projects/${project._id}'">
+            <tr class="quote-row is-clickable${isBookedPlus ? ' project-row--booked' : ''}"${isBookedPlus ? ' title="Booked or later"' : ''} onclick="window.location.href='/projects/${project._id}'">
                 <td class="quote-title-cell">
                     <div class="list-row-primary">
                         <span class="crm-project-name-wrap">
                             <span class="crm-project-name">${CRM.escapeHtml(project.name)}</span>
-                            ${bookedBadge}
                             ${sharedBadge}
                         </span>
                         ${metaHtml}
@@ -382,6 +379,19 @@ class ProjectsManager {
         if (page < 1 || page > this.totalPages) return;
         this.currentPage = page;
         this.loadProjects().then(() => this.render());
+    }
+
+    async transferToLumDash(id) {
+        this.closeRowMenus();
+        if (!window.LumDashIntegration?.transferProjectToLumDash) {
+            showAlertModal('LumDash integration is not available.', 'error');
+            return;
+        }
+        try {
+            await window.LumDashIntegration.transferProjectToLumDash(id);
+        } catch (error) {
+            showAlertModal(error.message || 'Failed to transfer to LumDash.', 'error');
+        }
     }
 
     async toggleArchive(id, archived) {

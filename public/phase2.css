@@ -42,47 +42,12 @@
   box-shadow: none;
 }
 
-/* Tighter quotes page vertical rhythm */
-body[data-app-page="quotes"] .main-content {
-  padding-top: var(--space-4);
-  padding-bottom: var(--space-6);
-}
-
-body[data-app-page="quotes"] .app-page-header {
-  position: relative;
-  z-index: 160;
-  background: var(--color-surface);
-}
-
 body[data-app-page="quotes"] .quotes-page-section {
   margin-top: 0;
   padding-bottom: var(--space-6);
 }
 
-body[data-app-page="quotes"] .app-page-header {
-  padding: var(--space-2) 0 var(--space-3);
-  gap: var(--space-3);
-}
-
-body[data-app-page="quotes"] .app-page-title {
-  font-size: var(--font-size-xl);
-}
-
-body[data-app-page="quotes"] .app-page-subtitle {
-  margin-top: 2px;
-}
-
 @media (max-width: 768px) {
-  /* Title lives in shell; filters in main — remove stacked margins between them */
-  body[data-app-page="quotes"] .app-page-header {
-    padding: var(--space-3) 0 var(--space-2);
-    border-bottom: none;
-  }
-
-  body[data-app-page="quotes"] .main-content {
-    padding-top: 0;
-  }
-
   body[data-app-page="quotes"] .quotes-page-section {
     margin-top: 0;
   }

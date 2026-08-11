@@ -108,6 +108,7 @@ class ProjectPage {
         document.getElementById('invoicesTabBadge').textContent = invoices.length;
 
         this.fillOverviewForms();
+        this.renderActivity();
         this.renderQuotes();
         this.renderContract();
         this.renderInvoices();
@@ -119,18 +120,24 @@ class ProjectPage {
         const shareable = this.canShare();
         const shareBtn = document.getElementById('shareProjectBtn');
         const saveBtn = document.getElementById('saveProjectBtn');
+        const saveNotesBtn = document.getElementById('saveNotesBtn');
         const transferBtn = document.getElementById('transferLumDashBtn');
         const note = document.getElementById('projectSaveNote');
         const clientNote = document.getElementById('clientSaveNote');
+        const notesNote = document.getElementById('notesSaveNote');
 
         if (shareBtn) shareBtn.style.display = shareable ? '' : 'none';
         if (saveBtn) saveBtn.style.display = editable ? '' : 'none';
+        if (saveNotesBtn) saveNotesBtn.style.display = editable ? '' : 'none';
         if (transferBtn) transferBtn.style.display = editable ? '' : 'none';
         if (note) {
             note.textContent = editable ? '' : 'You have read-only access to this project.';
         }
         if (clientNote && !editable) {
             clientNote.textContent = 'Read-only access';
+        }
+        if (notesNote) {
+            notesNote.textContent = editable ? '' : 'Read-only access';
         }
 
         document.querySelectorAll('#panel-overview input, #panel-overview select, #panel-overview textarea').forEach((el) => {
@@ -173,6 +180,149 @@ class ProjectPage {
     }
 
     // ---------- Overview actions ----------
+
+    formatActivityWhen(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return '';
+        return date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+    }
+
+    emailLogLabel(type, docKind) {
+        const labels = {
+            sent_link: docKind === 'invoice' ? 'Invoice emailed' : 'Contract emailed',
+            signed_copy: 'Signed copy emailed',
+            copy_request: docKind === 'invoice' ? 'Invoice copy emailed' : 'Contract copy emailed',
+            receipt: 'Payment receipt emailed',
+            receipt_installment: 'Installment receipt emailed',
+            owner_signed: 'Staff notified — contract signed',
+            owner_paid: 'Staff notified — invoice paid',
+            owner_paid_installment: 'Staff notified — installment paid'
+        };
+        return labels[type] || (docKind === 'invoice' ? `Invoice email (${type})` : `Contract email (${type})`);
+    }
+
+    pushActivity(events, at, title, detail = '') {
+        if (!at) return;
+        const when = new Date(at);
+        if (isNaN(when.getTime())) return;
+        events.push({ at: when.getTime(), title, detail });
+    }
+
+    appendEmailLogActivity(events, emailLog, docKind, docLabel) {
+        (emailLog || []).forEach((entry) => {
+            const to = Array.isArray(entry.to) ? entry.to.filter(Boolean).join(', ') : '';
+            const baseDetail = [docLabel, to ? `to ${to}` : ''].filter(Boolean).join(' · ');
+            this.pushActivity(events, entry.sentAt, this.emailLogLabel(entry.type, docKind), baseDetail);
+            if (entry.openedAt) {
+                const opens = entry.openCount > 1 ? ` · ${entry.openCount} opens` : '';
+                this.pushActivity(
+                    events,
+                    entry.openedAt,
+                    'Email opened',
+                    `${this.emailLogLabel(entry.type, docKind)}${opens}`
+                );
+            }
+        });
+    }
+
+    buildActivityEvents() {
+        const events = [];
+        const { project, contract, invoices } = this.data || {};
+
+        if (project?.createdAt) {
+            this.pushActivity(events, project.createdAt, 'Project created');
+        }
+
+        if (contract) {
+            const contractLabel = contract.title || 'Contract';
+            this.pushActivity(events, contract.sentAt, 'Contract sent', contractLabel);
+            if (contract.firstViewedAt) {
+                const views = contract.viewCount > 1 ? `${contract.viewCount} views` : '1 view';
+                this.pushActivity(events, contract.firstViewedAt, 'Contract page viewed', views);
+            }
+            if (contract.signature?.signedAt) {
+                const signer = contract.signature.name ? `by ${contract.signature.name}` : '';
+                this.pushActivity(events, contract.signature.signedAt, 'Contract signed', signer);
+            }
+            if (contract.countersignature?.signedAt) {
+                const signer = contract.countersignature.name ? `by ${contract.countersignature.name}` : '';
+                this.pushActivity(events, contract.countersignature.signedAt, 'Contract countersigned', signer);
+            }
+            this.appendEmailLogActivity(events, contract.emailLog, 'contract', contractLabel);
+        }
+
+        (invoices || []).forEach((invoice) => {
+            if (!invoice || invoice.status === 'void') return;
+            const invLabel = invoice.invoiceNumber || 'Invoice';
+            this.pushActivity(events, invoice.sentAt, 'Invoice sent', invLabel);
+            if (invoice.firstViewedAt) {
+                const views = invoice.viewCount > 1 ? `${invoice.viewCount} views` : '1 view';
+                this.pushActivity(events, invoice.firstViewedAt, 'Invoice page viewed', `${invLabel} · ${views}`);
+            }
+            (invoice.paymentPlan?.installments || []).forEach((inst, index) => {
+                if (inst?.paidAt) {
+                    this.pushActivity(
+                        events,
+                        inst.paidAt,
+                        'Installment paid',
+                        `${invLabel} · ${inst.label || `Payment ${index + 1}`}`
+                    );
+                }
+            });
+            if (invoice.paidAt) {
+                this.pushActivity(events, invoice.paidAt, 'Invoice paid', invLabel);
+            }
+            this.appendEmailLogActivity(events, invoice.emailLog, 'invoice', invLabel);
+        });
+
+        events.sort((a, b) => b.at - a.at);
+        return events;
+    }
+
+    renderActivity() {
+        const list = document.getElementById('projectActivityList');
+        if (!list) return;
+        const events = this.buildActivityEvents();
+        if (!events.length) {
+            list.innerHTML = '<p class="crm-inline-note" style="margin:0">No activity yet.</p>';
+            return;
+        }
+        list.innerHTML = events.map((event) => `
+            <div class="crm-activity-item">
+                <div class="crm-activity-item-main">
+                    <span class="crm-activity-title">${CRM.escapeHtml(event.title)}</span>
+                    ${event.detail ? `<span class="crm-activity-detail">${CRM.escapeHtml(event.detail)}</span>` : ''}
+                </div>
+                <time class="crm-activity-when">${CRM.escapeHtml(this.formatActivityWhen(event.at))}</time>
+            </div>
+        `).join('');
+    }
+
+    async saveNotes() {
+        try {
+            await CRM.api(`/api/projects/${this.projectId}`, {
+                method: 'PUT',
+                body: { notes: document.getElementById('projNotes').value }
+            });
+            if (this.data?.project) this.data.project.notes = document.getElementById('projNotes').value;
+            const note = document.getElementById('notesSaveNote');
+            if (note) {
+                note.textContent = 'Saved.';
+                setTimeout(() => {
+                    if (note.textContent === 'Saved.') note.textContent = '';
+                }, 2000);
+            }
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
 
     async saveProject() {
         const previousStatus = this.data?.project?.status || 'lead';
