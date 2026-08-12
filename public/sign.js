@@ -42,13 +42,14 @@ class SignPage {
 
         document.getElementById('companyBrand').textContent = c.companyName;
         document.getElementById('contractTitle').textContent = c.title;
-        document.getElementById('contractSubtitle').textContent =
-            [c.projectName, c.clientName ? `Prepared for ${c.clientName}` : ''].filter(Boolean).join(' · ');
+        // Avoid repeating the project name when the title already includes it
+        // (default titles are "{project} — Service Agreement")
+        const titleHasProject = !!(c.projectName && c.title && c.title.includes(c.projectName));
+        document.getElementById('contractSubtitle').textContent = [
+            titleHasProject ? null : c.projectName,
+            c.clientName ? `Prepared for ${c.clientName}` : null
+        ].filter(Boolean).join(' · ');
         document.getElementById('projectDates').textContent = c.projectDates ? `Project dates: ${c.projectDates}` : '';
-        if (c.investment > 0) {
-            document.getElementById('investment').textContent =
-                `Investment: $${Number(c.investment).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-        }
 
         if (c.source === 'generated') {
             // Contract HTML is authored internally (templates + staff edits)
