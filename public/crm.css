@@ -41,10 +41,29 @@
 }
 
 .projects-table .crm-project-name-wrap {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.projects-table .crm-client-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.projects-table .crm-client-name {
+  color: var(--color-text);
+}
+
+.projects-table .crm-client-company {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }
 
 /* Booked (booked→complete) marker: left rail only (no chip) */
@@ -1384,6 +1403,39 @@
 
 .projects-table th,
 .projects-table td { white-space: nowrap; }
+
+@media (min-width: 761px) {
+  .projects-table {
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .projects-table .quote-title-cell {
+    min-width: 360px;
+    max-width: 520px;
+    overflow: hidden;
+    vertical-align: middle;
+  }
+
+  .projects-table .crm-project-name-wrap {
+    flex-wrap: nowrap;
+  }
+
+  .projects-table .crm-project-name,
+  .projects-table .crm-client-name,
+  .projects-table .crm-client-company {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .projects-table th:nth-child(2),
+  .projects-table td:nth-child(2) {
+    min-width: 180px;
+    max-width: 240px;
+    overflow: hidden;
+  }
+}
 
 .crm-status-select {
   border: none;

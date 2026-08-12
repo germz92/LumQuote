@@ -188,8 +188,14 @@ class ProjectsManager {
 
     renderRow(project) {
         const client = project.client;
+        const clientTitle = client
+            ? `${client.name}${client.company ? ` · ${client.company}` : ''}`
+            : '';
         const clientLabel = client
-            ? `${CRM.escapeHtml(client.name)}${client.company ? ` <span class="crm-inline-note">· ${CRM.escapeHtml(client.company)}</span>` : ''}`
+            ? `<span class="crm-client-cell">
+                    <span class="crm-client-name">${CRM.escapeHtml(client.name)}</span>
+                    ${client.company ? `<span class="crm-client-company">${CRM.escapeHtml(client.company)}</span>` : ''}
+               </span>`
             : '<span class="crm-inline-note">—</span>';
 
         const statusSelect = `
@@ -272,13 +278,13 @@ class ProjectsManager {
                 <td class="quote-title-cell">
                     <div class="list-row-primary">
                         <span class="crm-project-name-wrap">
-                            <span class="crm-project-name">${CRM.escapeHtml(project.name)}</span>
+                            <span class="crm-project-name" title="${CRM.escapeHtml(project.name)}">${CRM.escapeHtml(project.name)}</span>
                             ${sharedBadge}
                         </span>
                         ${metaHtml}
                     </div>
                 </td>
-                <td class="col-fold-sm">${clientLabel}</td>
+                <td class="col-fold-sm" title="${CRM.escapeHtml(clientTitle)}">${clientLabel}</td>
                 <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</td>
                 <td onclick="event.stopPropagation()">${statusCell}</td>
                 <td class="col-fold-sm">${CRM.contractStatusChip(project.contractStatus)}</td>
