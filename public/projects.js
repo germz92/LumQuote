@@ -203,12 +203,9 @@ class ProjectsManager {
             <select class="crm-status-select crm-chip--${CRM.escapeHtml(display.key || 'lead')}"
                     onclick="event.stopPropagation()"
                     onchange="projectsManager.changeStatus('${project._id}', this.value)">
-                ${Object.entries(CRM.PROJECT_STATUS_LABELS).map(([value, label]) => {
-                    const text = (value === (project.status || 'lead') && display.key === 'partial')
-                        ? display.label
-                        : label;
-                    return `<option value="${value}" ${value === project.status ? 'selected' : ''}>${CRM.escapeHtml(text)}</option>`;
-                }).join('')}
+                ${CRM.projectStatusDropdownOptions(project.status, display).map(([value, label]) =>
+                    `<option value="${value}" ${value === project.status ? 'selected' : ''}>${CRM.escapeHtml(label)}</option>`
+                ).join('')}
             </select>`;
 
         const inv = project.invoiceSummary || {};

@@ -7,11 +7,21 @@ const CRM = {
         lead: 'Lead',
         quoted: 'Quoted',
         booked: 'Booked',
-        contract_signed: 'Contract Signed',
         invoiced: 'Invoiced',
+        contract_signed: 'Contract Signed',
         paid: 'Paid',
         complete: 'Complete'
     },
+
+    // Dropdown order (no Booked). Filter still uses PROJECT_STATUS_LABELS including Booked.
+    PROJECT_STATUS_DROPDOWN: [
+        ['lead', 'Lead'],
+        ['quoted', 'Quoted'],
+        ['invoiced', 'Invoiced'],
+        ['contract_signed', 'Contract Signed'],
+        ['paid', 'Paid'],
+        ['complete', 'Complete']
+    ],
 
     BOOKED_PLUS_STATUSES: ['booked', 'contract_signed', 'invoiced', 'paid', 'complete'],
 
@@ -121,6 +131,19 @@ const CRM = {
             return { key: 'partial', label: 'Partial' };
         }
         return { key: status, label: this.PROJECT_STATUS_LABELS[status] || status };
+    },
+
+    projectStatusDropdownOptions(currentStatus, display) {
+        const options = this.PROJECT_STATUS_DROPDOWN.map(([value, label]) => {
+            const text = (value === (currentStatus || 'lead') && display?.key === 'partial')
+                ? (display.label || label)
+                : label;
+            return [value, text];
+        });
+        if (currentStatus === 'booked') {
+            options.splice(2, 0, ['booked', 'Booked']);
+        }
+        return options;
     },
 
     projectStatusChip(projectOrStatus, invoices) {
