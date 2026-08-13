@@ -3363,7 +3363,8 @@ body.is-service-reordering * {
 }
 
 .alert-content p,
-.confirm-content p {
+.confirm-content p,
+.confirm-content #confirmModalMessage {
     margin: 0;
     line-height: 1.5;
     color: #374151;

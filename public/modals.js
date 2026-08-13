@@ -31,7 +31,7 @@ function injectAppModals() {
             <div class="modal-body">
                 <div class="confirm-content">
                     <div class="confirm-icon">⚠️</div>
-                    <p id="confirmModalMessage">Are you sure?</p>
+                    <div id="confirmModalMessage">Are you sure?</div>
                 </div>
                 <div class="modal-buttons">
                     <button type="button" class="btn btn-secondary btn-md secondary-button" id="confirmModalCancel" onclick="hideConfirmModal(false)">Cancel</button>
@@ -120,7 +120,7 @@ function hideAlertModal() {
     }, 200);
 }
 
-function showConfirmModal(message, title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel') {
+function showConfirmModal(message, title = 'Confirm', confirmText = 'Confirm', cancelText = 'Cancel', allowHtml = false) {
     return new Promise((resolve) => {
         const modal = document.getElementById('confirmModal');
         if (!modal) {
@@ -134,7 +134,11 @@ function showConfirmModal(message, title = 'Confirm', confirmText = 'Confirm', c
         const cancelBtn = document.getElementById('confirmModalCancel');
 
         titleEl.textContent = title;
-        messageEl.textContent = message;
+        if (allowHtml) {
+            messageEl.innerHTML = message;
+        } else {
+            messageEl.textContent = message;
+        }
         confirmBtn.textContent = confirmText;
         if (cancelBtn) cancelBtn.textContent = cancelText;
 

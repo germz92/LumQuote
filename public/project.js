@@ -133,6 +133,8 @@ class ProjectPage {
 
         if (shareBtn) shareBtn.style.display = shareable ? '' : 'none';
         if (saveBtn) saveBtn.style.display = editable ? '' : 'none';
+        const sendNowBtn = document.getElementById('sendNowBtn');
+        if (sendNowBtn) sendNowBtn.style.display = editable ? '' : 'none';
         if (saveNotesBtn) saveNotesBtn.style.display = editable ? '' : 'none';
         if (transferBtn) transferBtn.style.display = editable ? '' : 'none';
         if (note) {
@@ -225,6 +227,7 @@ class ProjectPage {
     emailLogLabel(type, docKind) {
         const labels = {
             sent_link: docKind === 'invoice' ? 'Invoice emailed' : 'Contract emailed',
+            sent_bundle: 'Contract and invoice emailed',
             signed_copy: 'Signed copy emailed',
             copy_request: docKind === 'invoice' ? 'Invoice copy emailed' : 'Contract copy emailed',
             receipt: 'Payment receipt emailed',
@@ -349,6 +352,115 @@ class ProjectPage {
             }
         } catch (error) {
             showAlertModal(error.message, 'error');
+        }
+    }
+
+    sendNowPlan() {
+        const { project, quotes = [], contract, invoices = [] } = this.data || {};
+        const email = String(project?.client?.email || '').trim();
+        const billable = invoices.filter((inv) => inv && inv.status !== 'void');
+        const needsContract = !contract;
+        const needsInvoice = billable.length === 0;
+        const quote = quotes.length === 1 ? quotes[0] : null;
+        const quoteLabel = quote ? this.quoteTitle(quote) : '';
+
+        if (!email) {
+            return { error: 'Add a client email on this project first.' };
+        }
+        if (billable.length > 1) {
+            return { error: 'This project has more than one invoice. Send the one you want from the Invoices tab.' };
+        }
+        if ((needsContract || needsInvoice) && quotes.length !== 1) {
+            return {
+                error: quotes.length === 0
+                    ? 'Link exactly one quote to this project before Send It! can generate a contract or invoice.'
+                    : 'This project has more than one quote. Generate the contract and invoice from the right quote first, then use Send It!'
+            };
+        }
+
+        const contractAction = needsContract
+            ? 'generate'
+            : (contract.status === 'signed' ? 'skip' : 'send');
+        const invoiceAction = needsInvoice
+            ? 'create'
+            : (billable[0].status === 'paid' ? 'skip' : 'send');
+
+        if (contractAction === 'skip' && invoiceAction === 'skip') {
+            return { error: 'Nothing to send. The contract is already signed and the invoice is already paid.' };
+        }
+
+        const clientName = String(project?.client?.name || '').trim();
+        const who = clientName
+            ? `${CRM.escapeHtml(clientName)} (${CRM.escapeHtml(email)})`
+            : CRM.escapeHtml(email);
+        const quoteHtml = quoteLabel ? `“${CRM.escapeHtml(quoteLabel)}”` : 'the quote';
+
+        let contractDetail;
+        let contractSkip = false;
+        if (contractAction === 'generate') {
+            contractDetail = `Create it from ${quoteHtml} and email the signing link.`;
+        } else if (contractAction === 'send') {
+            contractDetail = 'Email the existing signing link.';
+        } else {
+            contractDetail = 'Already signed — won’t send again.';
+            contractSkip = true;
+        }
+
+        let invoiceDetail;
+        let invoiceSkip = false;
+        if (invoiceAction === 'create') {
+            invoiceDetail = `Create it from ${quoteHtml} and email it. Due in full, no deposit plan.`;
+        } else if (invoiceAction === 'send') {
+            invoiceDetail = `Email ${CRM.escapeHtml(billable[0].invoiceNumber)}.`;
+        } else {
+            invoiceDetail = `${CRM.escapeHtml(billable[0].invoiceNumber)} is already paid — won’t send again.`;
+            invoiceSkip = true;
+        }
+
+        const html = `
+            <div class="send-it-copy">
+                <p>This sends <strong>one email</strong> to <strong>${who}</strong> with the contract and invoice.</p>
+                <ul>
+                    <li class="${contractSkip ? 'is-skip' : ''}"><span class="send-it-label">Contract</span>${contractDetail}</li>
+                    <li class="${invoiceSkip ? 'is-skip' : ''}"><span class="send-it-label">Invoice</span>${invoiceDetail}</li>
+                </ul>
+            </div>`;
+
+        return { email, html };
+    }
+
+    async sendNow() {
+        const plan = this.sendNowPlan();
+        if (plan.error) {
+            showAlertModal(plan.error, 'error');
+            return;
+        }
+        const confirmed = await showConfirmModal(plan.html, 'Send It!', 'Send It!', 'Cancel', true);
+        if (!confirmed) return;
+
+        const button = document.getElementById('sendNowBtn');
+        const original = button ? button.textContent : '';
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Sending...';
+        }
+        try {
+            const result = await CRM.api(`/api/projects/${this.projectId}/send-now`, { method: 'POST' });
+            await this.reload();
+            this.renderAll();
+            const emailedTo = (result.emailedTo || [plan.email]).join(', ');
+            showAlertModal(
+                `Sent one email to ${emailedTo} with the contract and invoice.`,
+                'success',
+                'Send It!'
+            );
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = original || 'Send It!';
+            }
         }
     }
 
