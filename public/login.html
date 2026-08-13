@@ -59,6 +59,11 @@
                 return;
             }
 
+            const next = urlParams.get('next');
+            if (next && next.startsWith('/') && !next.startsWith('//')) {
+                try { sessionStorage.setItem('lumquote_next', next); } catch (e) {}
+            }
+
             if (token) {
                 window.history.replaceState({}, document.title, '/login');
                 verifyAndLogin(token);
@@ -67,6 +72,15 @@
 
             checkExistingSession();
         });
+
+        function consumeNextPath() {
+            try {
+                const next = sessionStorage.getItem('lumquote_next');
+                sessionStorage.removeItem('lumquote_next');
+                if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+            } catch (e) {}
+            return '/quotes';
+        }
 
         async function checkExistingSession() {
             if (isRedirecting) return;
@@ -82,7 +96,7 @@
                         localStorage.setItem('user', JSON.stringify(data.user));
                     }
                     isRedirecting = true;
-                    window.location.replace('/quotes');
+                    window.location.replace(consumeNextPath());
                 } else {
                     localStorage.removeItem('authToken');
                     localStorage.removeItem('user');
@@ -119,7 +133,7 @@
                     showSuccess('Welcome, ' + data.user.name + '! Redirecting...');
 
                     setTimeout(() => {
-                        window.location.href = '/quotes';
+                        window.location.href = consumeNextPath();
                     }, 1000);
                 } else {
                     showError(data.message || 'Authentication failed. Please try again.');

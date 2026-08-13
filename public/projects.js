@@ -198,12 +198,17 @@ class ProjectsManager {
                </span>`
             : '<span class="crm-inline-note">—</span>';
 
+        const display = CRM.projectDisplayStatus(project);
         const statusSelect = `
-            <select class="crm-status-select crm-chip--${CRM.escapeHtml(project.status || 'lead')}"
+            <select class="crm-status-select crm-chip--${CRM.escapeHtml(display.key || 'lead')}"
                     onclick="event.stopPropagation()"
                     onchange="projectsManager.changeStatus('${project._id}', this.value)">
-                ${Object.entries(CRM.PROJECT_STATUS_LABELS).map(([value, label]) =>
-                    `<option value="${value}" ${value === project.status ? 'selected' : ''}>${label}</option>`).join('')}
+                ${Object.entries(CRM.PROJECT_STATUS_LABELS).map(([value, label]) => {
+                    const text = (value === (project.status || 'lead') && display.key === 'partial')
+                        ? display.label
+                        : label;
+                    return `<option value="${value}" ${value === project.status ? 'selected' : ''}>${CRM.escapeHtml(text)}</option>`;
+                }).join('')}
             </select>`;
 
         const inv = project.invoiceSummary || {};
@@ -271,7 +276,7 @@ class ProjectsManager {
 
         const statusCell = canEdit
             ? statusSelect
-            : CRM.projectStatusChip(project.status);
+            : CRM.projectStatusChip(project);
 
         return `
             <tr class="quote-row is-clickable${isBookedPlus ? ' project-row--booked' : ''}"${isBookedPlus ? ' title="Booked (signed, invoiced, paid, or complete)"' : ''} onclick="window.location.href='/projects/${project._id}'">

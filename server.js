@@ -75,8 +75,12 @@ function requireAuth(req, res, next) {
     if (req.path.startsWith('/api/') && req.path !== '/api/login') {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    // For page requests, redirect to login
-    return res.redirect('/login');
+    // For page requests, redirect to login (keep destination for after sign-in)
+    const next = req.originalUrl && req.originalUrl.startsWith('/') ? req.originalUrl : '';
+    const loginUrl = next && next !== '/login'
+      ? `/login?next=${encodeURIComponent(next)}`
+      : '/login';
+    return res.redirect(loginUrl);
   }
   
   try {

@@ -334,7 +334,7 @@ class InvoicesManager {
                         ${metaHtml}
                     </div>
                 </td>
-                <td>${CRM.invoiceStatusChip(inv.status)}</td>
+                <td>${CRM.invoiceStatusChip(inv)}</td>
                 <td class="col-fold-sm">${this.clientLabel(inv.client)}</td>
                 <td class="col-fold-sm">${projectCell}</td>
                 <td class="col-fold-sm">${due}</td>

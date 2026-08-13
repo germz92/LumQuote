@@ -19,8 +19,10 @@ class ProjectPage {
             return;
         }
         this.renderAll();
+        const params = new URLSearchParams(window.location.search);
         const hash = (window.location.hash || '').replace('#', '');
-        const invoiceId = new URLSearchParams(window.location.search).get('invoice');
+        const invoiceId = params.get('invoice');
+        const tab = params.get('tab') || hash;
         if (invoiceId) {
             this.showTab('invoices');
             try {
@@ -32,8 +34,11 @@ class ProjectPage {
             if (history.replaceState) {
                 history.replaceState(null, '', `${window.location.pathname}#invoices`);
             }
-        } else if (['overview', 'quotes', 'contract', 'invoices'].includes(hash)) {
-            this.showTab(hash);
+        } else if (['overview', 'quotes', 'contract', 'invoices'].includes(tab)) {
+            this.showTab(tab);
+            if (params.get('tab') && history.replaceState) {
+                history.replaceState(null, '', `${window.location.pathname}#${tab}`);
+            }
         }
     }
 
@@ -97,12 +102,12 @@ class ProjectPage {
 
         const meta = document.getElementById('projectHeroMeta');
         meta.innerHTML = `
-            ${CRM.projectStatusChip(project.status)}
+            ${CRM.projectStatusChip(project, invoices)}
             ${sharedBadge}
             <span>${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</span>
             ${project.client ? `<span>· ${CRM.escapeHtml(project.client.name)}</span>` : ''}
         `;
-        document.getElementById('projectStatusChip').innerHTML = CRM.projectStatusChip(project.status);
+        document.getElementById('projectStatusChip').innerHTML = CRM.projectStatusChip(project, invoices);
 
         document.getElementById('quotesTabBadge').textContent = quotes.length;
         document.getElementById('invoicesTabBadge').textContent = invoices.length;
@@ -181,6 +186,11 @@ class ProjectPage {
             bookedOpt.remove();
         }
         statusSelect.value = project.status || 'lead';
+        const invoicedOpt = statusSelect.querySelector('option[value="invoiced"]');
+        if (invoicedOpt) {
+            const display = CRM.projectDisplayStatus(project, this.data.invoices);
+            invoicedOpt.textContent = display.key === 'partial' ? 'Partial' : 'Invoiced';
+        }
         document.getElementById('projStart').value = project.startDate || '';
         document.getElementById('projEnd').value = project.endDate || '';
         document.getElementById('projNotes').value = project.notes || '';
@@ -1149,7 +1159,7 @@ class ProjectPage {
                                     ${metaHtml}
                                 </div>
                             </td>
-                            <td>${CRM.invoiceStatusChip(inv.status)}</td>
+                            <td>${CRM.invoiceStatusChip(inv)}</td>
                             <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDate(inv.issueDate) || '—')}</td>
                             <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDate(inv.dueDate) || '—')}</td>
                             <td class="num">${CRM.money(inv.total)}</td>
@@ -1257,7 +1267,7 @@ class ProjectPage {
                 <div class="crm-card-header">
                     <h3>Edit ${CRM.escapeHtml(inv.invoiceNumber)}</h3>
                     <div class="crm-actions-row" style="margin-top:0">
-                        ${CRM.invoiceStatusChip(inv.status)}
+                        ${CRM.invoiceStatusChip(inv)}
                         <button class="crm-btn-sm" onclick="projectPage.closeInvoiceEditor()">Close</button>
                     </div>
                 </div>

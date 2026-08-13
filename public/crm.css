@@ -24,6 +24,7 @@
 .crm-chip--booked { background: var(--color-primary-muted); color: var(--color-primary-hover); }
 .crm-chip--contract_signed { background: #f5f3ff; color: #7c3aed; }
 .crm-chip--invoiced { background: var(--color-warning-bg); color: var(--color-warning); }
+.crm-chip--partial { background: #ffedd5; color: #c2410c; }
 .crm-chip--paid { background: var(--color-success-bg); color: var(--color-success); }
 .crm-chip--complete { background: #e0f2fe; color: #0369a1; }
 

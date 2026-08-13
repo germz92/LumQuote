@@ -29,6 +29,7 @@ const CRM = {
     INVOICE_STATUS_LABELS: {
         draft: 'Draft',
         sent: 'Sent',
+        partial: 'Partial',
         paid: 'Paid',
         void: 'Void'
     },
@@ -82,9 +83,49 @@ const CRM = {
         return `<div class="list-row-meta">${items.join('<span class="list-row-meta-sep">·</span>')}</div>`;
     },
 
-    projectStatusChip(status) {
-        const label = this.PROJECT_STATUS_LABELS[status] || status || 'Lead';
-        return `<span class="crm-chip crm-chip--${this.escapeHtml(status || 'lead')}">${this.escapeHtml(label)}</span>`;
+    isPartialAmount(paid, total) {
+        const p = Math.round(Number(paid || 0) * 100);
+        const t = Math.round(Number(total || 0) * 100);
+        return t > 0 && p > 0 && p < t;
+    },
+
+    invoiceDisplayStatus(inv) {
+        if (!inv || typeof inv === 'string') return inv || 'draft';
+        if (inv.status === 'sent' && this.isPartialAmount(inv.amountPaid, inv.total)) return 'partial';
+        return inv.status || 'draft';
+    },
+
+    projectHasPartialPayment(project, invoices) {
+        const summary = project?.invoiceSummary;
+        if (summary && Number(summary.totalInvoiced) > 0) {
+            return this.isPartialAmount(summary.totalPaid, summary.totalInvoiced);
+        }
+        const list = invoices || project?.invoices || [];
+        let paid = 0;
+        let total = 0;
+        list.forEach((inv) => {
+            if (!inv || inv.status === 'void') return;
+            paid += Number(inv.amountPaid) || 0;
+            total += Number(inv.total) || 0;
+        });
+        return this.isPartialAmount(paid, total);
+    },
+
+    projectDisplayStatus(project, invoices) {
+        if (!project || typeof project === 'string') {
+            const status = project || 'lead';
+            return { key: status, label: this.PROJECT_STATUS_LABELS[status] || status };
+        }
+        const status = project.status || 'lead';
+        if (status === 'invoiced' && this.projectHasPartialPayment(project, invoices)) {
+            return { key: 'partial', label: 'Partial' };
+        }
+        return { key: status, label: this.PROJECT_STATUS_LABELS[status] || status };
+    },
+
+    projectStatusChip(projectOrStatus, invoices) {
+        const { key, label } = this.projectDisplayStatus(projectOrStatus, invoices);
+        return `<span class="crm-chip crm-chip--${this.escapeHtml(key || 'lead')}">${this.escapeHtml(label)}</span>`;
     },
 
     contractStatusChip(status) {
@@ -92,7 +133,8 @@ const CRM = {
         return `<span class="crm-chip crm-chip--${this.escapeHtml(status || 'none')}">${this.escapeHtml(label)}</span>`;
     },
 
-    invoiceStatusChip(status) {
+    invoiceStatusChip(inv) {
+        const status = this.invoiceDisplayStatus(inv);
         const label = this.INVOICE_STATUS_LABELS[status] || status;
         return `<span class="crm-chip crm-chip--${this.escapeHtml(status)}">${this.escapeHtml(label)}</span>`;
     },
