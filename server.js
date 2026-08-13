@@ -2489,6 +2489,7 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
       const project = await Project.findById(result.project);
       const linkedQuotes = await SavedQuote.find({ project: result.project }, { quoteData: 1 });
       await syncProjectDatesFromQuotes(project, linkedQuotes);
+      require('./lib/google-calendar').scheduleProjectSync(result.project);
     }
 
     res.json({ success: true, id: result._id, createdBy: userRecord?.name });
@@ -2552,6 +2553,7 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
       const project = await Project.findById(id);
       const linkedQuotes = await SavedQuote.find({ project: id }, { quoteData: 1 });
       await syncProjectDatesFromQuotes(project, linkedQuotes);
+      require('./lib/google-calendar').scheduleProjectSync(id);
     }
 
     res.json({ success: true });

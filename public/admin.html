@@ -117,6 +117,13 @@
                         <button type="submit" class="primary-button">Save Settings</button>
                     </form>
                 </div>
+
+                <div class="admin-card" id="google-calendar-card">
+                    <h3>Google Calendar</h3>
+                    <p class="form-help">Connect a shared company calendar in a few steps. Booked and later projects with dates appear as events, with contract and invoice links in the description.</p>
+                    <div id="gcal-status" class="gcal-status">Checking Google Calendar…</div>
+                    <div id="gcal-actions" class="gcal-actions"></div>
+                </div>
             </div>
 
             <div class="admin-section crm-panel" id="admin-panel-payments">
@@ -256,6 +263,23 @@
                     </div>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <div id="gcalWizard" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="gcalWizardTitle">
+        <div class="modal-content gcal-wizard-content">
+            <div class="modal-header">
+                <h2 id="gcalWizardTitle">Connect Google Calendar</h2>
+                <span class="close" id="gcalWizardClose" role="button" tabindex="0" aria-label="Close">&times;</span>
+            </div>
+            <ol class="gcal-wizard-steps" aria-label="Setup steps">
+                <li data-step="1">Overview</li>
+                <li data-step="2">Google</li>
+                <li data-step="3">Calendar</li>
+                <li data-step="4">Done</li>
+            </ol>
+            <div class="modal-body" id="gcalWizardBody"></div>
+            <div class="modal-buttons" id="gcalWizardButtons"></div>
         </div>
     </div>
 

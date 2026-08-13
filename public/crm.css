@@ -1951,3 +1951,115 @@
 }
 
 .crm-copy-flash { color: var(--color-success); font-size: var(--font-size-xs); }
+
+/* ---------- Google Calendar (admin) ---------- */
+
+#admin-panel-company.is-active {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.gcal-status {
+  margin: 12px 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.gcal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gcal-wizard-content {
+  max-width: 560px;
+}
+
+.gcal-wizard-steps {
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 16px 24px 0;
+}
+
+.gcal-wizard-steps li {
+  flex: 1;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--color-border);
+}
+
+.gcal-wizard-steps li.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.gcal-wizard-steps li.is-done {
+  color: var(--color-success);
+  border-bottom-color: var(--color-success);
+}
+
+.gcal-wizard-content .modal-body {
+  padding: 20px 24px 8px;
+}
+
+.gcal-wizard-copy {
+  margin: 0 0 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.gcal-wizard-copy:last-child {
+  margin-bottom: 0;
+}
+
+.gcal-wizard-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+
+.gcal-calendar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow: auto;
+  margin: 12px 0 0;
+}
+
+.gcal-calendar-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.gcal-calendar-option:has(input:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-muted);
+}
+
+.gcal-calendar-option strong {
+  display: block;
+}
+
+.gcal-calendar-option small {
+  color: var(--color-text-muted);
+}
+
+.gcal-google-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
