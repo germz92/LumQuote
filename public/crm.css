@@ -1542,6 +1542,10 @@
 .invoice-number { font-weight: var(--font-weight-semibold); color: var(--color-text); }
 
 .invoice-project-link {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--color-primary);
   text-decoration: none;
   font-weight: var(--font-weight-medium);
@@ -1550,9 +1554,12 @@
 .invoice-project-link:hover { text-decoration: underline; }
 
 .invoice-plan-summary {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  white-space: nowrap;
 }
 
 /* Expanded schedule: full-width inset panel under the parent row */
@@ -1565,6 +1572,9 @@
   background: #f8fafc;
   padding: 0 16px 14px 40px;
   border-bottom: 1px solid var(--color-border);
+  overflow: visible;
+  white-space: normal;
+  text-overflow: unset;
 }
 
 .invoice-plan-panel {
@@ -1627,10 +1637,48 @@
 
 .invoice-plan-col-status { text-align: right; }
 
-.invoices-table th,
-.invoices-table td { white-space: nowrap; vertical-align: middle; }
+.invoices-table {
+  width: 100%;
+  table-layout: fixed;
+}
 
-.invoices-table td:nth-child(2) { white-space: normal; min-width: 120px; }
+.invoices-table th,
+.invoices-table td {
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.invoices-table th:nth-child(1),
+.invoices-table td.invoice-caret {
+  width: 28px;
+  padding-left: 10px;
+  padding-right: 4px;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.invoices-table th:nth-child(2),
+.invoices-table td:nth-child(2) { width: 14%; }
+.invoices-table th:nth-child(3),
+.invoices-table td:nth-child(3) { width: 9%; white-space: nowrap; }
+.invoices-table th:nth-child(4),
+.invoices-table td:nth-child(4) { width: 14%; }
+.invoices-table th:nth-child(5),
+.invoices-table td:nth-child(5) { width: 16%; }
+.invoices-table th:nth-child(6),
+.invoices-table td:nth-child(6) { width: 8%; white-space: nowrap; }
+.invoices-table th:nth-child(7),
+.invoices-table td:nth-child(7) { width: 8%; white-space: nowrap; }
+.invoices-table th:nth-child(8),
+.invoices-table td:nth-child(8) { width: 8%; white-space: nowrap; }
+.invoices-table th:nth-child(9),
+.invoices-table td:nth-child(9) { width: 9%; }
+.invoices-table th:nth-child(10),
+.invoices-table td:nth-child(10) { width: 8%; }
+.invoices-table th:nth-child(11),
+.invoices-table td:nth-child(11) { width: 8%; white-space: nowrap; }
 
 /* ---------- Clients page ---------- */
 

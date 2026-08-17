@@ -201,7 +201,13 @@ class InvoicesManager {
         const status = document.getElementById('statusFilter')?.value;
         const h3 = empty.querySelector('h3');
         const p = empty.querySelector('p');
-        if (search || status) {
+        if (status === 'overdue') {
+            h3.textContent = 'No overdue invoices';
+            p.textContent = 'Invoices with a balance and a due date before today will show here.';
+        } else if (status === 'unpaid') {
+            h3.textContent = 'No unpaid invoices';
+            p.textContent = 'Draft and sent invoices that still have a balance will show here.';
+        } else if (search || status) {
             h3.textContent = 'No matching invoices';
             p.textContent = 'Try adjusting your search or filters.';
         } else if (this.when === 'past') {

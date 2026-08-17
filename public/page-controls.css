@@ -259,6 +259,15 @@ body[data-app-page="invoices"] .quotes-list-scroll {
   max-height: max(360px, calc(100vh - 310px));
 }
 
+body[data-app-page="invoices"] .quotes-list-view {
+  min-width: 0;
+  width: 100%;
+}
+
+body[data-app-page="invoices"] .quotes-list-scroll {
+  overflow-x: hidden;
+}
+
 body[data-app-page="quotes"] .quotes-data-area > .quotes-grid {
   overflow: auto;
   max-height: max(360px, calc(100vh - 310px));
