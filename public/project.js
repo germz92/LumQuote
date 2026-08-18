@@ -196,6 +196,10 @@ class ProjectPage {
         document.getElementById('projStart').value = project.startDate || '';
         document.getElementById('projEnd').value = project.endDate || '';
         document.getElementById('projNotes').value = project.notes || '';
+        const quoteLeadSource = (this.data.quotes || []).find((q) => q.leadSource)?.leadSource || '';
+        if (window.LeadSources) {
+            LeadSources.setLeadSourceFormValue(project.leadSource || quoteLeadSource);
+        }
 
         const client = project.client || {};
         const address = client.address || {};
@@ -467,6 +471,16 @@ class ProjectPage {
     async saveProject() {
         const previousStatus = this.data?.project?.status || 'lead';
         const nextStatus = document.getElementById('projStatus').value;
+        const leadSourceError = window.LeadSources
+            ? LeadSources.validateLeadSourceForm({ required: false })
+            : null;
+        if (leadSourceError) {
+            showAlertModal(leadSourceError, 'error');
+            return;
+        }
+        const leadSource = window.LeadSources
+            ? LeadSources.getLeadSourceFromForm()
+            : (document.getElementById('leadSource')?.value || '').trim();
         try {
             await CRM.api(`/api/projects/${this.projectId}`, {
                 method: 'PUT',
@@ -475,7 +489,8 @@ class ProjectPage {
                     status: nextStatus,
                     startDate: document.getElementById('projStart').value || null,
                     endDate: document.getElementById('projEnd').value || null,
-                    notes: document.getElementById('projNotes').value
+                    notes: document.getElementById('projNotes').value,
+                    leadSource: leadSource || null
                 }
             });
             showAlertModal('Project saved.', 'success', null, true);
@@ -1254,10 +1269,11 @@ class ProjectPage {
                     ${invoices.map((inv) => {
                         const issued = CRM.formatDate(inv.issueDate) || '';
                         const due = CRM.formatDate(inv.dueDate) || '';
+                        const overdue = CRM.isInvoiceOverdue(inv);
                         const paidMeta = inv.amountPaid > 0 ? `Paid ${CRM.money(inv.amountPaid)}` : '';
                         const metaHtml = CRM.listRowMeta([
                             issued ? `Issued ${CRM.escapeHtml(issued)}` : '',
-                            due ? `Due ${CRM.escapeHtml(due)}` : '',
+                            due ? `${overdue ? 'Overdue' : 'Due'} ${CRM.escapeHtml(due)}` : '',
                             paidMeta
                         ]);
                         return `
@@ -1273,7 +1289,7 @@ class ProjectPage {
                             </td>
                             <td>${CRM.invoiceStatusChip(inv)}</td>
                             <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDate(inv.issueDate) || '—')}</td>
-                            <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDate(inv.dueDate) || '—')}</td>
+                            <td class="col-fold-sm${overdue ? ' invoice-due--overdue' : ''}">${CRM.escapeHtml(CRM.formatDate(inv.dueDate) || '—')}</td>
                             <td class="num">${CRM.money(inv.total)}</td>
                             <td>
                                 <div class="crm-row-actions">

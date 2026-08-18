@@ -18,6 +18,15 @@
         <main class="main-content reports-page">
             <div class="page-controls-sticky">
                 <div class="page-controls">
+                    <div class="pc-view-toggle" role="group" aria-label="Report type">
+                        <button type="button" class="pc-btn is-active" id="reportViewProjectsBtn" onclick="reportsManager.setView('projects')">
+                            Projects
+                        </button>
+                        <button type="button" class="pc-btn" id="reportViewQuotesBtn" onclick="reportsManager.setView('quotes')">
+                            Quotes
+                        </button>
+                    </div>
+
                     <label class="pc-label" for="timePreset">Period</label>
                     <select id="timePreset" class="pc-select" onchange="reportsManager.handleTimePresetChange()">
                         <option value="current-month">Current Month</option>
@@ -44,7 +53,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                     </div>
                     <div class="reports-metric-card__body">
-                        <div class="label">Projects</div>
+                        <div class="label" id="summaryCountLabel">Projects</div>
                         <div class="value" id="totalProjects">-</div>
                     </div>
                 </div>
@@ -63,7 +72,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     </div>
                     <div class="reports-metric-card__body">
-                        <div class="label">Invoices</div>
+                        <div class="label" id="summaryThirdLabel">Invoices</div>
                         <div class="value" id="invoiceCount">-</div>
                     </div>
                 </div>
@@ -72,7 +81,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                     </div>
                     <div class="reports-metric-card__body">
-                        <div class="label">Invoiced</div>
+                        <div class="label" id="summaryPrimaryLabel">Invoiced</div>
                         <div class="value currency" id="invoicedTotal">-</div>
                     </div>
                 </div>
@@ -81,7 +90,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                     <div class="reports-metric-card__body">
-                        <div class="label">Paid</div>
+                        <div class="label" id="summarySecondaryLabel">Paid</div>
                         <div class="value currency" id="paidTotal">-</div>
                     </div>
                 </div>
@@ -90,7 +99,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     </div>
                     <div class="reports-metric-card__body">
-                        <div class="label">Outstanding</div>
+                        <div class="label" id="summaryTertiaryLabel">Outstanding</div>
                         <div class="value currency" id="outstandingTotal">-</div>
                     </div>
                 </div>
@@ -104,7 +113,7 @@
                             <span class="report-card-icon" aria-hidden="true">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                             </span>
-                            <h3>Pipeline by status</h3>
+                            <h3 id="headingPipeline">Pipeline by status</h3>
                         </div>
                     </div>
                     <div class="report-card-body" id="pipelineByStatus">
@@ -116,9 +125,23 @@
                     <div class="report-card-header">
                         <div class="report-card-heading">
                             <span class="report-card-icon" aria-hidden="true">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                            </span>
+                            <h3>Lead sources</h3>
+                        </div>
+                    </div>
+                    <div class="report-card-body" id="leadSources">
+                        <div class="loading-spinner"></div>
+                    </div>
+                </div>
+
+                <div class="report-card">
+                    <div class="report-card-header">
+                        <div class="report-card-heading">
+                            <span class="report-card-icon" aria-hidden="true">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                             </span>
-                            <h3>Cash summary</h3>
+                            <h3 id="headingValue">Cash summary</h3>
                         </div>
                     </div>
                     <div class="report-card-body" id="cashSummary">
@@ -132,7 +155,7 @@
                             <span class="report-card-icon" aria-hidden="true">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                             </span>
-                            <h3>Top clients by paid</h3>
+                            <h3 id="headingTopValue">Top clients by paid</h3>
                         </div>
                     </div>
                     <div class="report-card-body" id="topClientsByPaid">
@@ -146,7 +169,7 @@
                             <span class="report-card-icon" aria-hidden="true">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                             </span>
-                            <h3>Top clients by projects</h3>
+                            <h3 id="headingTopCount">Top clients by projects</h3>
                         </div>
                     </div>
                     <div class="report-card-body" id="topClientsByProjects">
@@ -160,7 +183,7 @@
                             <span class="report-card-icon" aria-hidden="true">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                             </span>
-                            <h3>Top cities</h3>
+                            <h3 id="headingPlaces">Top cities</h3>
                         </div>
                     </div>
                     <div class="report-card-body" id="topCities">

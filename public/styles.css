@@ -1507,70 +1507,6 @@ body {
     flex-wrap: wrap;
 }
 
-.primary-button {
-    background: var(--color-primary, #4f46e5);
-    color: var(--color-text-inverse, white);
-    border: 1px solid var(--color-primary, #4f46e5);
-    padding: 16px 32px;
-    border-radius: var(--radius-lg, 12px);
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    min-width: 200px;
-}
-
-.primary-button:hover:not(:disabled) {
-    background: var(--color-primary-hover, #4338ca);
-    border-color: var(--color-primary-hover, #4338ca);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-md, 0 4px 12px rgba(79, 70, 229, 0.3));
-}
-
-.primary-button:disabled {
-    background: #9ca3af;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-.secondary-button {
-    background: #f8fafc;
-    color: #64748b;
-    border: 1px solid #e2e8f0;
-    padding: 16px 32px;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-left: 12px;
-}
-
-.secondary-button:hover {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
-}
-
-.tertiary-button {
-    background: #fbbf24;
-    color: #92400e;
-    border: 1px solid #f59e0b;
-    padding: 16px 32px;
-    border-radius: 12px;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-left: 12px;
-}
-
-.tertiary-button:hover {
-    background: #f59e0b;
-    color: white;
-    border-color: #d97706;
-}
-
 /* Client Input Container */
 .client-input-container {
     position: relative;
@@ -2442,18 +2378,6 @@ body.is-service-reordering * {
         min-width: fit-content;
     }
     
-    .primary-button,
-    .secondary-button,
-    .tertiary-button {
-        padding: 12px 16px;
-        font-size: 0.8125rem;
-        min-width: 120px;
-        max-width: 100%;
-        margin-left: 0;
-        margin-top: 8px;
-        box-sizing: border-box;
-    }
-    
     .action-buttons,
     .save-load-buttons {
         flex-wrap: wrap;
@@ -2575,24 +2499,10 @@ body.is-service-reordering * {
         gap: 16px;
     }
     
-    .modal-buttons .primary-button,
-    .modal-buttons .secondary-button,
-    .modal-buttons .tertiary-button {
-        min-width: 120px;
-        flex: 1;
-        max-width: 150px;
-    }
-    
     #editServiceModal .modal-buttons {
         justify-content: center;
         flex-wrap: wrap;
         gap: 16px;
-    }
-    
-    #editServiceModal .modal-buttons button {
-        min-width: 120px;
-        flex: 1;
-        max-width: 150px;
     }
 }
 
@@ -2678,37 +2588,18 @@ body.is-service-reordering * {
         margin: 2px;
     }
     
-    .primary-button {
-        width: 100%;
-        min-width: auto;
-    }
-    
-    .secondary-button {
-        width: 100%;
-        margin-left: 0;
-        margin-top: 12px;
-    }
-    
-    .tertiary-button {
-        width: 100%;
-        margin-left: 0;
-        margin-top: 12px;
-    }
-    
     /* Modal buttons - stack vertically on very small screens */
     .modal-buttons {
         flex-direction: column;
         align-items: center;
         gap: 12px;
     }
-    
+
     .modal-buttons .primary-button,
     .modal-buttons .secondary-button,
     .modal-buttons .tertiary-button {
         width: 100%;
         max-width: 280px;
-        min-width: auto;
-        margin: 0;
     }
     
     #editServiceModal .modal-buttons {
@@ -2928,12 +2819,6 @@ body.is-service-reordering * {
     margin-top: 24px;
     padding: 20px;
     border-top: 1px solid #e2e8f0;
-}
-
-.modal-buttons .primary-button,
-.modal-buttons .secondary-button {
-    min-width: 100px;
-    padding: 10px 20px;
 }
 
 /* Inline Calendar Styles */
@@ -4084,37 +3969,6 @@ textarea:focus {
     gap: 12px;
     justify-content: flex-end;
     margin-top: 20px;
-}
-
-#editServiceModal .modal-buttons button {
-    padding: 10px 20px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-#editServiceModal .secondary-button {
-    background: #f8fafc;
-    color: #64748b;
-    border: 1px solid #d1d5db;
-}
-
-#editServiceModal .secondary-button:hover {
-    background: #f1f5f9;
-    color: #475569;
-}
-
-#editServiceModal .primary-button {
-    background: #3b82f6;
-    color: white;
-    border: 1px solid #3b82f6;
-}
-
-#editServiceModal .primary-button:hover {
-    background: #2563eb;
-    border-color: #2563eb;
 }
 
 /* Quotes Management Page Styles */

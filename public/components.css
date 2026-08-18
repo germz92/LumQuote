@@ -403,9 +403,12 @@
   font-style: normal;
 }
 
-/* ── Button system ───────────────────────────────────────── */
+/* ── Button system (single source of truth) ───────────────── */
 
-.btn {
+.btn,
+.primary-button,
+.secondary-button,
+.tertiary-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -418,14 +421,23 @@
   border: 1px solid transparent;
   cursor: pointer;
   text-decoration: none;
-  transition: background var(--transition-fast), border-color var(--transition-fast),
-    color var(--transition-fast), box-shadow var(--transition-fast);
+  padding: 10px var(--space-4);
+  min-width: 0;
+  margin: 0;
+  box-sizing: border-box;
   white-space: nowrap;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+    color var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
-.btn:disabled {
+.btn:disabled,
+.primary-button:disabled,
+.secondary-button:disabled,
+.tertiary-button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .btn-sm {
@@ -457,14 +469,16 @@
 }
 
 .btn-secondary,
-.secondary-button {
+.secondary-button,
+.tertiary-button {
   background: var(--color-surface);
   color: var(--color-text-secondary);
   border-color: var(--color-border);
 }
 
 .btn-secondary:hover:not(:disabled),
-.secondary-button:hover:not(:disabled) {
+.secondary-button:hover:not(:disabled),
+.tertiary-button:hover:not(:disabled) {
   background: var(--color-bg);
   border-color: var(--color-border-strong);
   color: var(--color-text);
@@ -491,16 +505,13 @@
   filter: brightness(0.92);
 }
 
-/* Map legacy tertiary to warning accent */
-.btn-warning,
-.tertiary-button {
+.btn-warning {
   background: var(--color-warning-bg);
   color: #92400e;
   border-color: #fcd34d;
 }
 
-.btn-warning:hover:not(:disabled),
-.tertiary-button:hover:not(:disabled) {
+.btn-warning:hover:not(:disabled) {
   background: #fde68a;
   border-color: var(--color-warning);
 }
@@ -525,15 +536,12 @@
   color: var(--color-text);
 }
 
-/* Modal action rows — tighter buttons */
+/* Modal action rows inherit the shared button scale */
 .modal-buttons .primary-button,
 .modal-buttons .secondary-button,
 .modal-buttons .tertiary-button {
-  min-width: auto;
-  padding: 10px var(--space-5);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  margin-left: 0;
+  min-width: 0;
+  margin: 0;
 }
 
 .modal-buttons {

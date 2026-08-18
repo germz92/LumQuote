@@ -285,7 +285,7 @@ class InvoicesManager {
         const hasPlan = !!(inv.plan && inv.plan.installments?.length);
         const isOpen = this.expanded.has(id);
         const due = inv.dueDate
-            ? CRM.escapeHtml(CRM.formatDate(inv.dueDate))
+            ? `<span class="${CRM.isInvoiceOverdue(inv) ? 'invoice-due--overdue' : ''}">${CRM.escapeHtml(CRM.formatDate(inv.dueDate))}</span>`
             : '<span class="crm-inline-note">—</span>';
 
         const projectCell = projectId
@@ -304,7 +304,9 @@ class InvoicesManager {
                   : '')
             : '';
         const projectMeta = inv.project?.name ? CRM.escapeHtml(inv.project.name) : '';
-        const dueMeta = inv.dueDate ? CRM.escapeHtml(CRM.formatDate(inv.dueDate)) : '';
+        const dueMeta = inv.dueDate
+            ? `${CRM.isInvoiceOverdue(inv) ? 'Overdue ' : 'Due '}${CRM.escapeHtml(CRM.formatDate(inv.dueDate))}`
+            : '';
         const paidMeta = `Paid ${CRM.money(inv.amountPaid)}`;
         const plan = inv.plan;
         let planMeta = '';

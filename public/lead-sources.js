@@ -1,6 +1,6 @@
 /**
- * Standard lead sources for quote tracking and reports.
- * "Referral" and "Other" store as "Referral: {name}" / "Other: {detail}" for consistent report buckets.
+ * Standard lead sources for quote and project tracking.
+ * Referral / Other / Trade Show store a detail suffix so reports can still bucket them.
  */
 const LEAD_SOURCE_OPTIONS = [
     'Repeat Client',
@@ -18,8 +18,10 @@ const LEAD_SOURCE_OPTIONS = [
 
 const LEAD_SOURCE_REFERRAL = 'Referral';
 const LEAD_SOURCE_OTHER = 'Other';
+const LEAD_SOURCE_EVENT = 'Trade Show / Industry Event';
 const LEAD_SOURCE_REFERRAL_PREFIX = 'Referral: ';
 const LEAD_SOURCE_OTHER_PREFIX = 'Other: ';
+const LEAD_SOURCE_EVENT_PREFIX = 'Trade Show / Industry Event: ';
 
 /** Map legacy free-text values to standard options when loading existing quotes */
 const LEAD_SOURCE_LEGACY_MAP = {
@@ -51,41 +53,51 @@ function normalizeLegacyLeadSource(value) {
     if (mapped) {
         return mapped;
     }
-    if (trimmed.startsWith(LEAD_SOURCE_REFERRAL_PREFIX) || trimmed.startsWith(LEAD_SOURCE_OTHER_PREFIX)) {
+    if (
+        trimmed.startsWith(LEAD_SOURCE_REFERRAL_PREFIX)
+        || trimmed.startsWith(LEAD_SOURCE_OTHER_PREFIX)
+        || trimmed.startsWith(LEAD_SOURCE_EVENT_PREFIX)
+    ) {
         return trimmed;
     }
     return trimmed;
 }
 
 function parseStoredLeadSource(stored) {
+    const empty = { selectValue: '', referralText: '', otherText: '', eventText: '' };
     const normalized = normalizeLegacyLeadSource(stored);
-    if (!normalized) {
-        return { selectValue: '', referralText: '', otherText: '' };
-    }
+    if (!normalized) return empty;
     if (normalized.startsWith(LEAD_SOURCE_REFERRAL_PREFIX)) {
         return {
+            ...empty,
             selectValue: LEAD_SOURCE_REFERRAL,
-            referralText: normalized.slice(LEAD_SOURCE_REFERRAL_PREFIX.length).trim(),
-            otherText: ''
+            referralText: normalized.slice(LEAD_SOURCE_REFERRAL_PREFIX.length).trim()
         };
     }
     if (normalized.startsWith(LEAD_SOURCE_OTHER_PREFIX)) {
         return {
+            ...empty,
             selectValue: LEAD_SOURCE_OTHER,
-            referralText: '',
             otherText: normalized.slice(LEAD_SOURCE_OTHER_PREFIX.length).trim()
         };
     }
+    if (normalized.startsWith(LEAD_SOURCE_EVENT_PREFIX)) {
+        return {
+            ...empty,
+            selectValue: LEAD_SOURCE_EVENT,
+            eventText: normalized.slice(LEAD_SOURCE_EVENT_PREFIX.length).trim()
+        };
+    }
     if (normalized === LEAD_SOURCE_REFERRAL) {
-        return { selectValue: LEAD_SOURCE_REFERRAL, referralText: '', otherText: '' };
+        return { ...empty, selectValue: LEAD_SOURCE_REFERRAL };
     }
     if (LEAD_SOURCE_OPTIONS.includes(normalized)) {
-        return { selectValue: normalized, referralText: '', otherText: '' };
+        return { ...empty, selectValue: normalized };
     }
-    return { selectValue: LEAD_SOURCE_OTHER, referralText: '', otherText: normalized };
+    return { ...empty, selectValue: LEAD_SOURCE_OTHER, otherText: normalized };
 }
 
-function formatLeadSourceForStorage(selectValue, referralText, otherText) {
+function formatLeadSourceForStorage(selectValue, referralText, otherText, eventText) {
     if (!selectValue) {
         return '';
     }
@@ -96,6 +108,10 @@ function formatLeadSourceForStorage(selectValue, referralText, otherText) {
     if (selectValue === LEAD_SOURCE_OTHER) {
         const detail = (otherText || '').trim();
         return detail ? `${LEAD_SOURCE_OTHER_PREFIX}${detail}` : '';
+    }
+    if (selectValue === LEAD_SOURCE_EVENT) {
+        const detail = (eventText || '').trim();
+        return detail ? `${LEAD_SOURCE_EVENT_PREFIX}${detail}` : '';
     }
     return selectValue;
 }
@@ -123,11 +139,12 @@ function setLeadSourceFormValue(stored) {
     const select = document.getElementById('leadSource');
     const referralInput = document.getElementById('leadSourceReferral');
     const otherInput = document.getElementById('leadSourceOther');
+    const eventInput = document.getElementById('leadSourceEvent');
     if (!select) {
         return;
     }
 
-    const { selectValue, referralText, otherText } = parseStoredLeadSource(stored);
+    const { selectValue, referralText, otherText, eventText } = parseStoredLeadSource(stored);
     select.value = selectValue;
 
     if (referralInput) {
@@ -135,6 +152,9 @@ function setLeadSourceFormValue(stored) {
     }
     if (otherInput) {
         otherInput.value = otherText;
+    }
+    if (eventInput) {
+        eventInput.value = eventText;
     }
 
     updateLeadSourceDetailFields();
@@ -146,12 +166,15 @@ function updateLeadSourceDetailFields() {
     const referralInput = document.getElementById('leadSourceReferral');
     const otherGroup = document.getElementById('leadSourceOtherGroup');
     const otherInput = document.getElementById('leadSourceOther');
+    const eventGroup = document.getElementById('leadSourceEventGroup');
+    const eventInput = document.getElementById('leadSourceEvent');
     if (!select) {
         return;
     }
 
     const isReferral = select.value === LEAD_SOURCE_REFERRAL;
     const isOther = select.value === LEAD_SOURCE_OTHER;
+    const isEvent = select.value === LEAD_SOURCE_EVENT;
 
     if (referralGroup && referralInput) {
         referralGroup.style.display = isReferral ? 'block' : 'none';
@@ -168,26 +191,37 @@ function updateLeadSourceDetailFields() {
             otherInput.value = '';
         }
     }
+
+    if (eventGroup && eventInput) {
+        eventGroup.style.display = isEvent ? 'block' : 'none';
+        eventInput.required = isEvent;
+        if (!isEvent) {
+            eventInput.value = '';
+        }
+    }
 }
 
 function getLeadSourceFromForm() {
     const select = document.getElementById('leadSource');
     const referralInput = document.getElementById('leadSourceReferral');
     const otherInput = document.getElementById('leadSourceOther');
+    const eventInput = document.getElementById('leadSourceEvent');
     if (!select) {
         return '';
     }
     return formatLeadSourceForStorage(
         select.value,
         referralInput?.value || '',
-        otherInput?.value || ''
+        otherInput?.value || '',
+        eventInput?.value || ''
     );
 }
 
-function validateLeadSourceForm() {
+function validateLeadSourceForm(options = {}) {
     const select = document.getElementById('leadSource');
+    const required = options.required !== false;
     if (!select?.value) {
-        return 'Please select a lead source.';
+        return required ? 'Please select a lead source.' : null;
     }
     if (select.value === LEAD_SOURCE_REFERRAL) {
         const referralInput = document.getElementById('leadSourceReferral');
@@ -199,6 +233,12 @@ function validateLeadSourceForm() {
         const otherInput = document.getElementById('leadSourceOther');
         if (!otherInput?.value.trim()) {
             return 'Please specify the lead source when "Other" is selected.';
+        }
+    }
+    if (select.value === LEAD_SOURCE_EVENT) {
+        const eventInput = document.getElementById('leadSourceEvent');
+        if (!eventInput?.value.trim()) {
+            return 'Please enter the event name.';
         }
     }
     return null;
@@ -227,6 +267,7 @@ window.LeadSources = {
     LEAD_SOURCE_OPTIONS,
     LEAD_SOURCE_REFERRAL,
     LEAD_SOURCE_OTHER,
+    LEAD_SOURCE_EVENT,
     populateLeadSourceSelect,
     setLeadSourceFormValue,
     getLeadSourceFromForm,

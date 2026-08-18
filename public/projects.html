@@ -249,6 +249,24 @@
                             <option value="quoted">Quoted</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label for="leadSource">Lead Source *</label>
+                        <select id="leadSource" required onchange="handleLeadSourceChange()">
+                            <option value="">Select lead source</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="leadSourceReferralGroup" style="display: none;">
+                        <label for="leadSourceReferral">Referred by *</label>
+                        <input type="text" id="leadSourceReferral" placeholder="e.g., client name, company name" maxlength="120">
+                    </div>
+                    <div class="form-group" id="leadSourceOtherGroup" style="display: none;">
+                        <label for="leadSourceOther">Specify lead source *</label>
+                        <input type="text" id="leadSourceOther" placeholder="" maxlength="120">
+                    </div>
+                    <div class="form-group" id="leadSourceEventGroup" style="display: none;">
+                        <label for="leadSourceEvent">Event name *</label>
+                        <input type="text" id="leadSourceEvent" placeholder="e.g., LDI, InfoComm" maxlength="120">
+                    </div>
                     <div class="modal-buttons">
                         <button type="button" class="secondary-button" onclick="projectsManager.closeCreateModal()">Cancel</button>
                         <button type="submit" class="primary-button">Create Project</button>
@@ -264,6 +282,7 @@
     <script src="shell.js"></script>
     <script src="page-controls.js"></script>
     <script src="crm-common.js"></script>
+    <script src="lead-sources.js"></script>
     <script src="lumdash-integration.js"></script>
     <script src="projects.js"></script>
 </body>

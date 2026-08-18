@@ -36,7 +36,14 @@ app.use((req, res, next) => {
   if (req.headers.cookie) {
     req.headers.cookie.split(';').forEach(cookie => {
       const parts = cookie.split('=');
-      req.cookies[parts[0].trim()] = parts.slice(1).join('=').trim();
+      const name = parts[0].trim();
+      let value = parts.slice(1).join('=').trim();
+      try {
+        value = decodeURIComponent(value);
+      } catch {
+        // keep raw value
+      }
+      req.cookies[name] = value;
     });
   }
   next();
@@ -61,70 +68,59 @@ app.use(session({
   }
 }));
 
+function clearAuthCookie(res) {
+  const options = ['token=', 'Path=/', 'HttpOnly', 'Max-Age=0', 'SameSite=Lax'];
+  if (isProduction) options.push('Secure');
+  res.setHeader('Set-Cookie', options.join('; '));
+}
+
+function tokenCandidates(req) {
+  const header = req.headers.authorization?.replace(/^Bearer\s+/i, '').trim();
+  return [req.cookies?.token, header, req.session?.token].filter(Boolean);
+}
+
+function authenticateRequest(req, res) {
+  const seen = new Set();
+  let lastError = null;
+  let hadToken = false;
+  for (const token of tokenCandidates(req)) {
+    if (seen.has(token)) continue;
+    seen.add(token);
+    hadToken = true;
+    try {
+      req.user = jwt.verify(token, JWT_SECRET);
+      return { ok: true };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  if (hadToken) {
+    if (req.session) req.session.token = null;
+    clearAuthCookie(res);
+  }
+  return { ok: false, hadToken, error: lastError };
+}
+
 // JWT Authentication middleware
 function requireAuth(req, res, next) {
-  // Check for token in cookie, Authorization header, or session (fallback)
-  let token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
-  
-  if (!token && req.session?.token) {
-    token = req.session.token;
+  const result = authenticateRequest(req, res);
+  if (result.ok) return next();
+
+  if (req.path.startsWith('/api/') && req.path !== '/api/login') {
+    return res.status(401).json({ error: result.hadToken ? 'Invalid or expired token' : 'Authentication required' });
   }
-  
-  if (!token) {
-    // For API requests, return 401
-    if (req.path.startsWith('/api/') && req.path !== '/api/login') {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    // For page requests, redirect to login (keep destination for after sign-in)
-    const next = req.originalUrl && req.originalUrl.startsWith('/') ? req.originalUrl : '';
-    const loginUrl = next && next !== '/login'
-      ? `/login?next=${encodeURIComponent(next)}`
-      : '/login';
-    return res.redirect(loginUrl);
-  }
-  
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    console.error('JWT verification failed:', error.message);
-    // Clear invalid token
-    if (req.session) {
-      req.session.token = null;
-    }
-    if (req.path.startsWith('/api/')) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
-    }
-    return res.redirect('/login');
-  }
+  const dest = req.originalUrl && req.originalUrl.startsWith('/') ? req.originalUrl : '';
+  const loginUrl = dest && dest !== '/login'
+    ? `/login?next=${encodeURIComponent(dest)}`
+    : '/login';
+  return res.redirect(loginUrl);
 }
 
 // API-only auth middleware (returns JSON instead of redirect)
 function requireApiAuth(req, res, next) {
-  let token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
-  
-  if (!token && req.session?.token) {
-    token = req.session.token;
-  }
-  
-  if (!token) {
-    console.log('❌ API Auth: No token found for', req.path);
-    console.log('   Cookies:', Object.keys(req.cookies || {}));
-    console.log('   Auth header:', req.headers.authorization ? 'present' : 'missing');
-    console.log('   Session token:', req.session?.token ? 'present' : 'missing');
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    console.log('❌ API Auth: Token verification failed:', error.message);
-    console.log('   Token (first 50 chars):', token.substring(0, 50) + '...');
-    return res.status(401).json({ error: 'Invalid or expired token' });
-  }
+  const result = authenticateRequest(req, res);
+  if (result.ok) return next();
+  return res.status(401).json({ error: result.hadToken ? 'Invalid or expired token' : 'Authentication required' });
 }
 
 // Health check for Render (no auth — must return 200)
@@ -294,6 +290,7 @@ app.use((req, res, next) => {
       req.path.startsWith('/sign/') ||        // public contract signing (token-protected)
       req.path.startsWith('/invoice/') ||     // public invoice view (token-protected)
       req.path.startsWith('/api/public/') ||  // public CRM data endpoints (token-protected)
+      req.path === '/api/admin/google-calendar/callback' ||
       req.path === '/api/stripe/webhook' ||
       isPublicStaticAsset(req.path)) {
     return next();
@@ -3290,11 +3287,18 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
     const invoicePeriodDate = (invoice) =>
       parsePeriodDate(invoice.issueDate) || parsePeriodDate(invoice.createdAt);
 
-    const [allProjects, allInvoices] = await Promise.all([
+    const [allProjects, allInvoices, allQuotes] = await Promise.all([
       Project.find({ archived: { $ne: true } }).populate('client', 'name company address'),
       Invoice.find({ status: { $ne: 'void' } }, {
         project: 1, total: 1, amountPaid: 1, issueDate: 1, createdAt: 1, status: 1
-      })
+      }),
+      SavedQuote.find(
+        { archived: { $ne: true } },
+        {
+          leadSource: 1, project: 1, createdAt: 1, clientName: 1,
+          location: 1, booked: 1, 'quoteData.total': 1
+        }
+      )
     ]);
 
     const hasDateFilter = !!(start || end);
@@ -3376,26 +3380,167 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    res.json({
-      summary: {
-        totalProjects,
-        bookedPlusCount,
-        conversionRate: totalProjects > 0
-          ? ((bookedPlusCount / totalProjects) * 100).toFixed(1)
-          : '0.0',
-        invoiceCount,
-        invoicedTotal,
-        paidTotal,
-        outstandingTotal
+    const leadSourceBucket = (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return 'Not set';
+      if (/^referral:/i.test(raw)) return 'Referral';
+      if (/^other:/i.test(raw)) return 'Other';
+      if (/^trade show \/ industry event:/i.test(raw)) return 'Trade Show / Industry Event';
+      return raw;
+    };
+
+    const quoteTotal = (quote) => Number(quote.quoteData?.total) || 0;
+    const quotesInPeriod = hasDateFilter
+      ? allQuotes.filter((quote) => inRange(parsePeriodDate(quote.createdAt)))
+      : allQuotes;
+
+    const quoteLeadByProject = new Map();
+    allQuotes.forEach((quote) => {
+      if (!quote.project || !quote.leadSource) return;
+      const id = String(quote.project);
+      if (!quoteLeadByProject.has(id)) quoteLeadByProject.set(id, quote.leadSource);
+    });
+
+    const projectLeadMap = new Map();
+    projects.forEach((project) => {
+      const stored = project.leadSource || quoteLeadByProject.get(String(project._id)) || '';
+      const name = leadSourceBucket(stored);
+      if (!projectLeadMap.has(name)) {
+        projectLeadMap.set(name, { name, count: 0, booked: 0, total: 0 });
+      }
+      const row = projectLeadMap.get(name);
+      row.count += 1;
+      if (BOOKED_PLUS.has(project.status)) row.booked += 1;
+      row.total += invoicedTotalByProject.get(String(project._id)) || 0;
+    });
+    const projectLeadSources = [...projectLeadMap.values()]
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+    const quoteLeadMap = new Map();
+    quotesInPeriod.forEach((quote) => {
+      const name = leadSourceBucket(quote.leadSource);
+      if (!quoteLeadMap.has(name)) {
+        quoteLeadMap.set(name, { name, count: 0, booked: 0, total: 0 });
+      }
+      const row = quoteLeadMap.get(name);
+      row.count += 1;
+      if (quote.booked) row.booked += 1;
+      row.total += quoteTotal(quote);
+    });
+    const quoteLeadSources = [...quoteLeadMap.values()]
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+    const bookedQuotes = quotesInPeriod.filter((quote) => quote.booked);
+    const linkedQuotes = quotesInPeriod.filter((quote) => quote.project);
+    const quotedTotal = quotesInPeriod.reduce((sum, quote) => sum + quoteTotal(quote), 0);
+    const bookedQuoteTotal = bookedQuotes.reduce((sum, quote) => sum + quoteTotal(quote), 0);
+    const openQuoteTotal = Math.max(0, quotedTotal - bookedQuoteTotal);
+    const totalQuotes = quotesInPeriod.length;
+    const bookedQuoteCount = bookedQuotes.length;
+
+    const quotePipeline = [
+      {
+        status: 'open',
+        label: 'Open',
+        count: totalQuotes - bookedQuoteCount,
+        total: openQuoteTotal
       },
-      pipelineByStatus,
-      cash: { invoicedTotal, paidTotal, outstandingTotal, invoiceCount },
-      topClientsByPaid,
-      topClientsByProjects,
-      topCities,
+      {
+        status: 'booked',
+        label: 'Booked',
+        count: bookedQuoteCount,
+        total: bookedQuoteTotal
+      }
+    ];
+
+    const quotesByClient = {};
+    const quotedByClient = {};
+    quotesInPeriod.forEach((quote) => {
+      const name = (quote.clientName || '').trim() || 'Unknown';
+      quotesByClient[name] = (quotesByClient[name] || 0) + 1;
+      quotedByClient[name] = (quotedByClient[name] || 0) + quoteTotal(quote);
+    });
+    const topClientsByQuoted = Object.entries(quotedByClient)
+      .map(([name, total]) => ({ name, total, count: quotesByClient[name] || 0 }))
+      .filter((row) => row.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+    const topClientsByQuotes = Object.entries(quotesByClient)
+      .map(([name, count]) => ({ name, count, total: quotedByClient[name] || 0 }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const locationCounts = {};
+    const locationTotals = {};
+    quotesInPeriod.forEach((quote) => {
+      const location = (quote.location || '').trim() || 'Unknown';
+      locationCounts[location] = (locationCounts[location] || 0) + 1;
+      locationTotals[location] = (locationTotals[location] || 0) + quoteTotal(quote);
+    });
+    const topLocations = Object.entries(locationCounts)
+      .map(([name, count]) => ({ name, count, total: locationTotals[name] || 0 }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    res.json({
       dateRange: {
         startDate: startDate || null,
         endDate: endDate || null
+      },
+      projects: {
+        summary: {
+          count: totalProjects,
+          bookedCount: bookedPlusCount,
+          conversionRate: totalProjects > 0
+            ? ((bookedPlusCount / totalProjects) * 100).toFixed(1)
+            : '0.0',
+          thirdCount: invoiceCount,
+          primaryTotal: invoicedTotal,
+          secondaryTotal: paidTotal,
+          tertiaryTotal: outstandingTotal
+        },
+        pipeline: pipelineByStatus.map((row) => ({
+          status: row.status,
+          label: row.label,
+          count: row.count,
+          total: row.invoicedTotal
+        })),
+        value: [
+          { label: 'Invoiced', total: invoicedTotal },
+          { label: 'Paid', total: paidTotal },
+          { label: 'Outstanding', total: outstandingTotal }
+        ],
+        topClientsByValue: topClientsByPaid,
+        topClientsByCount: topClientsByProjects.map((row) => ({
+          name: row.name,
+          count: row.count,
+          total: row.invoicedTotal
+        })),
+        topPlaces: topCities,
+        leadSources: projectLeadSources
+      },
+      quotes: {
+        summary: {
+          count: totalQuotes,
+          bookedCount: bookedQuoteCount,
+          conversionRate: totalQuotes > 0
+            ? ((bookedQuoteCount / totalQuotes) * 100).toFixed(1)
+            : '0.0',
+          thirdCount: linkedQuotes.length,
+          primaryTotal: quotedTotal,
+          secondaryTotal: bookedQuoteTotal,
+          tertiaryTotal: openQuoteTotal
+        },
+        pipeline: quotePipeline,
+        value: [
+          { label: 'Quoted', total: quotedTotal },
+          { label: 'Booked', total: bookedQuoteTotal },
+          { label: 'Open', total: openQuoteTotal }
+        ],
+        topClientsByValue: topClientsByQuoted,
+        topClientsByCount: topClientsByQuotes,
+        topPlaces: topLocations,
+        leadSources: quoteLeadSources
       }
     });
   } catch (error) {

@@ -611,6 +611,10 @@ class ProjectsManager {
 
     async openCreateModal() {
         document.getElementById('createProjectForm').reset();
+        if (window.LeadSources) {
+            LeadSources.populateLeadSourceSelect();
+            LeadSources.setLeadSourceFormValue('');
+        }
         document.getElementById('createProjectModal').style.display = 'flex';
         try {
             const clients = await CRM.api('/api/crm/clients');
@@ -631,12 +635,24 @@ class ProjectsManager {
         const name = document.getElementById('newProjectName').value.trim();
         if (!name) return;
 
+        const leadSourceError = window.LeadSources
+            ? LeadSources.validateLeadSourceForm()
+            : null;
+        if (leadSourceError) {
+            showAlertModal(leadSourceError, 'error');
+            return;
+        }
+        const leadSource = window.LeadSources
+            ? LeadSources.getLeadSourceFromForm()
+            : (document.getElementById('leadSource')?.value || '').trim();
+
         const clientName = document.getElementById('newProjectClientName').value.trim();
         const body = {
             name,
             status: document.getElementById('newProjectStatus').value,
             startDate: document.getElementById('newProjectStart').value || null,
-            endDate: document.getElementById('newProjectEnd').value || null
+            endDate: document.getElementById('newProjectEnd').value || null,
+            leadSource: leadSource || null
         };
         if (clientName) {
             body.client = {

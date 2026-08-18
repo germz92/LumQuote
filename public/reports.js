@@ -1,19 +1,116 @@
 class ReportsManager {
     constructor() {
         this.reportData = null;
+        this.view = this.readViewFromUrl();
         this.cardIds = [
             'pipelineByStatus',
             'cashSummary',
             'topClientsByPaid',
             'topClientsByProjects',
-            'topCities'
+            'topCities',
+            'leadSources'
         ];
+        this.copy = {
+            projects: {
+                subtitle: 'Pipeline and invoice cash across your projects',
+                countLabel: 'Projects',
+                thirdLabel: 'Invoices',
+                primaryLabel: 'Invoiced',
+                secondaryLabel: 'Paid',
+                tertiaryLabel: 'Outstanding',
+                pipelineHeading: 'Pipeline by status',
+                valueHeading: 'Cash summary',
+                topValueHeading: 'Top clients by paid',
+                topCountHeading: 'Top clients by projects',
+                placesHeading: 'Top cities',
+                noun: 'project',
+                nouns: 'projects',
+                valueSuffix: 'invoiced',
+                emptyPipeline: 'No projects in this period',
+                emptyValue: 'No invoice activity in this period',
+                emptyTopValue: 'No paid invoice data available',
+                emptyTopCount: 'No project data available',
+                emptyPlaces: 'No location data available',
+                emptyLeads: 'No project lead sources in this period'
+            },
+            quotes: {
+                subtitle: 'Volume and quoted value across your quotes',
+                countLabel: 'Quotes',
+                thirdLabel: 'Linked',
+                primaryLabel: 'Quoted',
+                secondaryLabel: 'Booked',
+                tertiaryLabel: 'Open',
+                pipelineHeading: 'Quote status',
+                valueHeading: 'Quote value',
+                topValueHeading: 'Top clients by quoted',
+                topCountHeading: 'Top clients by quotes',
+                placesHeading: 'Top locations',
+                noun: 'quote',
+                nouns: 'quotes',
+                valueSuffix: 'quoted',
+                emptyPipeline: 'No quotes in this period',
+                emptyValue: 'No quote activity in this period',
+                emptyTopValue: 'No quoted value in this period',
+                emptyTopCount: 'No quote data available',
+                emptyPlaces: 'No location data available',
+                emptyLeads: 'No quote lead sources in this period'
+            }
+        };
         this.init();
     }
 
+    readViewFromUrl() {
+        const view = new URLSearchParams(window.location.search).get('view');
+        return view === 'quotes' ? 'quotes' : 'projects';
+    }
+
     async init() {
+        this.applyViewChrome();
         this.setCurrentMonthDates();
         await this.loadReports();
+    }
+
+    setView(view) {
+        if (view !== 'projects' && view !== 'quotes') return;
+        if (this.view === view) return;
+        this.view = view;
+        const url = new URL(window.location.href);
+        if (view === 'quotes') url.searchParams.set('view', 'quotes');
+        else url.searchParams.delete('view');
+        window.history.replaceState({}, '', url);
+        this.applyViewChrome();
+        this.renderReports();
+    }
+
+    applyViewChrome() {
+        const copy = this.copy[this.view];
+        document.body.dataset.appSubtitle = copy.subtitle;
+        const subtitleEl = document.getElementById('app-page-subtitle');
+        if (subtitleEl) subtitleEl.textContent = copy.subtitle;
+
+        document.getElementById('reportViewProjectsBtn')?.classList.toggle('is-active', this.view === 'projects');
+        document.getElementById('reportViewQuotesBtn')?.classList.toggle('is-active', this.view === 'quotes');
+
+        this.setText('summaryCountLabel', copy.countLabel);
+        this.setText('summaryThirdLabel', copy.thirdLabel);
+        this.setText('summaryPrimaryLabel', copy.primaryLabel);
+        this.setText('summarySecondaryLabel', copy.secondaryLabel);
+        this.setText('summaryTertiaryLabel', copy.tertiaryLabel);
+        this.setText('headingPipeline', copy.pipelineHeading);
+        this.setText('headingValue', copy.valueHeading);
+        this.setText('headingTopValue', copy.topValueHeading);
+        this.setText('headingTopCount', copy.topCountHeading);
+        this.setText('headingPlaces', copy.placesHeading);
+    }
+
+    setText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    }
+
+    currentSlice() {
+        if (!this.reportData) return null;
+        return this.reportData[this.view] || null;
     }
 
     setCurrentMonthDates() {
@@ -119,33 +216,36 @@ class ReportsManager {
     }
 
     renderReports() {
-        if (!this.reportData) return;
+        if (!this.currentSlice()) return;
+        this.applyViewChrome();
         this.renderSummary();
-        this.renderPipelineByStatus();
-        this.renderCashSummary();
-        this.renderTopClientsByPaid();
-        this.renderTopClientsByProjects();
-        this.renderTopCities();
+        this.renderPipeline();
+        this.renderValueSummary();
+        this.renderTopClientsByValue();
+        this.renderTopClientsByCount();
+        this.renderTopPlaces();
+        this.renderLeadSources();
     }
 
     renderSummary() {
-        const { summary } = this.reportData;
-        document.getElementById('totalProjects').textContent = (summary.totalProjects || 0).toLocaleString();
-        document.getElementById('bookedPlusCount').textContent = (summary.bookedPlusCount || 0).toLocaleString();
+        const { summary } = this.currentSlice();
+        document.getElementById('totalProjects').textContent = (summary.count || 0).toLocaleString();
+        document.getElementById('bookedPlusCount').textContent = (summary.bookedCount || 0).toLocaleString();
         document.getElementById('conversionRate').textContent = `${summary.conversionRate || 0}% conversion`;
-        document.getElementById('invoiceCount').textContent = (summary.invoiceCount || 0).toLocaleString();
-        document.getElementById('invoicedTotal').textContent = this.formatCurrency(summary.invoicedTotal);
-        document.getElementById('paidTotal').textContent = this.formatCurrency(summary.paidTotal);
-        document.getElementById('outstandingTotal').textContent = this.formatCurrency(summary.outstandingTotal);
+        document.getElementById('invoiceCount').textContent = (summary.thirdCount || 0).toLocaleString();
+        document.getElementById('invoicedTotal').textContent = this.formatCurrency(summary.primaryTotal);
+        document.getElementById('paidTotal').textContent = this.formatCurrency(summary.secondaryTotal);
+        document.getElementById('outstandingTotal').textContent = this.formatCurrency(summary.tertiaryTotal);
     }
 
-    renderPipelineByStatus() {
+    renderPipeline() {
         const container = document.getElementById('pipelineByStatus');
-        const data = this.reportData.pipelineByStatus || [];
+        const copy = this.copy[this.view];
+        const data = this.currentSlice().pipeline || [];
         const withActivity = data.filter((row) => row.count > 0);
 
         if (withActivity.length === 0) {
-            container.innerHTML = this.getNoDataHTML('No projects in this period');
+            container.innerHTML = this.getNoDataHTML(copy.emptyPipeline);
             return;
         }
 
@@ -156,10 +256,10 @@ class ReportsManager {
                     <li class="report-list-item">
                         <div class="info">
                             <div class="name">${this.escapeHtml(item.label)}</div>
-                            <div class="details">${this.formatCurrency(item.invoicedTotal)} invoiced</div>
+                            <div class="details">${this.formatCurrency(item.total)} ${copy.valueSuffix}</div>
                         </div>
                         <div class="stats">
-                            <div class="primary-stat">${item.count} project${item.count !== 1 ? 's' : ''}</div>
+                            <div class="primary-stat">${item.count} ${item.count === 1 ? copy.noun : copy.nouns}</div>
                             <div class="progress-bar-container">
                                 <div class="progress-bar" style="width: ${(item.count / maxCount) * 100}%"></div>
                             </div>
@@ -170,18 +270,14 @@ class ReportsManager {
         `;
     }
 
-    renderCashSummary() {
+    renderValueSummary() {
         const container = document.getElementById('cashSummary');
-        const cash = this.reportData.cash || {};
-        const rows = [
-            { label: 'Invoiced', total: cash.invoicedTotal || 0 },
-            { label: 'Paid', total: cash.paidTotal || 0 },
-            { label: 'Outstanding', total: cash.outstandingTotal || 0 }
-        ];
+        const copy = this.copy[this.view];
+        const rows = this.currentSlice().value || [];
         const maxTotal = Math.max(...rows.map((r) => r.total), 1);
 
         if (rows.every((r) => r.total === 0)) {
-            container.innerHTML = this.getNoDataHTML('No invoice activity in this period');
+            container.innerHTML = this.getNoDataHTML(copy.emptyValue);
             return;
         }
 
@@ -204,12 +300,13 @@ class ReportsManager {
         `;
     }
 
-    renderTopClientsByPaid() {
+    renderTopClientsByValue() {
         const container = document.getElementById('topClientsByPaid');
-        const data = this.reportData.topClientsByPaid;
+        const copy = this.copy[this.view];
+        const data = this.currentSlice().topClientsByValue;
 
         if (!data || data.length === 0) {
-            container.innerHTML = this.getNoDataHTML('No paid invoice data available');
+            container.innerHTML = this.getNoDataHTML(copy.emptyTopValue);
             return;
         }
 
@@ -221,7 +318,9 @@ class ReportsManager {
                         <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
                         <div class="info">
                             <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${item.count} invoice${item.count !== 1 ? 's' : ''}</div>
+                            <div class="details">${this.view === 'quotes'
+                                ? `${item.count} quote${item.count !== 1 ? 's' : ''}`
+                                : `${item.count} invoice${item.count !== 1 ? 's' : ''}`}</div>
                         </div>
                         <div class="stats">
                             <div class="primary-stat">${this.formatCurrency(item.total)}</div>
@@ -235,12 +334,13 @@ class ReportsManager {
         `;
     }
 
-    renderTopClientsByProjects() {
+    renderTopClientsByCount() {
         const container = document.getElementById('topClientsByProjects');
-        const data = this.reportData.topClientsByProjects;
+        const copy = this.copy[this.view];
+        const data = this.currentSlice().topClientsByCount;
 
         if (!data || data.length === 0) {
-            container.innerHTML = this.getNoDataHTML('No project data available');
+            container.innerHTML = this.getNoDataHTML(copy.emptyTopCount);
             return;
         }
 
@@ -252,10 +352,10 @@ class ReportsManager {
                         <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
                         <div class="info">
                             <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${this.formatCurrency(item.invoicedTotal)} invoiced</div>
+                            <div class="details">${this.formatCurrency(item.total)} ${copy.valueSuffix}</div>
                         </div>
                         <div class="stats">
-                            <div class="primary-stat">${item.count} project${item.count !== 1 ? 's' : ''}</div>
+                            <div class="primary-stat">${item.count} ${item.count === 1 ? copy.noun : copy.nouns}</div>
                             <div class="progress-bar-container">
                                 <div class="progress-bar" style="width: ${(item.count / maxCount) * 100}%"></div>
                             </div>
@@ -266,12 +366,13 @@ class ReportsManager {
         `;
     }
 
-    renderTopCities() {
+    renderTopPlaces() {
         const container = document.getElementById('topCities');
-        const data = this.reportData.topCities;
+        const copy = this.copy[this.view];
+        const data = this.currentSlice().topPlaces;
 
         if (!data || data.length === 0) {
-            container.innerHTML = this.getNoDataHTML('No location data available');
+            container.innerHTML = this.getNoDataHTML(copy.emptyPlaces);
             return;
         }
 
@@ -283,10 +384,42 @@ class ReportsManager {
                         <span class="rank ${index < 3 ? 'top-3' : ''}">${index + 1}</span>
                         <div class="info">
                             <div class="name">${this.escapeHtml(item.name)}</div>
-                            <div class="details">${this.formatCurrency(item.total)} invoiced</div>
+                            <div class="details">${this.formatCurrency(item.total)} ${copy.valueSuffix}</div>
                         </div>
                         <div class="stats">
-                            <div class="primary-stat">${item.count} project${item.count !== 1 ? 's' : ''}</div>
+                            <div class="primary-stat">${item.count} ${item.count === 1 ? copy.noun : copy.nouns}</div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" style="width: ${(item.count / maxCount) * 100}%"></div>
+                            </div>
+                        </div>
+                    </li>
+                `).join('')}
+            </ul>
+        `;
+    }
+
+    renderLeadSources() {
+        const container = document.getElementById('leadSources');
+        if (!container) return;
+        const copy = this.copy[this.view];
+        const data = this.currentSlice().leadSources || [];
+
+        if (data.length === 0) {
+            container.innerHTML = this.getNoDataHTML(copy.emptyLeads);
+            return;
+        }
+
+        const maxCount = Math.max(...data.map((row) => row.count), 1);
+        container.innerHTML = `
+            <ul class="report-list">
+                ${data.map((item) => `
+                    <li class="report-list-item">
+                        <div class="info">
+                            <div class="name">${this.escapeHtml(item.name)}</div>
+                            <div class="details">${item.booked || 0} booked · ${this.formatCurrency(item.total)} ${copy.valueSuffix}</div>
+                        </div>
+                        <div class="stats">
+                            <div class="primary-stat">${item.count} ${item.count === 1 ? copy.noun : copy.nouns}</div>
                             <div class="progress-bar-container">
                                 <div class="progress-bar" style="width: ${(item.count / maxCount) * 100}%"></div>
                             </div>

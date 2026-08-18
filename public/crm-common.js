@@ -40,6 +40,7 @@ const CRM = {
         draft: 'Draft',
         sent: 'Sent',
         partial: 'Partial',
+        overdue: 'Overdue',
         paid: 'Paid',
         void: 'Void'
     },
@@ -99,8 +100,24 @@ const CRM = {
         return t > 0 && p > 0 && p < t;
     },
 
+    todayYmd() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
+    isInvoiceOverdue(inv) {
+        if (!inv || inv.status === 'paid' || inv.status === 'void') return false;
+        const due = typeof inv.dueDate === 'string' ? inv.dueDate.slice(0, 10) : '';
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return false;
+        const paid = Number(inv.amountPaid) || 0;
+        const total = Number(inv.total) || 0;
+        if (total > 0 && paid >= total) return false;
+        return due < this.todayYmd();
+    },
+
     invoiceDisplayStatus(inv) {
         if (!inv || typeof inv === 'string') return inv || 'draft';
+        if (this.isInvoiceOverdue(inv)) return 'overdue';
         if (inv.status === 'sent' && this.isPartialAmount(inv.amountPaid, inv.total)) return 'partial';
         return inv.status || 'draft';
     },

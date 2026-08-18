@@ -1735,13 +1735,17 @@ class QuoteCalculator {
         if (!value) return null;
         if (value !== '__new__') return value;
 
+        const leadSource = window.LeadSources
+            ? LeadSources.getLeadSourceFromForm()
+            : (document.getElementById('leadSource')?.value || '').trim();
         const response = await fetch('/api/projects', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 name: quoteTitle,
                 status: 'quoted',
-                client: clientName ? { name: clientName } : undefined
+                client: clientName ? { name: clientName } : undefined,
+                leadSource: leadSource || null
             })
         });
         const project = await response.json();

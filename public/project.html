@@ -64,6 +64,24 @@
                                         <label for="projEnd">End Date</label>
                                         <input type="date" id="projEnd">
                                     </div>
+                                    <div class="form-group form-group--full">
+                                        <label for="leadSource">Lead Source</label>
+                                        <select id="leadSource" onchange="handleLeadSourceChange()">
+                                            <option value="">Select lead source</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group form-group--full" id="leadSourceReferralGroup" style="display: none;">
+                                        <label for="leadSourceReferral">Referred by *</label>
+                                        <input type="text" id="leadSourceReferral" placeholder="e.g., client name, company name" maxlength="120">
+                                    </div>
+                                    <div class="form-group form-group--full" id="leadSourceOtherGroup" style="display: none;">
+                                        <label for="leadSourceOther">Specify lead source *</label>
+                                        <input type="text" id="leadSourceOther" placeholder="" maxlength="120">
+                                    </div>
+                                    <div class="form-group form-group--full" id="leadSourceEventGroup" style="display: none;">
+                                        <label for="leadSourceEvent">Event name *</label>
+                                        <input type="text" id="leadSourceEvent" placeholder="e.g., LDI, InfoComm" maxlength="120">
+                                    </div>
                                 </div>
                             </div>
                             <div class="crm-actions-row">
@@ -310,6 +328,7 @@
     <script src="/modals.js"></script>
     <script src="/shell.js"></script>
     <script src="/crm-common.js"></script>
+    <script src="/lead-sources.js"></script>
     <script src="/contract-editor.js"></script>
     <script src="/lumdash-integration.js"></script>
     <script src="/project.js"></script>

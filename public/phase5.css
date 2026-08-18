@@ -135,3 +135,200 @@ textarea:focus:not(:focus-visible) {
   background: var(--color-primary-muted);
   color: var(--color-primary);
 }
+
+/* ── Motion & hover polish ───────────────────────────────────── */
+
+.btn:not(:disabled):hover,
+.primary-button:not(:disabled):hover,
+.secondary-button:not(:disabled):hover,
+.tertiary-button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.btn:not(:disabled):active,
+.primary-button:not(:disabled):active,
+.secondary-button:not(:disabled):active,
+.tertiary-button:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.pc-btn,
+.pc-select,
+.pc-search input {
+  transition: color var(--transition-fast), background var(--transition-fast),
+    border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.pc-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.crm-tab {
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+    background var(--transition-fast);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.crm-tab:hover {
+  background: var(--color-bg);
+}
+
+.crm-panel.is-active {
+  animation: ui-fade-up 0.18s var(--ease-out);
+}
+
+.crm-chip,
+.crm-status-select {
+  transition: background var(--transition-fast), color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.quotes-table tbody tr,
+.crm-table tr.is-clickable td {
+  transition: background var(--transition-fast);
+}
+
+.crm-table tr.is-clickable:hover td {
+  background: var(--color-bg);
+}
+
+.reports-metric-card,
+.report-card,
+.quotes-grid .quote-card {
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.reports-metric-card:hover,
+.quotes-grid .quote-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.quotes-grid .quote-card.menu-open,
+.quotes-grid .quote-card.menu-open:hover {
+  transform: none;
+}
+
+.report-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.quote-overflow-dropdown {
+  transform-origin: top right;
+  animation: ui-menu-in 0.14s var(--ease-out);
+}
+
+.overflow-menu-item {
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.overflow-menu-item:hover {
+  background: var(--color-bg);
+}
+
+.modal {
+  animation: ui-modal-fade 0.18s var(--ease-out);
+}
+
+.modal.closing {
+  animation: ui-modal-fade-out 0.16s ease-in;
+}
+
+.modal-content {
+  animation: ui-fade-up 0.2s var(--ease-out);
+}
+
+.modal.closing .modal-content {
+  animation: ui-fade-up-out 0.16s ease-in;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea,
+.crm-form-grid input,
+.crm-form-grid select,
+.crm-form-grid textarea {
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
+.crm-form-grid input:focus,
+.crm-form-grid select:focus,
+.crm-form-grid textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+@keyframes ui-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ui-fade-up-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes ui-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ui-modal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes ui-modal-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .primary-button,
+  .secondary-button,
+  .tertiary-button,
+  .crm-tab,
+  .crm-panel.is-active,
+  .crm-chip,
+  .quotes-table tbody tr,
+  .crm-table tr.is-clickable td,
+  .reports-metric-card,
+  .report-card,
+  .quotes-grid .quote-card,
+  .quote-overflow-dropdown,
+  .modal,
+  .modal-content,
+  .app-toast {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
