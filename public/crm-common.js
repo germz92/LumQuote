@@ -105,13 +105,31 @@ const CRM = {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     },
 
+    ymd(value) {
+        if (typeof value !== 'string') return '';
+        const due = value.slice(0, 10);
+        return /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : '';
+    },
+
+    effectiveDueDate(inv) {
+        if (!inv) return '';
+        if (this.ymd(inv.effectiveDueDate)) return this.ymd(inv.effectiveDueDate);
+        const installments = inv.plan?.installments || inv.paymentPlan?.installments || [];
+        if (installments.length) {
+            const next = installments.find((inst) => inst.status !== 'paid');
+            if (!next) return '';
+            return this.ymd(next.dueDate);
+        }
+        return this.ymd(inv.dueDate);
+    },
+
     isInvoiceOverdue(inv) {
         if (!inv || inv.status === 'paid' || inv.status === 'void') return false;
-        const due = typeof inv.dueDate === 'string' ? inv.dueDate.slice(0, 10) : '';
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) return false;
         const paid = Number(inv.amountPaid) || 0;
         const total = Number(inv.total) || 0;
         if (total > 0 && paid >= total) return false;
+        const due = this.effectiveDueDate(inv);
+        if (!due) return false;
         return due < this.todayYmd();
     },
 

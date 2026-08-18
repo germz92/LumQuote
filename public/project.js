@@ -1268,7 +1268,8 @@ class ProjectPage {
                 <tbody>
                     ${invoices.map((inv) => {
                         const issued = CRM.formatDate(inv.issueDate) || '';
-                        const due = CRM.formatDate(inv.dueDate) || '';
+                        const dueDate = CRM.effectiveDueDate(inv);
+                        const due = CRM.formatDate(dueDate) || '';
                         const overdue = CRM.isInvoiceOverdue(inv);
                         const paidMeta = inv.amountPaid > 0 ? `Paid ${CRM.money(inv.amountPaid)}` : '';
                         const metaHtml = CRM.listRowMeta([
@@ -1289,7 +1290,7 @@ class ProjectPage {
                             </td>
                             <td>${CRM.invoiceStatusChip(inv)}</td>
                             <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDate(inv.issueDate) || '—')}</td>
-                            <td class="col-fold-sm${overdue ? ' invoice-due--overdue' : ''}">${CRM.escapeHtml(CRM.formatDate(inv.dueDate) || '—')}</td>
+                            <td class="col-fold-sm${overdue ? ' invoice-due--overdue' : ''}">${CRM.escapeHtml(due || '—')}</td>
                             <td class="num">${CRM.money(inv.total)}</td>
                             <td>
                                 <div class="crm-row-actions">
