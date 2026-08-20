@@ -283,8 +283,17 @@ class ProjectPage {
                 this.pushActivity(events, contract.firstViewedAt, 'Contract page viewed', views);
             }
             if (contract.signature?.signedAt) {
-                const signer = contract.signature.name ? `by ${contract.signature.name}` : '';
-                this.pushActivity(events, contract.signature.signedAt, 'Contract signed', signer);
+                if (contract.source === 'external' || contract.signature.method === 'external') {
+                    this.pushActivity(
+                        events,
+                        contract.signature.signedAt,
+                        'External contract uploaded',
+                        contract.uploadedFile?.filename || contractLabel
+                    );
+                } else {
+                    const signer = contract.signature.name ? `by ${contract.signature.name}` : '';
+                    this.pushActivity(events, contract.signature.signedAt, 'Contract signed', signer);
+                }
             }
             if (contract.countersignature?.signedAt) {
                 const signer = contract.countersignature.name ? `by ${contract.countersignature.name}` : '';
@@ -873,12 +882,48 @@ class ProjectPage {
                 <div class="crm-card">
                     <h3>Create a Contract</h3>
                     <p class="crm-inline-note" style="margin-bottom:16px">
-                        Generate a contract from a quote's services using your template library, or upload an existing contract PDF.
+                        Generate a contract from a quote's services using your template library, or upload an unsigned PDF to send for signature in LumQuote.
                     </p>
                     <div class="crm-actions-row">
                         <button class="primary-button" onclick="projectPage.openGenerateContractModal()">Generate from Quote</button>
                         <button class="secondary-button" onclick="document.getElementById('contractFileInput').click()">Upload Contract PDF</button>
                         <input type="file" id="contractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadContract(this.files[0])">
+                    </div>
+                </div>
+                <div class="crm-card">
+                    <h3>Signed outside LumQuote</h3>
+                    <p class="crm-inline-note" style="margin-bottom:16px">
+                        Already created, signed, and processed elsewhere? File the finished PDF here. It is stored as signed and will not go through LumQuote e-sign.
+                    </p>
+                    <div class="crm-actions-row">
+                        <button class="secondary-button" onclick="document.getElementById('externalContractFileInput').click()">Upload signed PDF</button>
+                        <input type="file" id="externalContractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadExternalContract(this.files[0])">
+                    </div>
+                </div>`;
+            return;
+        }
+
+        if (contract.source === 'external') {
+            const signedAt = contract.signature?.signedAt
+                ? new Date(contract.signature.signedAt).toLocaleString('en-US')
+                : '';
+            area.innerHTML = `
+                <div class="crm-card">
+                    <div class="crm-card-header">
+                        <h3>${CRM.escapeHtml(contract.title || 'Contract')}</h3>
+                        ${CRM.contractStatusChip(contract.status)}
+                    </div>
+                    <p class="crm-inline-note" style="margin-bottom:16px">
+                        Filed as signed outside LumQuote${signedAt ? ` on ${signedAt}` : ''}.
+                    </p>
+                    <div class="contract-file-box">
+                        <span>📄 ${CRM.escapeHtml(contract.uploadedFile?.filename || 'contract.pdf')}</span>
+                        <a class="crm-btn-sm" href="/api/contracts/${contract._id}/file" target="_blank">View</a>
+                    </div>
+                    <div class="crm-actions-row">
+                        <button class="secondary-button" onclick="document.getElementById('externalContractFileInput').click()">Replace PDF</button>
+                        <input type="file" id="externalContractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadExternalContract(this.files[0])">
+                        <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
                     </div>
                 </div>`;
             return;
@@ -1209,8 +1254,33 @@ class ProjectPage {
     }
 
     uploadContract(file) {
+        this.readContractPdf(file, async (fileData, filename) => {
+            await CRM.api(`/api/projects/${this.projectId}/contract/upload`, {
+                method: 'POST',
+                body: { fileData, filename }
+            });
+            showAlertModal('Contract uploaded.', 'success', null, true);
+            await this.reload();
+            this.showTab('contract');
+        });
+    }
+
+    uploadExternalContract(file) {
+        this.readContractPdf(file, async (fileData, filename) => {
+            await CRM.api(`/api/projects/${this.projectId}/contract/upload-external`, {
+                method: 'POST',
+                body: { fileData, filename }
+            });
+            showAlertModal('Signed contract filed.', 'success', null, true);
+            await this.reload();
+            this.showTab('contract');
+        });
+    }
+
+    readContractPdf(file, onReady) {
         if (!file) return;
-        if (file.type !== 'application/pdf') {
+        const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+        if (!isPdf) {
             showAlertModal('Please choose a PDF file.', 'error');
             return;
         }
@@ -1221,13 +1291,7 @@ class ProjectPage {
         const reader = new FileReader();
         reader.onload = async () => {
             try {
-                await CRM.api(`/api/projects/${this.projectId}/contract/upload`, {
-                    method: 'POST',
-                    body: { fileData: reader.result, filename: file.name }
-                });
-                showAlertModal('Contract uploaded.', 'success', null, true);
-                await this.reload();
-                this.showTab('contract');
+                await onReady(reader.result, file.name);
             } catch (error) {
                 showAlertModal(error.message, 'error');
             }
