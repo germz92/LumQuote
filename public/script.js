@@ -6,6 +6,7 @@ class QuoteCalculator {
         this.markups = [];
         this.currentQuoteName = null;
         this.currentClientName = null;
+        this.currentClientCompany = null;
         this.currentLocation = null;
         this.currentLeadSource = null;
         this.currentBooked = false;
@@ -95,6 +96,7 @@ class QuoteCalculator {
                 this.markups = draftData.markups || [];
                 this.currentQuoteName = draftData.currentQuoteName || null;
                 this.currentClientName = draftData.currentClientName || null;
+                this.currentClientCompany = draftData.currentClientCompany || null;
                 this.currentQuoteTitle = draftData.currentQuoteTitle || "Conference Services Quote";
                 this.currentLocation = draftData.currentLocation || null;
                 this.currentLeadSource = draftData.currentLeadSource || null;
@@ -107,6 +109,7 @@ class QuoteCalculator {
                 console.log('📄 Restoring from localStorage:', {
                     quoteName: this.currentQuoteName,
                     clientName: this.currentClientName,
+                    clientCompany: this.currentClientCompany,
                     quoteTitle: this.currentQuoteTitle,
                     location: this.currentLocation,
                     leadSource: this.currentLeadSource,
@@ -163,6 +166,7 @@ class QuoteCalculator {
                 markups: this.markups,
                 currentQuoteName: this.currentQuoteName,
                 currentClientName: this.currentClientName,
+                currentClientCompany: this.currentClientCompany,
                 currentQuoteTitle: this.currentQuoteTitle,
                 currentLocation: this.currentLocation,
                 currentLeadSource: this.currentLeadSource,
@@ -178,6 +182,7 @@ class QuoteCalculator {
             console.log('💾 Saving to localStorage:', {
                 quoteName: draftData.currentQuoteName,
                 clientName: draftData.currentClientName,
+                clientCompany: draftData.currentClientCompany,
                 quoteTitle: draftData.currentQuoteTitle,
                 location: draftData.currentLocation,
                 leadSource: draftData.currentLeadSource,
@@ -201,6 +206,7 @@ class QuoteCalculator {
         this.markups = [];
         this.currentQuoteName = null;
         this.currentClientName = null;
+        this.currentClientCompany = null;
         this.currentBooked = false;
         this.currentArchived = false;
         this.currentCreatedBy = null;
@@ -1258,21 +1264,32 @@ class QuoteCalculator {
         }
     }
 
+    clientDisplayLabel(name = this.currentClientName, company = this.currentClientCompany) {
+        const clientName = String(name || '').trim();
+        const clientCompany = String(company || '').trim();
+        if (clientName && clientCompany && clientName.toLowerCase() !== clientCompany.toLowerCase()) {
+            return `${clientName} · ${clientCompany}`;
+        }
+        return clientName || clientCompany || '';
+    }
+
     async resolveExportMeta() {
         let clientName = this.currentClientName;
+        let clientCompany = this.currentClientCompany;
         let quoteTitle = this.currentQuoteName;
 
         if (!clientName || !quoteTitle) {
-            const exportData = await showExportModal(quoteTitle || '', clientName || '');
+            const exportData = await showExportModal(quoteTitle || '', clientName || '', clientCompany || '');
             if (exportData === null) return null;
             quoteTitle = exportData.title || null;
             clientName = exportData.clientName || null;
+            clientCompany = exportData.clientCompany || clientCompany || null;
         }
 
-        return { clientName, quoteTitle };
+        return { clientName, clientCompany, quoteTitle };
     }
 
-    buildExportQuoteData(clientName, quoteTitle) {
+    buildExportQuoteData(clientName, quoteTitle, clientCompany = this.currentClientCompany) {
         const subtotal = this.calculateTotal();
         const markupsTotal = this.calculateMarkupsTotal();
         const subtotalWithMarkups = subtotal + markupsTotal;
@@ -1285,6 +1302,7 @@ class QuoteCalculator {
             discountPercentage: this.discountPercentage,
             discountAmount: subtotalWithMarkups * (this.discountPercentage / 100),
             clientName,
+            clientCompany: clientCompany || null,
             quoteTitle,
         };
     }
@@ -1323,7 +1341,7 @@ class QuoteCalculator {
         const loadingOverlay = document.getElementById('loading-overlay');
         loadingOverlay.style.display = 'flex';
 
-        const quoteData = this.buildExportQuoteData(meta.clientName, meta.quoteTitle);
+        const quoteData = this.buildExportQuoteData(meta.clientName, meta.quoteTitle, meta.clientCompany);
         const filename = this.getExportFilename(meta.quoteTitle, 'pdf');
 
         try {
@@ -1355,37 +1373,11 @@ class QuoteCalculator {
     }
 
     async exportExcel() {
-        let clientName = this.currentClientName;
-        let quoteTitle = this.currentQuoteName;
-        
-        // Only prompt if we don't already have both values
-        if (!clientName || !quoteTitle) {
-            const exportData = await showExportModal(quoteTitle || '', clientName || '');
-            if (exportData === null) return; // User cancelled
-            
-            quoteTitle = exportData.title || null;
-            clientName = exportData.clientName || null;
-        }
+        const meta = await this.resolveExportMeta();
+        if (!meta) return;
         
         try {
-            const subtotal = this.calculateTotal();
-            const markupsTotal = this.calculateMarkupsTotal();
-            const subtotalWithMarkups = subtotal + markupsTotal;
-            const discountAmount = subtotalWithMarkups * (this.discountPercentage / 100);
-            const total = this.getFinalTotal();
-
-            // Send data to server for XLSX generation
-            const quoteData = {
-                days: this.days,
-                subtotal: subtotal,
-                markups: this.markups,
-                markupsTotal: markupsTotal,
-                total: total,
-                discountPercentage: this.discountPercentage,
-                discountAmount: discountAmount,
-                clientName: clientName,
-                quoteTitle: quoteTitle
-            };
+            const quoteData = this.buildExportQuoteData(meta.clientName, meta.quoteTitle, meta.clientCompany);
 
             const response = await fetch('/api/generate-excel', {
                 method: 'POST',
@@ -1394,7 +1386,7 @@ class QuoteCalculator {
                 },
                 body: JSON.stringify({ 
                     quoteData,
-                    quoteName: quoteTitle 
+                    quoteName: meta.quoteTitle 
                 })
             });
 
@@ -1430,37 +1422,11 @@ class QuoteCalculator {
     }
 
     async exportDocx() {
-        let clientName = this.currentClientName;
-        let quoteTitle = this.currentQuoteName;
-        
-        // Only prompt if we don't already have both values
-        if (!clientName || !quoteTitle) {
-            const exportData = await showExportModal(quoteTitle || '', clientName || '');
-            if (exportData === null) return; // User cancelled
-            
-            quoteTitle = exportData.title || null;
-            clientName = exportData.clientName || null;
-        }
+        const meta = await this.resolveExportMeta();
+        if (!meta) return;
         
         try {
-            const subtotal = this.calculateTotal();
-            const markupsTotal = this.calculateMarkupsTotal();
-            const subtotalWithMarkups = subtotal + markupsTotal;
-            const discountAmount = subtotalWithMarkups * (this.discountPercentage / 100);
-            const total = this.getFinalTotal();
-
-            // Send data to server for DOCX generation
-            const quoteData = {
-                days: this.days,
-                subtotal: subtotal,
-                markups: this.markups,
-                markupsTotal: markupsTotal,
-                total: total,
-                discountPercentage: this.discountPercentage,
-                discountAmount: discountAmount,
-                clientName: clientName,
-                quoteTitle: quoteTitle
-            };
+            const quoteData = this.buildExportQuoteData(meta.clientName, meta.quoteTitle, meta.clientCompany);
 
             const response = await fetch('/api/generate-docx', {
                 method: 'POST',
@@ -1469,7 +1435,7 @@ class QuoteCalculator {
                 },
                 body: JSON.stringify({ 
                     quoteData,
-                    quoteName: quoteTitle 
+                    quoteName: meta.quoteTitle 
                 })
             });
 
@@ -1629,6 +1595,7 @@ class QuoteCalculator {
             : (this.currentQuoteTitle || this.currentQuoteName || '');
         document.getElementById('saveQuoteTitle').value = titleForSave;
         document.getElementById('clientName').value = this.currentClientName || '';
+        document.getElementById('clientCompany').value = this.currentClientCompany || '';
         document.getElementById('eventLocation').value = this.currentLocation || '';
         if (window.LeadSources) {
             LeadSources.setLeadSourceFormValue(this.currentLeadSource || '');
@@ -1666,10 +1633,32 @@ class QuoteCalculator {
 
     async loadClients() {
         try {
-            const response = await fetch('/api/clients');
-            const clients = await response.json();
-            
-            // Store clients for filtering
+            const [quoteRes, crmRes] = await Promise.all([
+                fetch('/api/quote-clients', { credentials: 'include' }),
+                fetch('/api/crm/clients', { credentials: 'include' })
+            ]);
+            const quoteClients = quoteRes.ok ? await quoteRes.json() : [];
+            const crmClients = crmRes.ok ? await crmRes.json() : [];
+
+            const seen = new Set();
+            const clients = [];
+            const addClient = (raw) => {
+                const name = String(raw?.name || '').trim();
+                const company = String(raw?.company || '').trim();
+                if (!name && !company) return;
+                const key = `${name.toLowerCase()}|${company.toLowerCase()}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                clients.push({ name, company });
+            };
+
+            (Array.isArray(crmClients) ? crmClients : []).forEach(addClient);
+            (Array.isArray(quoteClients) ? quoteClients : []).forEach(addClient);
+
+            clients.sort((a, b) =>
+                (a.name || a.company).localeCompare(b.name || b.company, undefined, { sensitivity: 'base' })
+            );
+
             this.allClients = clients;
             this.displayClients(clients);
         } catch (error) {
@@ -1709,8 +1698,9 @@ class QuoteCalculator {
             if (!project) return;
 
             this.currentProjectId = project._id;
-            if (project.client?.name) {
-                this.currentClientName = project.client.name;
+            if (project.client?.name || project.client?.company) {
+                if (project.client.name) this.currentClientName = project.client.name;
+                if (project.client.company) this.currentClientCompany = project.client.company;
                 this.updateClientDisplay();
             }
             // Only replace default/auto-generated titles — never a title the user chose
@@ -1728,7 +1718,7 @@ class QuoteCalculator {
     }
 
     // Resolves the project select value; creates a new project when "__new__" is chosen.
-    async resolveSelectedProjectId(quoteTitle, clientName) {
+    async resolveSelectedProjectId(quoteTitle, clientName, clientCompany) {
         const select = document.getElementById('saveQuoteProject');
         if (!select) return this.currentProjectId ?? null;
         const value = select.value;
@@ -1744,7 +1734,7 @@ class QuoteCalculator {
             body: JSON.stringify({
                 name: quoteTitle,
                 status: 'quoted',
-                client: clientName ? { name: clientName } : undefined,
+                client: clientName ? { name: clientName, company: clientCompany || '' } : undefined,
                 leadSource: leadSource || null
             })
         });
@@ -1768,7 +1758,7 @@ class QuoteCalculator {
             clients.forEach(client => {
                 const item = document.createElement('div');
                 item.className = 'client-dropdown-item';
-                item.textContent = client;
+                item.textContent = this.clientDisplayLabel(client.name, client.company) || client.name || client.company;
                 item.onclick = () => this.selectClient(client);
                 dropdown.appendChild(item);
             });
@@ -1776,8 +1766,13 @@ class QuoteCalculator {
     }
 
     selectClient(client) {
-        const input = document.getElementById('clientName');
-        input.value = client;
+        const name = typeof client === 'string' ? client : (client?.name || '');
+        const company = typeof client === 'string' ? '' : (client?.company || '');
+        document.getElementById('clientName').value = name;
+        const companyInput = document.getElementById('clientCompany');
+        if (companyInput && (company || !companyInput.value)) {
+            companyInput.value = company;
+        }
         this.hideClientDropdown();
     }
 
@@ -1898,6 +1893,7 @@ class QuoteCalculator {
                     body: JSON.stringify({
                         newName: newTitle,
                         clientName: this.currentClientName || null,
+                        clientCompany: this.currentClientCompany || null,
                         location: this.currentLocation || null
                     })
                 });
@@ -1942,6 +1938,7 @@ class QuoteCalculator {
         
         const title = document.getElementById('saveQuoteTitle').value.trim();
         const clientName = document.getElementById('clientName').value.trim();
+        const clientCompany = document.getElementById('clientCompany').value.trim();
         const location = document.getElementById('eventLocation').value.trim();
         const leadSource = window.LeadSources
             ? LeadSources.getLeadSourceFromForm()
@@ -1953,6 +1950,11 @@ class QuoteCalculator {
         
         if (!clientName) {
             showAlertModal('Please enter a client name.', 'error');
+            return;
+        }
+
+        if (!clientCompany) {
+            showAlertModal('Please enter a company name.', 'error');
             return;
         }
         
@@ -1981,7 +1983,7 @@ class QuoteCalculator {
         const isRenaming = oldQuoteName && oldQuoteName !== title;
 
         try {
-            const projectId = await this.resolveSelectedProjectId(title, clientName);
+            const projectId = await this.resolveSelectedProjectId(title, clientName, clientCompany);
 
             const response = await fetch('/api/save-quote', {
                 method: 'POST',
@@ -1992,6 +1994,7 @@ class QuoteCalculator {
                     name: title, 
                     quoteData,
                     clientName: clientName || null,
+                    clientCompany: clientCompany || null,
                     location: location || null,
                     leadSource: leadSource || null,
                     projectId: projectId
@@ -2009,7 +2012,7 @@ class QuoteCalculator {
                     'Cancel'
                 );
                 if (overwrite) {
-                    await this.overwriteQuote(title, quoteData, clientName, location, leadSource, projectId);
+                    await this.overwriteQuote(title, quoteData, clientName, clientCompany, location, leadSource, projectId);
                     // If we're renaming, delete the old quote after successful overwrite
                     if (isRenaming) {
                         await this.deleteOldQuote(oldQuoteName);
@@ -2024,6 +2027,7 @@ class QuoteCalculator {
                 // Update current quote info
                 this.currentQuoteName = title;
                 this.currentClientName = clientName || null;
+                this.currentClientCompany = clientCompany || null;
                 this.currentLocation = location || null;
                 this.currentLeadSource = leadSource || null;
                 this.currentProjectId = projectId || null;
@@ -2089,6 +2093,7 @@ class QuoteCalculator {
         return JSON.stringify({
             name: this.currentQuoteName,
             clientName: this.currentClientName,
+            clientCompany: this.currentClientCompany,
             location: this.currentLocation,
             leadSource: this.currentLeadSource,
             booked: this.currentBooked,
@@ -2177,6 +2182,7 @@ class QuoteCalculator {
                     name: this.currentQuoteName,
                     quoteData,
                     clientName: this.currentClientName || null,
+                    clientCompany: this.currentClientCompany || null,
                     location: this.currentLocation || null,
                     leadSource: this.currentLeadSource || null,
                     // undefined is dropped by JSON.stringify → server leaves project link untouched
@@ -2198,6 +2204,7 @@ class QuoteCalculator {
                         name: this.currentQuoteName,
                         quoteData,
                         clientName: this.currentClientName || null,
+                        clientCompany: this.currentClientCompany || null,
                         location: this.currentLocation || null,
                         leadSource: this.currentLeadSource || null,
                         projectId: this.currentProjectId || undefined
@@ -2218,6 +2225,7 @@ class QuoteCalculator {
                             name: this.currentQuoteName,
                             quoteData,
                             clientName: this.currentClientName || null,
+                            clientCompany: this.currentClientCompany || null,
                             location: this.currentLocation || null,
                             leadSource: this.currentLeadSource || null,
                             projectId: this.currentProjectId || undefined
@@ -2545,12 +2553,13 @@ class QuoteCalculator {
         }
     }
 
-    async overwriteQuote(name, quoteData, clientName, location, leadSource, projectId = undefined) {
+    async overwriteQuote(name, quoteData, clientName, clientCompany, location, leadSource, projectId = undefined) {
         try {
             const payload = { 
                 name, 
                 quoteData,
                 clientName: clientName || null,
+                clientCompany: clientCompany || null,
                 location: location || null,
                 leadSource: leadSource || null
             };
@@ -2571,6 +2580,7 @@ class QuoteCalculator {
                 // Update current quote info
                 this.currentQuoteName = name;
                 this.currentClientName = clientName || null;
+                this.currentClientCompany = clientCompany || null;
                 this.currentLocation = location || null;
                 this.currentLeadSource = leadSource || null;
                 if (projectId !== undefined) {
@@ -2604,8 +2614,8 @@ class QuoteCalculator {
 
         if (!clientDisplay) return;
 
-        if (this.currentClientName) {
-            clientDisplay.textContent = this.currentClientName;
+        if (this.currentClientName || this.currentClientCompany) {
+            clientDisplay.textContent = this.clientDisplayLabel();
             clientDisplay.classList.add('is-visible');
             clientDisplay.style.display = '';
         } else {
@@ -2695,6 +2705,7 @@ class QuoteCalculator {
             this.markups = quoteData.markups || [];
             this.currentQuoteName = null;
             this.currentClientName = null;
+            this.currentClientCompany = null;
             this.currentLocation = null;
             this.currentLeadSource = null;
             this.currentBooked = false;
@@ -2804,6 +2815,7 @@ class QuoteCalculator {
     clearCurrentQuote() {
         this.currentQuoteName = null;
         this.currentClientName = null;
+        this.currentClientCompany = null;
         this.currentLocation = null;
         this.currentBooked = false;
         this.currentArchived = false;
@@ -2843,6 +2855,7 @@ class QuoteCalculator {
             this.markups = quoteData.markups || [];
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
+            this.currentClientCompany = quote.clientCompany || null;
             this.currentLocation = quote.location || null;
             this.currentLeadSource = quote.leadSource || null;
             this.currentBooked = quote.booked || false;
@@ -2986,7 +2999,7 @@ class QuoteCalculator {
                         ${dateRange ? `<span>📅 Service Dates: ${dateRange}</span>` : ''}
                         <span>📅 Created: ${createdDate}</span>
                         ${createdDate !== updatedDate ? `<span>✏️ Updated: ${updatedDate}</span>` : ''}
-                        ${quote.clientName ? `<span>👤 Client: ${this.escapeHtml(quote.clientName)}</span>` : ''}
+                        ${this.clientDisplayLabel(quote.clientName, quote.clientCompany) ? `<span>👤 Client: ${this.escapeHtml(this.clientDisplayLabel(quote.clientName, quote.clientCompany))}</span>` : ''}
                         ${quote.location ? `<span>📍 Location: ${this.escapeHtml(quote.location)}</span>` : ''}
                     </div>
                 </div>
@@ -3021,6 +3034,7 @@ class QuoteCalculator {
         const filtered = this.allQuotes.filter(quote => 
             quote.name.toLowerCase().includes(searchTerm) ||
             (quote.clientName && quote.clientName.toLowerCase().includes(searchTerm)) ||
+            (quote.clientCompany && quote.clientCompany.toLowerCase().includes(searchTerm)) ||
             (quote.location && quote.location.toLowerCase().includes(searchTerm))
         );
         this.displayQuotes(filtered);
@@ -3076,6 +3090,7 @@ class QuoteCalculator {
             this.markups = quote.quoteData.markups || [];
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
+            this.currentClientCompany = quote.clientCompany || null;
             this.currentLocation = quote.location || null;
             this.currentLeadSource = quote.leadSource || null;
             this.currentBooked = quote.booked || false;
@@ -4950,6 +4965,7 @@ function closeSaveModal() {
 async function saveAsCopy() {
     const title = document.getElementById('saveQuoteTitle').value.trim();
     const clientName = document.getElementById('clientName').value.trim();
+    const clientCompany = document.getElementById('clientCompany').value.trim();
     const location = document.getElementById('eventLocation').value.trim();
     const leadSource = window.LeadSources
         ? LeadSources.getLeadSourceFromForm()
@@ -4962,6 +4978,11 @@ async function saveAsCopy() {
     
     if (!clientName) {
         showAlertModal('Please enter a client name.', 'error');
+        return;
+    }
+
+    if (!clientCompany) {
+        showAlertModal('Please enter a company name.', 'error');
         return;
     }
     
@@ -4988,7 +5009,7 @@ async function saveAsCopy() {
     };
 
     try {
-        const projectId = await calculator.resolveSelectedProjectId(copyTitle, clientName);
+        const projectId = await calculator.resolveSelectedProjectId(copyTitle, clientName, clientCompany);
 
         const response = await fetch('/api/save-quote', {
             method: 'POST',
@@ -4999,6 +5020,7 @@ async function saveAsCopy() {
                 name: copyTitle, 
                 quoteData,
                 clientName: clientName || null,
+                clientCompany: clientCompany || null,
                 location: location || null,
                 leadSource: leadSource || null,
                 projectId: projectId
@@ -5022,6 +5044,7 @@ async function saveAsCopy() {
                         name: uniqueTitle, 
                         quoteData,
                         clientName: clientName || null,
+                        clientCompany: clientCompany || null,
                         location: location || null,
                         leadSource: leadSource || null,
                         projectId: projectId
@@ -5033,6 +5056,7 @@ async function saveAsCopy() {
                 if (retryResult.success) {
                     calculator.currentQuoteName = uniqueTitle;
                     calculator.currentClientName = clientName || null;
+                    calculator.currentClientCompany = clientCompany || null;
                     calculator.currentLeadSource = leadSource || null;
                     calculator.currentQuoteTitle = uniqueTitle;
                     calculator.currentProjectId = projectId || null;
@@ -5055,6 +5079,7 @@ async function saveAsCopy() {
         } else if (result.success) {
             calculator.currentQuoteName = copyTitle;
             calculator.currentClientName = clientName || null;
+            calculator.currentClientCompany = clientCompany || null;
             calculator.currentLeadSource = leadSource || null;
             calculator.currentQuoteTitle = copyTitle;
             calculator.currentProjectId = projectId || null;
@@ -5136,7 +5161,7 @@ async function clearQuote() {
     }
 }
 
-function showExportModal(defaultTitle = '', defaultClientName = '') {
+function showExportModal(defaultTitle = '', defaultClientName = '', defaultClientCompany = '') {
     return new Promise((resolve) => {
         // Create modal HTML if it doesn't exist
         let modal = document.getElementById('exportModal');
@@ -5160,6 +5185,10 @@ function showExportModal(defaultTitle = '', defaultClientName = '') {
                                 <label for="exportClientName">Client Name (optional):</label>
                                 <input type="text" id="exportClientName" placeholder="Enter client name">
                             </div>
+                            <div class="form-group">
+                                <label for="exportClientCompany">Company Name (optional):</label>
+                                <input type="text" id="exportClientCompany" placeholder="Enter company name">
+                            </div>
                         </form>
                     </div>
                     <div class="modal-buttons">
@@ -5173,10 +5202,12 @@ function showExportModal(defaultTitle = '', defaultClientName = '') {
         
         const titleInput = document.getElementById('exportTitle');
         const clientNameInput = document.getElementById('exportClientName');
+        const clientCompanyInput = document.getElementById('exportClientCompany');
         
         // Set default values
         titleInput.value = defaultTitle;
         clientNameInput.value = defaultClientName;
+        clientCompanyInput.value = defaultClientCompany;
         
         // Set callback
         window.currentExportCallback = resolve;
@@ -5217,10 +5248,12 @@ function hideExportModal(result) {
 function submitExportModal() {
     const titleInput = document.getElementById('exportTitle');
     const clientNameInput = document.getElementById('exportClientName');
+    const clientCompanyInput = document.getElementById('exportClientCompany');
     
     const result = {
         title: titleInput.value.trim() || null,
-        clientName: clientNameInput.value.trim() || null
+        clientName: clientNameInput.value.trim() || null,
+        clientCompany: clientCompanyInput?.value.trim() || null
     };
     
     hideExportModal(result);
@@ -5314,9 +5347,10 @@ function filterClients() {
         // Hide dropdown when input is empty
         dropdown.style.display = 'none';
     } else {
-        const filtered = calculator.allClients.filter(client => 
-            client.toLowerCase().includes(filter)
-        );
+        const filtered = calculator.allClients.filter(client => {
+            const haystack = `${client.name || ''} ${client.company || ''}`.toLowerCase();
+            return haystack.includes(filter);
+        });
         calculator.displayClients(filtered);
         
         // Show dropdown with filtered results if there are matches

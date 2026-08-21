@@ -648,8 +648,18 @@ function formatDateForPDF(date) {
     return date.toLocaleDateString('en-US', options);
 }
 
+function formatClientLine(clientName, clientCompany) {
+  const name = String(clientName || '').trim();
+  const company = String(clientCompany || '').trim();
+  if (name && company && name.toLowerCase() !== company.toLowerCase()) {
+    return `${name} · ${company}`;
+  }
+  return name || company || '';
+}
+
 async function generateQuoteHTML(quoteData) {
-  const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
+  const { days, subtotal, total, discountPercentage, discountAmount, clientName, clientCompany, quoteTitle, markups, markupsTotal } = quoteData;
+  const clientLine = formatClientLine(clientName, clientCompany);
   
   // Get all services for subservice checking
   const allServices = await Service.find();
@@ -906,7 +916,7 @@ async function generateQuoteHTML(quoteData) {
          ${logoBase64 ? `<img src="${logoBase64}" alt="Lumetry Media" style="max-height: 80px; margin-bottom: 20px;">` : ''}
          <h1>${quoteTitle || 'Conference Services Quote'}</h1>
          <p>Professional photography and/or videography services</p>
-         <p><strong>Created on:</strong> ${new Date().toLocaleDateString()}${clientName ? ` | <strong>Client:</strong> ${clientName}` : ''}</p>
+         <p><strong>Created on:</strong> ${new Date().toLocaleDateString()}${clientLine ? ` | <strong>Client:</strong> ${clientLine}` : ''}</p>
        </div>
       
       <table>
@@ -971,7 +981,8 @@ async function generateQuoteHTML(quoteData) {
 app.post('/api/generate-excel', async (req, res) => {
   try {
     const { quoteData, quoteName, enableBorders = true } = req.body;
-    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
+    const { days, subtotal, total, discountPercentage, discountAmount, clientName, clientCompany, quoteTitle, markups, markupsTotal } = quoteData;
+    const clientLine = formatClientLine(clientName, clientCompany);
     
     console.log('🔄 Starting Excel generation...');
     
@@ -1030,10 +1041,10 @@ app.post('/api/generate-excel', async (req, res) => {
     }
     
     // Add client name row if provided
-    if (clientName) {
+    if (clientLine) {
       worksheet.mergeCells(`A${currentRow}:${lastColLetter}${currentRow}`);
       const clientRow = worksheet.getRow(currentRow);
-      clientRow.getCell(1).value = clientName;
+      clientRow.getCell(1).value = clientLine;
       clientRow.getCell(1).font = { bold: true, name: 'Arial', size: 11 };
       clientRow.getCell(1).alignment = { horizontal: 'center' };
       clientRow.getCell(1).fill = {
@@ -1533,7 +1544,8 @@ app.post('/api/generate-excel', async (req, res) => {
 app.post('/api/generate-docx', async (req, res) => {
   try {
     const { quoteData, quoteName } = req.body;
-    const { days, subtotal, total, discountPercentage, discountAmount, clientName, quoteTitle, markups, markupsTotal } = quoteData;
+    const { days, subtotal, total, discountPercentage, discountAmount, clientName, clientCompany, quoteTitle, markups, markupsTotal } = quoteData;
+    const clientLine = formatClientLine(clientName, clientCompany);
     
     console.log('🔄 Starting DOCX generation...');
     
@@ -1548,7 +1560,7 @@ app.post('/api/generate-docx', async (req, res) => {
     const children = [];
     
     // Header with quote name and client name
-    if (quoteTitle || clientName) {
+    if (quoteTitle || clientLine) {
       children.push(
         new Paragraph({
           children: [
@@ -1563,12 +1575,12 @@ app.post('/api/generate-docx', async (req, res) => {
         })
       );
       
-      if (clientName) {
+      if (clientLine) {
         children.push(
           new Paragraph({
             children: [
               new TextRun({
-                text: `Client: ${clientName}`,
+                text: `Client: ${clientLine}`,
                 size: 24,
               }),
             ],
@@ -2318,6 +2330,7 @@ const savedQuoteSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true },
   quoteData: { type: Object, required: true },
   clientName: { type: String, default: null },
+  clientCompany: { type: String, default: null },
   location: { type: String, default: null },
   leadSource: { type: String, default: null },
   archived: { type: Boolean, default: false },
@@ -2442,7 +2455,7 @@ async function getOrCreateUserRecord(userName) {
 // Save quote endpoint (auto-assigns createdBy from logged-in user)
 app.post('/api/save-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, location, leadSource, booked, projectId } = req.body;
+    const { name, quoteData, clientName, clientCompany, location, leadSource, booked, projectId } = req.body;
     const user = req.user;
     
     if (!name || !quoteData) {
@@ -2472,6 +2485,7 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
       name,
       quoteData,
       clientName: clientName || null,
+      clientCompany: clientCompany || null,
       location: location || null,
       leadSource: leadSource || null,
       booked: booked || false,
@@ -2500,7 +2514,7 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
 // Overwrite existing quote (with access control)
 app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, location, leadSource, booked, projectId } = req.body;
+    const { name, quoteData, clientName, clientCompany, location, leadSource, booked, projectId } = req.body;
     const user = req.user;
     
     if (!name || !quoteData) {
@@ -2526,6 +2540,7 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
     const updateFields = {
       quoteData,
       clientName: clientName || null,
+      clientCompany: clientCompany || null,
       location: location || null,
       leadSource: leadSource || null
       // Don't update createdBy - keep original owner
@@ -2723,6 +2738,7 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
       const searchConditions = [
         { name: searchRegex },
         { clientName: searchRegex },
+        { clientCompany: searchRegex },
         { location: searchRegex },
         { 'quoteData.quoteTitle': searchRegex }
       ];
@@ -2773,6 +2789,7 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
     const quotes = await SavedQuote.find(query, {
       name: 1,
       clientName: 1,
+      clientCompany: 1,
       location: 1,
       leadSource: 1,
       archived: 1,
@@ -2850,7 +2867,7 @@ app.get('/api/load-quote/:name', requireApiAuth, async (req, res) => {
 app.put('/api/update-quote-metadata/:name', requireApiAuth, async (req, res) => {
   try {
     const { name } = req.params;
-    const { newName, clientName, location, createdBy, booked } = req.body;
+    const { newName, clientName, clientCompany, location, createdBy, booked } = req.body;
     const user = req.user;
     
     if (!newName) {
@@ -2882,6 +2899,9 @@ app.put('/api/update-quote-metadata/:name', requireApiAuth, async (req, res) => 
     
     if (clientName !== undefined) {
       updateFields.clientName = clientName || null;
+    }
+    if (clientCompany !== undefined) {
+      updateFields.clientCompany = clientCompany || null;
     }
     if (location !== undefined) {
       updateFields.location = location || null;
@@ -2978,6 +2998,41 @@ app.post('/api/archive-quote/:name', requireApiAuth, async (req, res) => {
   } catch (error) {
     console.error('Error archiving/unarchiving quote:', error);
     res.status(500).json({ error: 'Failed to update quote archive status' });
+  }
+});
+
+// Get previous quote clients (name + company) for the save-quote picker
+app.get('/api/quote-clients', requireApiAuth, async (req, res) => {
+  try {
+    const quotes = await SavedQuote.find(
+      {
+        $or: [
+          { clientName: { $nin: [null, ''] } },
+          { clientCompany: { $nin: [null, ''] } }
+        ]
+      },
+      { clientName: 1, clientCompany: 1 }
+    );
+
+    const seen = new Set();
+    const clients = [];
+    quotes.forEach((quote) => {
+      const name = (quote.clientName || '').trim();
+      const company = (quote.clientCompany || '').trim();
+      if (!name && !company) return;
+      const key = `${name.toLowerCase()}|${company.toLowerCase()}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      clients.push({ name, company });
+    });
+
+    clients.sort((a, b) =>
+      (a.name || a.company).localeCompare(b.name || b.company, undefined, { sensitivity: 'base' })
+    );
+    res.json(clients);
+  } catch (error) {
+    console.error('Error fetching quote clients:', error);
+    res.status(500).json({ error: 'Failed to fetch client names' });
   }
 });
 
@@ -3088,6 +3143,7 @@ app.get('/api/calendar-events', requireApiAuth, async (req, res) => {
         : SavedQuote.find(quoteQuery, {
           name: 1,
           clientName: 1,
+          clientCompany: 1,
           booked: 1,
           project: 1,
           createdBy: 1,
@@ -3154,8 +3210,11 @@ app.get('/api/calendar-events', requireApiAuth, async (req, res) => {
 
       const client = project.client;
       const clientName = client
-        ? (client.company ? `${client.name} · ${client.company}` : client.name)
-        : (linkedQuotes.find((q) => q.clientName)?.clientName || null);
+        ? formatClientLine(client.name, client.company)
+        : formatClientLine(
+          linkedQuotes.find((q) => q.clientName || q.clientCompany)?.clientName,
+          linkedQuotes.find((q) => q.clientName || q.clientCompany)?.clientCompany
+        ) || null;
 
       const invSummary = invoiceByProject.get(key) || {
         count: 0, totalInvoiced: 0, totalPaid: 0, outstanding: 0
@@ -3195,7 +3254,7 @@ app.get('/api/calendar-events', requireApiAuth, async (req, res) => {
         extendedProps: {
           type: 'quote',
           quoteName: quote.name,
-          clientName: quote.clientName,
+          clientName: formatClientLine(quote.clientName, quote.clientCompany) || quote.clientName,
           total: quote.quoteData?.total,
           totalServices,
           dayCount: days.length,
@@ -3295,7 +3354,7 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
       SavedQuote.find(
         { archived: { $ne: true } },
         {
-          leadSource: 1, project: 1, createdAt: 1, clientName: 1,
+          leadSource: 1, project: 1, createdAt: 1, clientName: 1, clientCompany: 1,
           location: 1, booked: 1, 'quoteData.total': 1
         }
       )
@@ -3456,7 +3515,7 @@ app.get('/api/reports', requireApiAuth, async (req, res) => {
     const quotesByClient = {};
     const quotedByClient = {};
     quotesInPeriod.forEach((quote) => {
-      const name = (quote.clientName || '').trim() || 'Unknown';
+      const name = formatClientLine(quote.clientName, quote.clientCompany) || 'Unknown';
       quotesByClient[name] = (quotesByClient[name] || 0) + 1;
       quotedByClient[name] = (quotedByClient[name] || 0) + quoteTotal(quote);
     });

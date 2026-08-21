@@ -22,6 +22,15 @@ class QuotesManager {
         this.init();
     }
 
+    clientLabel(quote) {
+        const name = String(quote?.clientName || '').trim();
+        const company = String(quote?.clientCompany || '').trim();
+        if (name && company && name.toLowerCase() !== company.toLowerCase()) {
+            return `${name} · ${company}`;
+        }
+        return name || company || '';
+    }
+
     setWhen(when) {
         if (!['all', 'upcoming', 'past'].includes(when) || this.when === when) return;
         this.when = when;
@@ -534,7 +543,7 @@ class QuotesManager {
     createQuoteRow(quote) {
         const total = quote.quoteData?.total || 0;
         const days = quote.quoteData?.days || [];
-        const clientName = quote.clientName || '-';
+        const clientName = this.clientLabel(quote) || '-';
         const location = quote.location || '-';
         const quoteTitle = quote.quoteData?.quoteTitle || quote.name;
         const isArchived = quote.archived || false;
@@ -656,7 +665,7 @@ class QuotesManager {
     createQuoteCard(quote) {
         const total = quote.quoteData?.total || 0;
         const days = quote.quoteData?.days || [];
-        const clientName = quote.clientName || 'No client';
+        const clientName = this.clientLabel(quote) || 'No client';
         const location = quote.location || '';
         const quoteTitle = quote.quoteData?.quoteTitle || quote.name;
         const isArchived = quote.archived || false;
@@ -1331,6 +1340,7 @@ class QuotesManager {
         // Populate form fields
         document.getElementById('editQuoteName').value = quote.name;
         document.getElementById('editQuoteClient').value = quote.clientName || '';
+        document.getElementById('editQuoteCompany').value = quote.clientCompany || '';
         document.getElementById('editQuoteLocation').value = quote.location || '';
 
         // Show modal
@@ -1577,6 +1587,7 @@ class QuotesManager {
 
         const newName = document.getElementById('editQuoteName').value.trim();
         const clientName = document.getElementById('editQuoteClient').value.trim();
+        const clientCompany = document.getElementById('editQuoteCompany').value.trim();
         const location = document.getElementById('editQuoteLocation').value.trim();
 
         if (!newName) {
@@ -1595,6 +1606,7 @@ class QuotesManager {
                 body: JSON.stringify({
                     newName,
                     clientName: clientName || null,
+                    clientCompany: clientCompany || null,
                     location: location || null
                 })
             });

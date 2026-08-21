@@ -119,9 +119,10 @@ function buildTransferPayloadFromProject(project, quotes = []) {
     const locationSource = primaryQuote?.location || '';
     const { city, state, venue } = parseLocation(locationSource);
     const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
-    const clientName = project.client?.name
-        || primaryQuote?.clientName
-        || '';
+    const quoteWithClient = quotes.find((q) => q.clientName) || primaryQuote;
+    const quoteWithCompany = quotes.find((q) => q.clientCompany) || primaryQuote;
+    const clientName = String(project.client?.name || quoteWithClient?.clientName || '').trim();
+    const company = String(project.client?.company || quoteWithCompany?.clientCompany || '').trim();
 
     return {
         name: project.name,
@@ -132,6 +133,8 @@ function buildTransferPayloadFromProject(project, quotes = []) {
         city,
         state,
         client: clientName,
+        company,
+        companyName: company,
         location: venue || locationSource || '',
         owner: userInfo.name || ''
     };
@@ -258,6 +261,8 @@ async function transferToLumDash(quote) {
     const { startDate, endDate } = getQuoteDateRange(quote.quoteData?.days || []);
     const { city, state, venue } = parseLocation(quote.location);
     const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+    const clientName = String(quote.clientName || '').trim();
+    const company = String(quote.clientCompany || '').trim();
     return sendTransferPayload({
         name: quote.quoteData?.quoteTitle || quote.name,
         externalSource: 'lumquote',
@@ -266,7 +271,9 @@ async function transferToLumDash(quote) {
         endDate,
         city,
         state,
-        client: quote.clientName || '',
+        client: clientName,
+        company,
+        companyName: company,
         location: venue || quote.location || '',
         owner: userInfo.name || quote.createdBy?.name || ''
     });

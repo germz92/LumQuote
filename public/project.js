@@ -850,7 +850,7 @@ class ProjectPage {
                     <div class="template-list-item">
                         <div>
                             <strong>${CRM.escapeHtml(this.quoteTitle(q))}</strong>
-                            <div class="template-meta">${CRM.escapeHtml(q.clientName || '')} · ${CRM.money(q.quoteData?.total || 0, { cents: false })}${q.project ? ' · linked to another project' : ''}</div>
+                            <div class="template-meta">${CRM.escapeHtml([q.clientName, q.clientCompany].filter(Boolean).join(' · ') || 'No client')} · ${CRM.money(q.quoteData?.total || 0, { cents: false })}${q.project ? ' · linked to another project' : ''}</div>
                         </div>
                         <button class="crm-btn-sm primary" onclick="projectPage.linkQuote('${CRM.escapeJs(q.name)}')">Link</button>
                     </div>`).join('');
