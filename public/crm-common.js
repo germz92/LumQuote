@@ -229,6 +229,24 @@ const CRM = {
             input.remove();
             return ok;
         }
+    },
+
+    async copyHtmlToClipboard(html, text) {
+        const plain = text || String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (navigator.clipboard?.write && window.ClipboardItem) {
+            try {
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        'text/html': new Blob([html], { type: 'text/html' }),
+                        'text/plain': new Blob([plain], { type: 'text/plain' })
+                    })
+                ]);
+                return true;
+            } catch {
+                // fall through to plain text
+            }
+        }
+        return this.copyToClipboard(plain);
     }
 };
 

@@ -430,6 +430,13 @@ class ProjectPage {
             invoiceSkip = true;
         }
 
+        const canCopyEmail = !needsContract && !needsInvoice;
+        const copyHtml = canCopyEmail ? `
+                <div class="send-it-copy-actions">
+                    <button type="button" class="secondary-button" id="sendItCopyEmailBtn">Copy for email</button>
+                    <p class="field-hint">Copies a styled message with links so you can paste it into Gmail and send from your inbox.</p>
+                </div>` : '';
+
         const html = `
             <div class="send-it-copy">
                 <p>This sends <strong>one email</strong> to <strong>${who}</strong> with the contract and invoice.</p>
@@ -437,9 +444,43 @@ class ProjectPage {
                     <li class="${contractSkip ? 'is-skip' : ''}"><span class="send-it-label">Contract</span>${contractDetail}</li>
                     <li class="${invoiceSkip ? 'is-skip' : ''}"><span class="send-it-label">Invoice</span>${invoiceDetail}</li>
                 </ul>
+                ${copyHtml}
             </div>`;
 
-        return { email, html };
+        return { email, html, canCopyEmail };
+    }
+
+    async copySendItEmail(button) {
+        const original = button ? button.textContent : '';
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Copying...';
+        }
+        try {
+            const result = await CRM.api(`/api/projects/${this.projectId}/email-copy`, { method: 'POST' });
+            const ok = await CRM.copyHtmlToClipboard(result.html, result.text);
+            if (!ok) throw new Error('Could not copy to the clipboard.');
+            if (button) button.textContent = 'Copied!';
+            const subjectNote = result.subject ? ` Subject: ${result.subject}` : '';
+            showAlertModal(
+                `Email copied. Paste it into Gmail or another mail app.${subjectNote}`,
+                'success',
+                null,
+                true
+            );
+            await this.reload();
+            this.renderAll();
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+            if (button) button.textContent = original || 'Copy for email';
+        } finally {
+            if (button) {
+                button.disabled = false;
+                setTimeout(() => {
+                    if (button.textContent === 'Copied!') button.textContent = original || 'Copy for email';
+                }, 2500);
+            }
+        }
     }
 
     async sendNow() {
@@ -448,7 +489,16 @@ class ProjectPage {
             showAlertModal(plan.error, 'error');
             return;
         }
-        const confirmed = await showConfirmModal(plan.html, 'Send It!', 'Send It!', 'Cancel', true);
+        const confirmedPromise = showConfirmModal(plan.html, 'Send It!', 'Send It!', 'Cancel', true);
+        const copyBtn = document.getElementById('sendItCopyEmailBtn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.copySendItEmail(copyBtn);
+            });
+        }
+        const confirmed = await confirmedPromise;
         if (!confirmed) return;
 
         const button = document.getElementById('sendNowBtn');
