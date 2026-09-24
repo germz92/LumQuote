@@ -289,6 +289,7 @@ app.use((req, res, next) => {
       req.path.startsWith('/assets/') ||
       req.path.startsWith('/sign/') ||        // public contract signing (token-protected)
       req.path.startsWith('/invoice/') ||     // public invoice view (token-protected)
+      req.path.startsWith('/portal/') ||      // password-protected client portal
       req.path.startsWith('/api/public/') ||  // public CRM data endpoints (token-protected)
       req.path === '/api/admin/google-calendar/callback' ||
       req.path === '/api/stripe/webhook' ||

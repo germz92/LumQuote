@@ -263,6 +263,7 @@ class ClientsManager {
                     <td>
                         <div class="list-row-primary">
                             <strong>${CRM.escapeHtml(client.name)}</strong>
+                            <button type="button" class="crm-btn-sm" onclick="event.stopPropagation(); PortalShare.open({ scope: 'person', clientId: '${CRM.escapeJs(id)}', label: '${CRM.escapeJs(client.name)}' })">Portal</button>
                             ${metaHtml}
                         </div>
                     </td>
@@ -321,6 +322,7 @@ class ClientsManager {
                     <td>
                         <div class="list-row-primary">
                             <strong class="${unnamed ? 'crm-inline-note' : ''}">${CRM.escapeHtml(group.name)}</strong>
+                            ${unnamed ? '' : `<button type="button" class="crm-btn-sm" onclick="event.stopPropagation(); PortalShare.open({ scope: 'company', company: '${CRM.escapeJs(group.name)}', label: '${CRM.escapeJs(group.name)}' })">Portal</button>`}
                             ${metaHtml}
                         </div>
                     </td>
