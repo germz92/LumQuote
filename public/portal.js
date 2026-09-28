@@ -4,7 +4,7 @@ class ClientPortalPage {
         this.root = document.getElementById('portalApp');
         this.portal = null;
         this.when = 'all';
-        this.sort = 'date-desc';
+        this.sort = 'date-asc';
         this.search = '';
         this.load();
     }
@@ -100,6 +100,10 @@ class ClientPortalPage {
         return project.endDate || project.startDate || '';
     }
 
+    sortDay(project) {
+        return project.startDate || project.endDate || '';
+    }
+
     matchesWhen(project) {
         if (this.when === 'all') return true;
         const lastDay = this.lastDay(project);
@@ -128,8 +132,8 @@ class ClientPortalPage {
             if (this.sort.startsWith('name')) {
                 return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) * (this.sort === 'name-asc' ? 1 : -1);
             }
-            const aDay = this.lastDay(a) || '';
-            const bDay = this.lastDay(b) || '';
+            const aDay = this.sortDay(a);
+            const bDay = this.sortDay(b);
             if (!aDay && !bDay) return a.name.localeCompare(b.name);
             if (!aDay) return 1;
             if (!bDay) return -1;
@@ -159,8 +163,8 @@ class ClientPortalPage {
                     <button type="button" class="pc-btn ${this.when === 'past' ? 'is-active' : ''}" data-when="past">Past</button>
                 </div>
                 <select id="portalSort" aria-label="Sort projects">
-                    <option value="date-desc" ${this.sort === 'date-desc' ? 'selected' : ''}>Date, newest</option>
-                    <option value="date-asc" ${this.sort === 'date-asc' ? 'selected' : ''}>Date, oldest</option>
+                    <option value="date-asc" ${this.sort === 'date-asc' ? 'selected' : ''}>Soonest to latest</option>
+                    <option value="date-desc" ${this.sort === 'date-desc' ? 'selected' : ''}>Latest to soonest</option>
                     <option value="name-asc" ${this.sort === 'name-asc' ? 'selected' : ''}>Name, A–Z</option>
                     <option value="name-desc" ${this.sort === 'name-desc' ? 'selected' : ''}>Name, Z–A</option>
                 </select>
