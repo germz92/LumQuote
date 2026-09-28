@@ -246,10 +246,8 @@ class SignPage {
                 caption: `Signed by ${who} — ${this.escapeHtml(c.companyName)} on ${fmt(cs.signedAt)}`
             });
         } else {
-            const signer = c.companySigner || {};
-            const who = `${this.escapeHtml(signer.name || c.companyName)}${signer.title ? `, ${this.escapeHtml(signer.title)}` : ''}`;
             companySlot = this.signatureSlot({
-                caption: `${who} — ${this.escapeHtml(c.companyName)}`,
+                caption: `Company signature${c.companyName ? ` — ${this.escapeHtml(c.companyName)}` : ''}`,
                 pending: 'Awaiting countersignature'
             });
         }
