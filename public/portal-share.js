@@ -58,12 +58,32 @@ const PortalShare = {
     },
 
     render(data) {
+        this.data = data;
         const scopeNote = data.scope === 'company'
             ? 'Anyone with this link and password can see every project, contract, and invoice for this company.'
             : 'Anyone with this link and password can see this person’s projects, contracts, and invoices.';
         const status = !data.exists
             ? 'Not created yet'
             : (data.enabled ? 'On' : 'Off');
+        const passwordFields = data.canViewPassword
+            ? `${data.password ? `
+                <label for="portalCurrentPassword">Password</label>
+                <div class="portal-link-row">
+                    <input type="text" id="portalCurrentPassword" readonly value="${CRM.escapeHtml(data.password)}">
+                    <button type="button" class="secondary-button" id="portalCopyPassword">Copy password</button>
+                </div>
+                <label for="portalSharePassword">New password</label>
+                <input type="text" id="portalSharePassword" placeholder="Leave blank to keep the current password" autocomplete="off">
+                <p class="field-hint">This password is visible to admins. A new one must be at least 6 characters.</p>` : `
+                <label for="portalSharePassword">${data.hasPassword ? 'New password' : 'Password'}</label>
+                <input type="text" id="portalSharePassword" placeholder="At least 6 characters" autocomplete="off">
+                <p class="field-hint">${data.hasPassword
+                    ? 'This password was saved before it could be shown. Set a new one of at least 6 characters to view it here.'
+                    : 'At least 6 characters. You’ll be able to view it here after saving.'}</p>`}`
+            : `
+                <label for="portalSharePassword">${data.hasPassword ? 'New password' : 'Password'}</label>
+                <input type="password" id="portalSharePassword" placeholder="${data.hasPassword ? 'Leave blank to keep the current password' : 'At least 6 characters'}" autocomplete="new-password">
+                <p class="field-hint">At least 6 characters.</p>`;
         document.getElementById('portalShareBody').innerHTML = `
             <p class="crm-inline-note">${scopeNote}</p>
             <p><strong>${CRM.escapeHtml(data.label || '')}</strong> · ${CRM.escapeHtml(status)}</p>
@@ -77,9 +97,7 @@ const PortalShare = {
             <label for="portalShareLogo">Company logo</label>
             <input type="file" id="portalShareLogo" accept="image/png,image/jpeg,image/webp,image/gif">
             ${data.logoUrl ? '<label class="portal-remove-logo"><input type="checkbox" id="portalRemoveLogo"> Remove logo</label>' : ''}
-            <label for="portalSharePassword">${data.hasPassword ? 'New password' : 'Password'}</label>
-            <input type="password" id="portalSharePassword" placeholder="${data.hasPassword ? 'Leave blank to keep the current password' : 'At least 8 characters'}" autocomplete="new-password">
-            <p class="field-hint">Share the password with your client separately. It is not shown again after you save.</p>
+            ${passwordFields}
             <div class="crm-actions-row">
                 <button type="button" class="primary-button" id="portalSaveBtn">Save portal</button>
                 ${data.exists ? `<button type="button" class="secondary-button" id="portalToggleBtn">${data.enabled ? 'Turn off' : 'Turn on'}</button>` : ''}
@@ -87,6 +105,10 @@ const PortalShare = {
         document.getElementById('portalCopyLink')?.addEventListener('click', async () => {
             const ok = await CRM.copyToClipboard(data.link);
             showAlertModal(ok ? 'Portal link copied.' : 'Could not copy the link.', ok ? 'success' : 'error', null, ok);
+        });
+        document.getElementById('portalCopyPassword')?.addEventListener('click', async () => {
+            const ok = await CRM.copyToClipboard(data.password);
+            showAlertModal(ok ? 'Password copied.' : 'Could not copy the password.', ok ? 'success' : 'error', null, ok);
         });
         document.getElementById('portalSaveBtn').addEventListener('click', () => this.save());
         document.getElementById('portalToggleBtn')?.addEventListener('click', () => this.save({ enabled: !data.enabled, keepPassword: true }));
@@ -106,6 +128,14 @@ const PortalShare = {
 
     async save(extra = {}) {
         const password = extra.keepPassword ? '' : document.getElementById('portalSharePassword').value;
+        if (!extra.keepPassword && password.length > 0 && password.length < 6) {
+            showAlertModal('Password must be at least 6 characters.', 'error');
+            return;
+        }
+        if (!extra.keepPassword && !this.data?.hasPassword && password.length < 6) {
+            showAlertModal('Set a password of at least 6 characters.', 'error');
+            return;
+        }
         const removeLogo = !!document.getElementById('portalRemoveLogo')?.checked;
         let logoData = null;
         try {

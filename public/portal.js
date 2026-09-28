@@ -265,7 +265,7 @@ class ClientPortalPage {
 
     brandHtml() {
         return `<div class="portal-brand">
-            <img src="/assets/lumetry-media-logo.png" alt="Lumetry Media">
+            <img src="/assets/logo.png" alt="Lumetry Media">
             <span>Client Portal</span>
         </div>`;
     }
