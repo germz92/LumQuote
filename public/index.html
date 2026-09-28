@@ -74,6 +74,8 @@
                             </button>
                             <div class="quote-overflow-dropdown" id="calculatorQuoteDropdown" style="display: none;">
                                 <button type="button" class="overflow-menu-item builder-menu-mobile-only" onclick="showLoadModal(); calculator.closeQuoteActionsMenu();">Load quote</button>
+                                <button type="button" class="overflow-menu-item" onclick="calculator.saveAsTemplate(); calculator.closeQuoteActionsMenu();">Save as template</button>
+                                <button type="button" class="overflow-menu-item builder-menu-mobile-only" onclick="showLoadTemplateModal(); calculator.closeQuoteActionsMenu();">Load template</button>
                                 <button type="button" class="overflow-menu-item builder-menu-mobile-only" onclick="clearQuote(); calculator.closeQuoteActionsMenu();">Clear quote</button>
                                 <button type="button" class="overflow-menu-item builder-menu-mobile-only" id="calculatorOverrideMenuBtn" onclick="calculator.toggleOverrideMode(); calculator.closeQuoteActionsMenu();">Override prices</button>
                                 <div class="overflow-menu-divider builder-menu-mobile-only" role="separator"></div>
@@ -117,6 +119,7 @@
                             <button type="button" class="btn btn-primary btn-md" id="commitInvoiceBtn" onclick="calculator.commitToInvoice()" title="Commit to Invoice" style="display: none;">Commit to Invoice</button>
                             <button type="button" class="btn btn-primary btn-md" onclick="showSaveModal()" title="Save">Save</button>
                             <button type="button" class="btn btn-secondary btn-md builder-toolbar-desktop-only" onclick="showLoadModal()" title="Load">Load</button>
+                            <button type="button" class="btn btn-secondary btn-md builder-toolbar-desktop-only" onclick="showLoadTemplateModal()" title="Load a template into this quote">Template</button>
                             <button type="button" class="btn btn-secondary btn-md builder-toolbar-desktop-only" onclick="clearQuote()" title="Clear">Clear</button>
                             <button type="button" class="override-btn btn btn-md builder-toolbar-desktop-only" id="overrideBtn" onclick="calculator.toggleOverrideMode()" title="Override">Override</button>
                         </div>
@@ -229,6 +232,29 @@
                 </div>
                 <div id="quotesContainer" class="load-quotes-list">
                     <div class="no-quotes">Loading quotes...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Template Modal -->
+    <div id="loadTemplateModal" class="modal" style="display: none;">
+        <div class="modal-content load-modal-content">
+            <div class="modal-header">
+                <h2>Load template</h2>
+                <span class="close" onclick="closeLoadTemplateModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="field-hint">Loads services, markups, and the discount into this quote. Client, title, location, and dates already set here stay.</p>
+                <div class="load-modal-controls">
+                    <input type="text"
+                           id="searchTemplates"
+                           class="search-input"
+                           placeholder="Search templates..."
+                           oninput="filterTemplates()">
+                </div>
+                <div id="templatesContainer" class="load-quotes-list">
+                    <div class="no-quotes">Loading templates...</div>
                 </div>
             </div>
         </div>

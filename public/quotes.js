@@ -582,7 +582,7 @@ class QuotesManager {
 
         const canEdit = quote.accessLevel !== 'read';
         const canDelete = quote.isOwner || this.isCurrentUserAdmin();
-        const overflowMenuHtml = (canEdit || canDelete || isArchived) ? `
+        const overflowMenuHtml = `
             <div class="quote-overflow-menu table-overflow-menu">
                 <button class="table-action-btn secondary quote-overflow-btn" onclick="quotesManager.toggleOverflowMenu(event, '${this.escapeJs(quote.name)}')" aria-label="More actions">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -603,6 +603,7 @@ class QuotesManager {
                     ${canEdit && quote.project ? `
                         <button class="overflow-menu-item" onclick="quotesManager.convertToInvoice('${this.escapeJs(quote.name)}')">Convert to Invoice</button>
                     ` : ''}
+                    <button class="overflow-menu-item" onclick="quotesManager.saveAsTemplate('${this.escapeJs(quote.name)}')">Save as template</button>
                     ${isArchived ? `
                         <button class="overflow-menu-item" onclick="quotesManager.unarchiveQuote('${this.escapeJs(quote.name)}')">Unarchive</button>
                     ` : canEdit ? `
@@ -613,7 +614,7 @@ class QuotesManager {
                     ` : ''}
                 </div>
             </div>
-        ` : '';
+        `;
 
         const metaParts = [clientName, location, createdBy, serviceDate, createdDate, modifiedDate]
             .map((v) => this.escapeHtml(v))
@@ -713,6 +714,7 @@ class QuotesManager {
                                 ${quote.accessLevel !== 'read' && quote.project ? `
                                     <button class="overflow-menu-item" onclick="quotesManager.convertToInvoice('${this.escapeJs(quote.name)}')">Convert to Invoice</button>
                                 ` : ''}
+                                <button class="overflow-menu-item" onclick="quotesManager.saveAsTemplate('${this.escapeJs(quote.name)}')">Save as template</button>
                                 ${quote.isOwner || this.isCurrentUserAdmin() ? `
                                     <button class="overflow-menu-item danger" onclick="quotesManager.deleteQuote('${this.escapeJs(quote.name)}')">
                                         Delete
@@ -1030,6 +1032,68 @@ class QuotesManager {
                 indicator.textContent = this.sortDirection === 'asc' ? ' ▲' : ' ▼';
             }
         }
+    }
+
+    async saveAsTemplate(quoteName) {
+        try {
+            const response = await fetch(`/api/load-quote/${encodeURIComponent(quoteName)}`, { credentials: 'include' });
+            if (!response.ok) throw new Error('Failed to load quote');
+            const quote = await response.json();
+            const quoteData = quote.quoteData || {};
+            const days = Array.isArray(quoteData.days) ? quoteData.days : [];
+            const hasServices = days.some((day) => (day.services || []).length > 0);
+            if (!hasServices) {
+                showAlertModal('This quote has no services to save as a template.', 'error');
+                return;
+            }
+            const suggested = quoteData.quoteTitle || quote.name || '';
+            const result = await showPromptModal({
+                title: 'Save as template',
+                message: 'The template keeps the services, markups, and discount. Client, company, location, and dates are left out.',
+                confirmText: 'Save template',
+                fields: [{
+                    name: 'name',
+                    label: 'Template name',
+                    value: suggested,
+                    placeholder: 'e.g. 2-day conference package',
+                    required: true
+                }]
+            });
+            const name = result?.name?.trim();
+            if (!name) return;
+            await this.postQuoteTemplate(name, {
+                days: days.map((day) => ({
+                    date: null,
+                    services: (day.services || []).map((service) => ({ ...service }))
+                })),
+                discountPercentage: quoteData.discountPercentage || 0,
+                markups: quoteData.markups || []
+            });
+        } catch (error) {
+            showAlertModal(error.message || 'Could not save the template.', 'error');
+        }
+    }
+
+    async postQuoteTemplate(name, templateData, overwrite = false) {
+        const response = await fetch('/api/quote-templates', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, templateData, overwrite })
+        });
+        const body = await response.json().catch(() => ({}));
+        if (response.status === 409) {
+            const replace = await showConfirmModal(
+                `A template named "${name}" already exists. Replace it?`,
+                'Template already exists',
+                'Replace',
+                'Cancel'
+            );
+            if (!replace) return;
+            return this.postQuoteTemplate(name, templateData, true);
+        }
+        if (!response.ok) throw new Error(body.error || 'Failed to save template');
+        showAlertModal(`Template "${name}" saved. Open a quote and use Template to load it.`, 'success', null, true);
     }
 
     async loadQuote(quoteName) {

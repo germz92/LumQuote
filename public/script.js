@@ -2919,6 +2919,231 @@ class QuoteCalculator {
         }
     }
 
+    buildTemplateData() {
+        const days = (this.days || []).map((day) => ({
+            date: null,
+            services: (day.services || []).map((service) => ({ ...service }))
+        }));
+        return {
+            days: days.length ? days : [{ date: null, services: [] }],
+            discountPercentage: this.discountPercentage || 0,
+            markups: (this.markups || []).map((markup) => ({
+                ...markup,
+                selectedServices: (markup.selectedServices || []).map((service) => ({ ...service }))
+            }))
+        };
+    }
+
+    templateHasServices(templateData) {
+        return (templateData?.days || []).some((day) => (day.services || []).length > 0);
+    }
+
+    async saveAsTemplate() {
+        const templateData = this.buildTemplateData();
+        if (!this.templateHasServices(templateData)) {
+            showAlertModal('Add at least one service before saving a template.', 'error');
+            return;
+        }
+        const suggested = this.currentQuoteTitle && this.currentQuoteTitle !== 'Conference Services Quote'
+            ? this.currentQuoteTitle
+            : '';
+        const result = await showPromptModal({
+            title: 'Save as template',
+            message: 'The template keeps the services, markups, and discount. Client, company, location, and dates are left out.',
+            confirmText: 'Save template',
+            fields: [{
+                name: 'name',
+                label: 'Template name',
+                value: suggested,
+                placeholder: 'e.g. 2-day conference package',
+                required: true
+            }]
+        });
+        const name = result?.name?.trim();
+        if (!name) return;
+        try {
+            await this.postQuoteTemplate(name, templateData);
+        } catch (error) {
+            showAlertModal(error.message || 'Could not save the template.', 'error');
+        }
+    }
+
+    async postQuoteTemplate(name, templateData, overwrite = false) {
+        const response = await fetch('/api/quote-templates', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, templateData, overwrite })
+        });
+        const body = await response.json().catch(() => ({}));
+        if (response.status === 409) {
+            const replace = await showConfirmModal(
+                `A template named "${name}" already exists. Replace it?`,
+                'Template already exists',
+                'Replace',
+                'Cancel'
+            );
+            if (!replace) return;
+            return this.postQuoteTemplate(name, templateData, true);
+        }
+        if (!response.ok) {
+            throw new Error(body.error || 'Failed to save template');
+        }
+        showAlertModal(`Template "${name}" saved. Use Template on any quote to load it.`, 'success', null, true);
+    }
+
+    async showLoadTemplateModal() {
+        const modal = document.getElementById('loadTemplateModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        const search = document.getElementById('searchTemplates');
+        if (search) search.value = '';
+        await this.loadQuoteTemplates();
+    }
+
+    closeLoadTemplateModal() {
+        const modal = document.getElementById('loadTemplateModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async loadQuoteTemplates() {
+        const container = document.getElementById('templatesContainer');
+        try {
+            const response = await fetch('/api/quote-templates', { credentials: 'include' });
+            if (!response.ok) throw new Error('Failed to load templates');
+            this.quoteTemplates = await response.json();
+            this.filterTemplates();
+        } catch (error) {
+            console.error('Error loading quote templates:', error);
+            if (container) container.innerHTML = '<div class="no-quotes">Error loading templates</div>';
+        }
+    }
+
+    displayQuoteTemplates(templates) {
+        const container = document.getElementById('templatesContainer');
+        if (!container) return;
+        if (!templates.length) {
+            container.innerHTML = '<div class="no-quotes">No templates yet. Save one from a quote with Save as template.</div>';
+            return;
+        }
+        container.innerHTML = templates.map((template) => {
+            const updated = template.updatedAt ? new Date(template.updatedAt).toLocaleDateString() : '';
+            return `
+                <div class="quote-item" data-template-id="${this.escapeHtml(template._id)}">
+                    <div class="quote-item-header">
+                        <h3 class="quote-name">${this.escapeHtml(template.name)}</h3>
+                        <div class="quote-actions">
+                            <button type="button" class="delete-quote-btn" data-template-id="${this.escapeHtml(template._id)}">Delete</button>
+                        </div>
+                    </div>
+                    <div class="quote-info">
+                        <span>${template.dayCount || 0} day${template.dayCount === 1 ? '' : 's'}</span>
+                        <span>${template.serviceCount || 0} service${template.serviceCount === 1 ? '' : 's'}</span>
+                        ${template.discountPercentage ? `<span>${template.discountPercentage}% discount</span>` : ''}
+                        ${updated ? `<span>Updated ${updated}</span>` : ''}
+                    </div>
+                </div>`;
+        }).join('');
+
+        container.querySelectorAll('.quote-item').forEach((item) => {
+            item.addEventListener('click', (event) => {
+                if (event.target.closest('.delete-quote-btn')) return;
+                const template = this.quoteTemplates.find((entry) => String(entry._id) === item.dataset.templateId);
+                if (template) this.confirmApplyTemplate(template);
+            });
+        });
+        container.querySelectorAll('.delete-quote-btn').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                this.deleteQuoteTemplate(button.dataset.templateId);
+            });
+        });
+    }
+
+    filterTemplates() {
+        const term = (document.getElementById('searchTemplates')?.value || '').toLowerCase();
+        const filtered = (this.quoteTemplates || []).filter((template) =>
+            template.name.toLowerCase().includes(term)
+        );
+        this.displayQuoteTemplates(filtered);
+    }
+
+    async confirmApplyTemplate(template) {
+        const hasContent = this.templateHasServices({ days: this.days })
+            || (this.markups || []).length > 0
+            || this.discountPercentage > 0;
+        if (hasContent) {
+            const ok = await showConfirmModal(
+                `Load "${template.name}" into this quote? Services, markups, and the discount are replaced. Client, title, location, and dates already set on this quote stay.`,
+                'Load template',
+                'Load template',
+                'Cancel'
+            );
+            if (!ok) return;
+        }
+        this.applyQuoteTemplate(template);
+        this.closeLoadTemplateModal();
+        showAlertModal(`Loaded template "${template.name}".`, 'success', null, true);
+    }
+
+    applyQuoteTemplate(template) {
+        const data = template.templateData || {};
+        const dates = this.days.map((day) => day.date || null);
+        const days = (data.days || []).map((day, index) => ({
+            date: dates[index] || null,
+            services: (day.services || []).map((service) => ({
+                ...service,
+                quantity: service.quantity || 1,
+                tentative: !!service.tentative
+            }))
+        }));
+        this.days = days.length ? days : [{ services: [], date: dates[0] || null }];
+        this.discountPercentage = Number(data.discountPercentage) || 0;
+        this.markups = (data.markups || []).map((markup) => ({
+            ...markup,
+            selectedServices: (markup.selectedServices || []).map((service) => ({ ...service }))
+        }));
+
+        const button = document.getElementById('discountBtn');
+        if (button) {
+            button.textContent = this.discountPercentage > 0
+                ? `Modify Discount (${this.discountPercentage}%)`
+                : 'Apply Discount';
+        }
+        const discountInput = document.getElementById('discountInput');
+        if (discountInput) discountInput.value = this.discountPercentage;
+
+        if (this.isOverrideMode) this.toggleOverrideMode();
+        this.renderDays();
+        this.renderMarkups();
+        this.updateTotal();
+        this.markQuoteAsModified();
+    }
+
+    async deleteQuoteTemplate(id) {
+        const template = (this.quoteTemplates || []).find((entry) => String(entry._id) === String(id));
+        const ok = await showConfirmModal(
+            `Delete template "${template?.name || 'this template'}"? Quotes that already used it are not changed.`,
+            'Delete template',
+            'Delete',
+            'Cancel'
+        );
+        if (!ok) return;
+        try {
+            const response = await fetch(`/api/quote-templates/${encodeURIComponent(id)}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            if (!response.ok) {
+                const body = await response.json().catch(() => ({}));
+                throw new Error(body.error || 'Failed to delete template');
+            }
+            await this.loadQuoteTemplates();
+        } catch (error) {
+            showAlertModal(error.message || 'Could not delete the template.', 'error');
+        }
+    }
+
     async showLoadModal() {
         if (this.invoiceEditMode) {
             const leave = await showConfirmModal(
@@ -5102,6 +5327,18 @@ async function saveAsCopy() {
 
 function showLoadModal() {
     calculator.showLoadModal();
+}
+
+function showLoadTemplateModal() {
+    calculator.showLoadTemplateModal();
+}
+
+function closeLoadTemplateModal() {
+    calculator.closeLoadTemplateModal();
+}
+
+function filterTemplates() {
+    calculator.filterTemplates();
 }
 
 function closeLoadModal() {

@@ -2347,6 +2347,28 @@ const savedQuoteSchema = new mongoose.Schema({
 
 const SavedQuote = mongoose.model('SavedQuote', savedQuoteSchema, 'savedQuotes');
 
+const quoteTemplateSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true, trim: true },
+  templateData: { type: Object, required: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+}, { timestamps: true });
+
+const QuoteTemplate = mongoose.model('QuoteTemplate', quoteTemplateSchema, 'quoteTemplates');
+
+function normalizeQuoteTemplateData(raw) {
+  const days = Array.isArray(raw?.days) ? raw.days.map((day) => ({
+    date: null,
+    services: Array.isArray(day?.services) ? day.services : []
+  })) : [];
+  const hasServices = days.some((day) => day.services.length > 0);
+  if (!hasServices) return null;
+  return {
+    days,
+    discountPercentage: Number(raw?.discountPercentage) || 0,
+    markups: Array.isArray(raw?.markups) ? raw.markups : []
+  };
+}
+
 // ============================================
 // CRM (projects, clients, contracts, invoices)
 // ============================================
@@ -2833,6 +2855,78 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
 });
 
 // Load specific quote endpoint (with access control)
+app.get('/api/quote-templates', requireApiAuth, async (req, res) => {
+  try {
+    const templates = await QuoteTemplate.find().sort({ name: 1 });
+    res.json(templates.map((template) => {
+      const days = template.templateData?.days || [];
+      const serviceCount = days.reduce((sum, day) => sum + (day.services?.length || 0), 0);
+      return {
+        _id: template._id,
+        name: template.name,
+        updatedAt: template.updatedAt,
+        createdAt: template.createdAt,
+        dayCount: days.length,
+        serviceCount,
+        discountPercentage: template.templateData?.discountPercentage || 0,
+        templateData: template.templateData
+      };
+    }));
+  } catch (error) {
+    console.error('Error listing quote templates:', error);
+    res.status(500).json({ error: 'Failed to load templates' });
+  }
+});
+
+app.post('/api/quote-templates', requireApiAuth, async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Template name is required' });
+    if (name.length > 120) return res.status(400).json({ error: 'Template name must be 120 characters or fewer' });
+
+    const templateData = normalizeQuoteTemplateData(req.body?.templateData);
+    if (!templateData) {
+      return res.status(400).json({ error: 'Add at least one service before saving a template.' });
+    }
+
+    const existing = await QuoteTemplate.findOne({ name });
+    if (existing && !req.body?.overwrite) {
+      return res.status(409).json({ error: 'A template with this name already exists' });
+    }
+
+    const userName = req.user?.name || req.user?.fullName;
+    const userRecord = userName ? await getOrCreateUserRecord(userName) : null;
+
+    if (existing) {
+      existing.templateData = templateData;
+      if (!existing.createdBy && userRecord) existing.createdBy = userRecord._id;
+      await existing.save();
+      return res.json({ success: true, template: existing });
+    }
+
+    const template = await QuoteTemplate.create({
+      name,
+      templateData,
+      createdBy: userRecord?._id || null
+    });
+    res.status(201).json({ success: true, template });
+  } catch (error) {
+    console.error('Error saving quote template:', error);
+    res.status(500).json({ error: 'Failed to save template' });
+  }
+});
+
+app.delete('/api/quote-templates/:id', requireApiAuth, async (req, res) => {
+  try {
+    const template = await QuoteTemplate.findByIdAndDelete(req.params.id);
+    if (!template) return res.status(404).json({ error: 'Template not found' });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting quote template:', error);
+    res.status(500).json({ error: 'Failed to delete template' });
+  }
+});
+
 app.get('/api/load-quote/:name', requireApiAuth, async (req, res) => {
   try {
     const { name } = req.params;
