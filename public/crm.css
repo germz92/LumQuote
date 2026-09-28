@@ -165,9 +165,27 @@
   align-items: center;
 }
 
-.project-client-row select {
+.project-client-picker {
+  position: relative;
   flex: 1;
   min-width: 0;
+}
+
+.project-client-picker input[type="text"] {
+  width: 100%;
+}
+
+button.client-dropdown-item {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+}
+
+button.client-dropdown-item.is-active {
+  background: #eef2ff;
 }
 
 .project-client-row .secondary-button {

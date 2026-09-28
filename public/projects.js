@@ -616,14 +616,40 @@ class ProjectsManager {
         return name || company || 'Unnamed client';
     }
 
+    bindClientSearch() {
+        if (this.clientSearchBound) return;
+        this.clientSearchBound = true;
+        const input = document.getElementById('newProjectClientSearch');
+        input.addEventListener('focus', () => this.renderClientMenu());
+        input.addEventListener('input', () => {
+            this.selectedClientId = '';
+            document.getElementById('newProjectClient').value = '';
+            this.clientMenuIndex = 0;
+            this.renderClientMenu();
+        });
+        input.addEventListener('keydown', (event) => this.handleClientSearchKey(event));
+        document.addEventListener('mousedown', (event) => {
+            const picker = document.querySelector('.project-client-picker');
+            const menu = document.getElementById('newProjectClientMenu');
+            if (picker?.contains(event.target) || menu?.contains(event.target)) return;
+            this.hideClientMenu();
+        });
+        document.getElementById('createProjectModal')?.addEventListener('scroll', () => this.positionClientMenu(), true);
+    }
+
     setNewClientOpen(open) {
         const fields = document.getElementById('newProjectClientFields');
-        const select = document.getElementById('newProjectClient');
+        const input = document.getElementById('newProjectClientSearch');
         const button = document.getElementById('newProjectNewClientBtn');
-        if (!fields || !select || !button) return;
+        if (!fields || !input || !button) return;
         fields.hidden = !open;
-        select.disabled = open;
-        if (open) select.value = '';
+        input.disabled = open;
+        if (open) {
+            input.value = '';
+            this.selectedClientId = '';
+            document.getElementById('newProjectClient').value = '';
+            this.hideClientMenu();
+        }
         button.textContent = open ? 'Choose existing' : 'New client';
     }
 
@@ -632,30 +658,114 @@ class ProjectsManager {
         this.setNewClientOpen(!!fields?.hidden);
         if (!fields?.hidden) {
             document.getElementById('newClientName')?.focus();
+        } else {
+            document.getElementById('newProjectClientSearch')?.focus();
+        }
+    }
+
+    matchingClients() {
+        const query = (document.getElementById('newProjectClientSearch')?.value || '').trim().toLowerCase();
+        return (this.createClients || []).filter((client) => {
+            if (!query) return true;
+            const haystack = [
+                client.name,
+                client.company,
+                client.email,
+                this.clientOptionLabel(client)
+            ].filter(Boolean).join(' ').toLowerCase();
+            return haystack.includes(query);
+        });
+    }
+
+    positionClientMenu() {
+        const input = document.getElementById('newProjectClientSearch');
+        const menu = document.getElementById('newProjectClientMenu');
+        if (!input || !menu || menu.style.display === 'none') return;
+        const rect = input.getBoundingClientRect();
+        menu.style.left = `${rect.left}px`;
+        menu.style.top = `${rect.bottom + 4}px`;
+        menu.style.width = `${rect.width}px`;
+    }
+
+    hideClientMenu() {
+        const menu = document.getElementById('newProjectClientMenu');
+        const input = document.getElementById('newProjectClientSearch');
+        if (menu) menu.style.display = 'none';
+        if (input) input.setAttribute('aria-expanded', 'false');
+    }
+
+    renderClientMenu() {
+        const input = document.getElementById('newProjectClientSearch');
+        const menu = document.getElementById('newProjectClientMenu');
+        if (!input || !menu || input.disabled) return;
+        if (menu.parentElement !== document.body) document.body.appendChild(menu);
+        const matches = this.matchingClients();
+        if (this.clientMenuIndex >= matches.length) this.clientMenuIndex = 0;
+        if (!matches.length) {
+            menu.innerHTML = '<div class="client-dropdown-item no-results">No matching clients</div>';
+        } else {
+            menu.innerHTML = matches.map((client, index) => `
+                <button type="button" class="client-dropdown-item${index === this.clientMenuIndex ? ' is-active' : ''}" data-client-id="${CRM.escapeHtml(client._id)}" role="option">
+                    ${CRM.escapeHtml(this.clientOptionLabel(client))}
+                </button>`).join('');
+            menu.querySelectorAll('[data-client-id]').forEach((button) => {
+                button.addEventListener('mousedown', (event) => {
+                    event.preventDefault();
+                    const client = matches.find((entry) => String(entry._id) === button.dataset.clientId);
+                    if (client) this.selectCreateClient(client);
+                });
+            });
+        }
+        menu.style.display = 'block';
+        input.setAttribute('aria-expanded', 'true');
+        this.positionClientMenu();
+    }
+
+    selectCreateClient(client) {
+        this.selectedClientId = client._id;
+        document.getElementById('newProjectClient').value = client._id;
+        document.getElementById('newProjectClientSearch').value = this.clientOptionLabel(client);
+        this.hideClientMenu();
+    }
+
+    handleClientSearchKey(event) {
+        const menu = document.getElementById('newProjectClientMenu');
+        const open = menu && menu.style.display === 'block';
+        const matches = this.matchingClients();
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            this.clientMenuIndex = Math.min(this.clientMenuIndex + 1, Math.max(matches.length - 1, 0));
+            this.renderClientMenu();
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            this.clientMenuIndex = Math.max(this.clientMenuIndex - 1, 0);
+            this.renderClientMenu();
+        } else if (event.key === 'Enter' && open && matches.length) {
+            event.preventDefault();
+            this.selectCreateClient(matches[this.clientMenuIndex] || matches[0]);
+        } else if (event.key === 'Escape') {
+            this.hideClientMenu();
         }
     }
 
     async openCreateModal() {
         document.getElementById('createProjectForm').reset();
+        this.selectedClientId = '';
+        this.createClients = [];
+        this.clientMenuIndex = 0;
+        this.bindClientSearch();
         this.setNewClientOpen(false);
+        this.hideClientMenu();
         if (window.LeadSources) {
             LeadSources.populateLeadSourceSelect();
             LeadSources.setLeadSourceFormValue('');
         }
         document.getElementById('createProjectModal').style.display = 'flex';
-        const select = document.getElementById('newProjectClient');
-        select.innerHTML = '<option value="">No client</option>';
         try {
             const clients = await CRM.api('/api/crm/clients');
-            const sorted = (Array.isArray(clients) ? clients : []).slice().sort((a, b) =>
+            this.createClients = (Array.isArray(clients) ? clients : []).slice().sort((a, b) =>
                 this.clientOptionLabel(a).localeCompare(this.clientOptionLabel(b), undefined, { sensitivity: 'base' })
             );
-            sorted.forEach((client) => {
-                const option = document.createElement('option');
-                option.value = client._id;
-                option.textContent = this.clientOptionLabel(client);
-                select.appendChild(option);
-            });
         } catch {
             showAlertModal('Could not load clients. You can still add a new one.', 'error');
         }

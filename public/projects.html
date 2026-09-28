@@ -222,9 +222,11 @@
                     <div class="form-group">
                         <label for="newProjectClient">Client</label>
                         <div class="project-client-row">
-                            <select id="newProjectClient">
-                                <option value="">No client</option>
-                            </select>
+                            <div class="project-client-picker">
+                                <input type="text" id="newProjectClientSearch" placeholder="Search clients" autocomplete="off" aria-autocomplete="list" aria-controls="newProjectClientMenu" aria-expanded="false">
+                                <input type="hidden" id="newProjectClient" value="">
+                                <div id="newProjectClientMenu" class="client-dropdown" role="listbox"></div>
+                            </div>
                             <button type="button" class="secondary-button" id="newProjectNewClientBtn" onclick="projectsManager.toggleNewClient()">New client</button>
                         </div>
                     </div>
