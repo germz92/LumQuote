@@ -159,6 +159,22 @@
 
 .crm-card-header h3 { margin: 0; }
 
+.project-client-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.project-client-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-client-row .secondary-button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .crm-form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

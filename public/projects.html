@@ -220,17 +220,27 @@
                         <input type="text" id="newProjectName" required placeholder="e.g., Acme Annual Conference 2026">
                     </div>
                     <div class="form-group">
-                        <label for="newProjectClientName">Client Name</label>
-                        <input type="text" id="newProjectClientName" list="clientNameOptions" placeholder="Client full name" autocomplete="off">
-                        <datalist id="clientNameOptions"></datalist>
+                        <label for="newProjectClient">Client</label>
+                        <div class="project-client-row">
+                            <select id="newProjectClient">
+                                <option value="">No client</option>
+                            </select>
+                            <button type="button" class="secondary-button" id="newProjectNewClientBtn" onclick="projectsManager.toggleNewClient()">New client</button>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="newProjectClientEmail">Client Email</label>
-                        <input type="email" id="newProjectClientEmail" placeholder="client@company.com">
-                    </div>
-                    <div class="form-group">
-                        <label for="newProjectClientCompany">Client Company</label>
-                        <input type="text" id="newProjectClientCompany" placeholder="Company name">
+                    <div id="newProjectClientFields" hidden>
+                        <div class="form-group">
+                            <label for="newClientName">Client name *</label>
+                            <input type="text" id="newClientName" placeholder="Client full name" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="newClientCompany">Company</label>
+                            <input type="text" id="newClientCompany" placeholder="Company name" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="newClientEmail">Email</label>
+                            <input type="email" id="newClientEmail" placeholder="client@company.com" autocomplete="off">
+                        </div>
                     </div>
                     <div class="crm-form-grid">
                         <div class="form-group">

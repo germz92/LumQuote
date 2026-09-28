@@ -609,19 +609,55 @@ class ProjectsManager {
 
     // ----- Create modal -----
 
+    clientOptionLabel(client) {
+        const name = String(client?.name || '').trim();
+        const company = String(client?.company || '').trim();
+        if (name && company && name.toLowerCase() !== company.toLowerCase()) return `${name} · ${company}`;
+        return name || company || 'Unnamed client';
+    }
+
+    setNewClientOpen(open) {
+        const fields = document.getElementById('newProjectClientFields');
+        const select = document.getElementById('newProjectClient');
+        const button = document.getElementById('newProjectNewClientBtn');
+        if (!fields || !select || !button) return;
+        fields.hidden = !open;
+        select.disabled = open;
+        if (open) select.value = '';
+        button.textContent = open ? 'Choose existing' : 'New client';
+    }
+
+    toggleNewClient() {
+        const fields = document.getElementById('newProjectClientFields');
+        this.setNewClientOpen(!!fields?.hidden);
+        if (!fields?.hidden) {
+            document.getElementById('newClientName')?.focus();
+        }
+    }
+
     async openCreateModal() {
         document.getElementById('createProjectForm').reset();
+        this.setNewClientOpen(false);
         if (window.LeadSources) {
             LeadSources.populateLeadSourceSelect();
             LeadSources.setLeadSourceFormValue('');
         }
         document.getElementById('createProjectModal').style.display = 'flex';
+        const select = document.getElementById('newProjectClient');
+        select.innerHTML = '<option value="">No client</option>';
         try {
             const clients = await CRM.api('/api/crm/clients');
-            const datalist = document.getElementById('clientNameOptions');
-            datalist.innerHTML = clients.map((c) => `<option value="${CRM.escapeHtml(c.name)}"></option>`).join('');
+            const sorted = (Array.isArray(clients) ? clients : []).slice().sort((a, b) =>
+                this.clientOptionLabel(a).localeCompare(this.clientOptionLabel(b), undefined, { sensitivity: 'base' })
+            );
+            sorted.forEach((client) => {
+                const option = document.createElement('option');
+                option.value = client._id;
+                option.textContent = this.clientOptionLabel(client);
+                select.appendChild(option);
+            });
         } catch {
-            // autocomplete is optional
+            showAlertModal('Could not load clients. You can still add a new one.', 'error');
         }
         setTimeout(() => document.getElementById('newProjectName').focus(), 50);
     }
@@ -646,7 +682,7 @@ class ProjectsManager {
             ? LeadSources.getLeadSourceFromForm()
             : (document.getElementById('leadSource')?.value || '').trim();
 
-        const clientName = document.getElementById('newProjectClientName').value.trim();
+        const creatingClient = !document.getElementById('newProjectClientFields')?.hidden;
         const body = {
             name,
             status: document.getElementById('newProjectStatus').value,
@@ -654,12 +690,20 @@ class ProjectsManager {
             endDate: document.getElementById('newProjectEnd').value || null,
             leadSource: leadSource || null
         };
-        if (clientName) {
+        if (creatingClient) {
+            const clientName = document.getElementById('newClientName').value.trim();
+            if (!clientName) {
+                showAlertModal('Enter a name for the new client.', 'error');
+                return;
+            }
             body.client = {
                 name: clientName,
-                email: document.getElementById('newProjectClientEmail').value.trim(),
-                company: document.getElementById('newProjectClientCompany').value.trim()
+                email: document.getElementById('newClientEmail').value.trim(),
+                company: document.getElementById('newClientCompany').value.trim()
             };
+        } else {
+            const clientId = document.getElementById('newProjectClient').value;
+            if (clientId) body.clientId = clientId;
         }
 
         try {
