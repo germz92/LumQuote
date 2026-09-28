@@ -195,6 +195,8 @@ class ProjectPage {
         }
         document.getElementById('projStart').value = project.startDate || '';
         document.getElementById('projEnd').value = project.endDate || '';
+        const locationInput = document.getElementById('projLocation');
+        if (locationInput) locationInput.value = project.location || '';
         document.getElementById('projNotes').value = project.notes || '';
         const quoteLeadSource = (this.data.quotes || []).find((q) => q.leadSource)?.leadSource || '';
         if (window.LeadSources) {
@@ -549,6 +551,7 @@ class ProjectPage {
                     startDate: document.getElementById('projStart').value || null,
                     endDate: document.getElementById('projEnd').value || null,
                     notes: document.getElementById('projNotes').value,
+                    location: document.getElementById('projLocation')?.value.trim() || null,
                     leadSource: leadSource || null
                 }
             });
@@ -831,6 +834,11 @@ class ProjectPage {
     async openQuote(quoteName) {
         try {
             const quoteData = await CRM.api(`/api/load-quote/${encodeURIComponent(quoteName)}`);
+            const project = this.data?.project;
+            if (project) {
+                if (!quoteData.location && project.location) quoteData.location = project.location;
+                if (!quoteData.leadSource && project.leadSource) quoteData.leadSource = project.leadSource;
+            }
             sessionStorage.setItem('loadQuoteData', JSON.stringify(quoteData));
             window.location.href = '/quote';
         } catch (error) {

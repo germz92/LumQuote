@@ -791,6 +791,11 @@ class ProjectsManager {
         const leadSource = window.LeadSources
             ? LeadSources.getLeadSourceFromForm()
             : (document.getElementById('leadSource')?.value || '').trim();
+        const location = document.getElementById('newProjectLocation').value.trim();
+        if (!location) {
+            showAlertModal('Enter a location.', 'error');
+            return;
+        }
 
         const creatingClient = !document.getElementById('newProjectClientFields')?.hidden;
         const body = {
@@ -798,6 +803,7 @@ class ProjectsManager {
             status: document.getElementById('newProjectStatus').value,
             startDate: document.getElementById('newProjectStart').value || null,
             endDate: document.getElementById('newProjectEnd').value || null,
+            location,
             leadSource: leadSource || null
         };
         if (creatingClient) {

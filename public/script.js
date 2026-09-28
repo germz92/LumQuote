@@ -1703,6 +1703,13 @@ class QuoteCalculator {
                 if (project.client.company) this.currentClientCompany = project.client.company;
                 this.updateClientDisplay();
             }
+            if (project.location) {
+                this.currentLocation = project.location;
+                this.updateLocationDisplay();
+            }
+            if (project.leadSource) {
+                this.currentLeadSource = project.leadSource;
+            }
             // Only replace default/auto-generated titles — never a title the user chose
             const title = this.currentQuoteTitle || '';
             if (!title || title === 'Conference Services Quote' || title.startsWith('Untitled')) {
@@ -1711,6 +1718,7 @@ class QuoteCalculator {
             }
             this.updateQuoteActionsMenu();
             this.saveDraftToLocalStorage(true);
+            if (this.currentQuoteName) this.performAutoSave(true);
             console.log('📁 Applied project context:', project.name);
         } catch (error) {
             console.warn('Could not apply project context:', error);
@@ -1735,6 +1743,7 @@ class QuoteCalculator {
                 name: quoteTitle,
                 status: 'quoted',
                 client: clientName ? { name: clientName, company: clientCompany || '' } : undefined,
+                location: this.currentLocation || null,
                 leadSource: leadSource || null
             })
         });
@@ -5164,7 +5173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const projectParam = new URLSearchParams(window.location.search).get('project');
         if (projectParam) {
             history.replaceState(null, '', window.location.pathname);
-            calculator.applyProjectContext(projectParam);
+            await calculator.applyProjectContext(projectParam);
         }
     }
 
