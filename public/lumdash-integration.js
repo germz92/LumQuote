@@ -84,7 +84,7 @@ function parseLocation(locationString) {
     let venue = locationString;
 
     for (let i = parts.length - 1; i >= 0; i--) {
-        const part = parts[i].toUpperCase();
+        const part = parts[i].replace(/\.$/, '').toUpperCase();
         if (stateAbbreviations.includes(part)) {
             state = part;
             if (i > 0) city = parts[i - 1];
@@ -116,7 +116,7 @@ function buildTransferPayloadFromProject(project, quotes = []) {
         endDate = range.endDate;
     }
 
-    const locationSource = primaryQuote?.location || '';
+    const locationSource = String(project.location || primaryQuote?.location || '').trim();
     const { city, state, venue } = parseLocation(locationSource);
     const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
     const quoteWithClient = quotes.find((q) => q.clientName) || primaryQuote;
