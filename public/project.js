@@ -1727,8 +1727,17 @@ class ProjectPage {
         return Math.max(0, subtotal - discount);
     }
 
-    planLocked() {
+    planHasPaidInstallment() {
         return (this.editingInvoice?.paymentPlan?.installments || []).some((i) => i.status === 'paid');
+    }
+
+    paidInstallmentHtml(inst) {
+        const label = CRM.escapeHtml(inst.label || 'Payment');
+        return `
+            <div class="pp-row-static">
+                <strong>${label}</strong> — ${inst.percent}% (${CRM.money(inst.amount)})
+                <span class="crm-chip crm-chip--paid" style="margin-left:6px">Paid${CRM.escapeHtml(this.paidOnLabel(inst.paidAt))}</span>
+            </div>`;
     }
 
     renderPaymentPlan() {
@@ -1736,37 +1745,36 @@ class ProjectPage {
         if (!box) return;
         const plan = this.editingInvoice.paymentPlan || { enabled: false, installments: [] };
         this.editingInvoice.paymentPlan = plan;
+        plan.installments.forEach((inst, i) => {
+            if (inst.sourceIndex === undefined) inst.sourceIndex = i;
+        });
 
-        if (this.planLocked()) {
-            box.innerHTML = `
-                <p class="crm-inline-note">A payment has already been made — the plan schedule is locked. Use Record payment below to mark remaining installments.</p>
-                ${plan.installments.map((inst, i) => `
-                    <div class="pp-row-static">
-                        <strong>${CRM.escapeHtml(inst.label || `Payment ${i + 1}`)}</strong> — ${inst.percent}% (${CRM.money(inst.amount)})
-                        ${inst.status === 'paid'
-                            ? `<span class="crm-chip crm-chip--paid" style="margin-left:6px">Paid${CRM.escapeHtml(this.paidOnLabel(inst.paidAt))}</span>`
-                            : '<span class="crm-chip crm-chip--draft" style="margin-left:6px">Pending</span>'}
-                    </div>`).join('')}`;
-            return;
-        }
-
+        const hasPaid = this.planHasPaidInstallment();
         let html = `
             <label class="checkbox-label" style="margin:0 0 10px">
-                <input type="checkbox" id="ppEnabled" ${plan.enabled ? 'checked' : ''} onchange="projectPage.togglePaymentPlan(this.checked)">
+                <input type="checkbox" id="ppEnabled" ${plan.enabled ? 'checked' : ''} ${hasPaid ? 'disabled' : ''} onchange="projectPage.togglePaymentPlan(this.checked)">
                 <span class="checkbox-text">Split this invoice into scheduled payments</span>
             </label>`;
 
-        if (plan.enabled) {
+        if (hasPaid) {
+            html += `<p class="crm-inline-note">Paid payments stay as recorded. You can still edit or remove payments that have not been paid.</p>`;
+        }
+
+        if (plan.enabled || hasPaid) {
             const total = this.getEditorTotal();
             const percentSum = plan.installments.reduce((sum, inst) => sum + (Number(inst.percent) || 0), 0);
             const sumOk = Math.abs(percentSum - 100) <= 0.01;
 
-            html += plan.installments.map((inst, i) => this.installmentRowHtml(inst, i, total)).join('');
+            html += plan.installments.map((inst, i) => (
+                inst.status === 'paid'
+                    ? this.paidInstallmentHtml(inst)
+                    : this.installmentRowHtml(inst, i, total)
+            )).join('');
             html += `
                 <div class="crm-actions-row" style="margin-top:10px">
                     <button type="button" class="crm-btn-sm" onclick="projectPage.addInstallment()">+ Add Payment</button>
-                    <button type="button" class="crm-btn-sm" onclick="projectPage.applyPreset5050()">Preset: 50% now / 50% at project start</button>
-                    <span class="crm-inline-note" style="color:${sumOk ? 'var(--color-success, #16794c)' : '#b3261e'}">
+                    ${hasPaid ? '' : '<button type="button" class="crm-btn-sm" onclick="projectPage.applyPreset5050()">Preset: 50% now / 50% at project start</button>'}
+                    <span id="ppPercentNote" class="crm-inline-note" style="color:${sumOk ? 'var(--color-success, #16794c)' : '#b3261e'}">
                         ${Math.round(percentSum * 100) / 100}% of 100% allocated
                     </span>
                 </div>`;
@@ -1819,6 +1827,11 @@ class ProjectPage {
 
     togglePaymentPlan(enabled) {
         const plan = this.editingInvoice.paymentPlan;
+        if (this.planHasPaidInstallment()) {
+            plan.enabled = true;
+            this.renderPaymentPlan();
+            return;
+        }
         plan.enabled = enabled;
         if (enabled && plan.installments.length === 0) {
             this.applyPreset5050();
@@ -1828,6 +1841,7 @@ class ProjectPage {
     }
 
     applyPreset5050() {
+        if (this.planHasPaidInstallment()) return;
         this.editingInvoice.paymentPlan = {
             enabled: true,
             installments: [
@@ -1840,19 +1854,21 @@ class ProjectPage {
 
     addInstallment() {
         this.editingInvoice.paymentPlan.installments.push({
-            label: '', percent: 0, dueType: 'immediate', dueDate: null, anchor: 'project_start', offsetDays: 0
+            label: '', percent: 0, dueType: 'immediate', dueDate: null, anchor: 'project_start', offsetDays: 0, sourceIndex: null
         });
         this.renderPaymentPlan();
     }
 
     removeInstallment(i) {
+        const inst = this.editingInvoice.paymentPlan.installments[i];
+        if (!inst || inst.status === 'paid') return;
         this.editingInvoice.paymentPlan.installments.splice(i, 1);
         this.renderPaymentPlan();
     }
 
     updateInstallment(i, field, value) {
         const inst = this.editingInvoice.paymentPlan.installments[i];
-        if (!inst) return;
+        if (!inst || inst.status === 'paid') return;
         if (field === 'percent') {
             inst.percent = Number(value) || 0;
             this.renderPaymentPlanAmounts();
@@ -1879,7 +1895,7 @@ class ProjectPage {
             const cell = document.getElementById(`ppAmount-${i}`);
             if (cell) cell.textContent = CRM.money(total * ((Number(inst.percent) || 0) / 100));
         });
-        const note = document.querySelector('#ppBox .crm-inline-note');
+        const note = document.getElementById('ppPercentNote');
         if (note) {
             const percentSum = plan.installments.reduce((sum, inst) => sum + (Number(inst.percent) || 0), 0);
             const sumOk = Math.abs(percentSum - 100) <= 0.01;
@@ -1943,7 +1959,7 @@ class ProjectPage {
         const discount = Number(document.getElementById('invDiscount')?.value) || 0;
         document.getElementById('invSubtotalDisplay').textContent = CRM.money(subtotal);
         document.getElementById('invTotalDisplay').textContent = CRM.money(Math.max(0, subtotal - discount));
-        if (this.editingInvoice?.paymentPlan?.enabled && !this.planLocked()) {
+        if (this.editingInvoice?.paymentPlan?.enabled || this.planHasPaidInstallment()) {
             this.renderPaymentPlanAmounts();
         }
     }
@@ -1967,10 +1983,22 @@ class ProjectPage {
             lineItems: this.editingInvoice.lineItems,
             discountAmount: Number(document.getElementById('invDiscount').value) || 0
         };
-        // The server rejects plan changes after a payment — don't send the plan once locked
-        if (!this.planLocked()) {
-            body.paymentPlan = this.editingInvoice.paymentPlan || { enabled: false, installments: [] };
-        }
+        const plan = this.editingInvoice.paymentPlan || { enabled: false, installments: [] };
+        body.paymentPlan = {
+            enabled: !!plan.enabled,
+            installments: (plan.installments || []).map((inst) => {
+                const row = {
+                    label: inst.label || '',
+                    percent: inst.percent,
+                    dueType: inst.dueType,
+                    dueDate: inst.dueDate || null,
+                    anchor: inst.anchor,
+                    offsetDays: inst.offsetDays || 0
+                };
+                if (Number.isInteger(inst.sourceIndex)) row.sourceIndex = inst.sourceIndex;
+                return row;
+            })
+        };
         return body;
     }
 
@@ -1984,6 +2012,7 @@ class ProjectPage {
             await this.load();
             this.renderInvoices();
             document.getElementById('invoicesTabBadge').textContent = this.data.invoices.length;
+            if (document.getElementById('invoiceEditorCard')) this.renderInvoiceEditor();
         } catch (error) {
             showAlertModal(error.message, 'error');
             throw error;
