@@ -90,12 +90,19 @@ class InvoicePage {
         document.getElementById('itemsBody').innerHTML = (inv.lineItems || []).map((item) => {
             const showDay = hasDays && item.day !== previousDay;
             previousDay = item.day;
+            const dayCell = hasDays
+                ? `<td class="public-item-day${showDay && item.day ? '' : ' is-empty'}">${showDay && item.day ? `<strong>${this.escapeHtml(item.day)}</strong>` : ''}</td>`
+                : '';
             return `
             <tr>
-                ${hasDays ? `<td style="white-space:nowrap">${showDay && item.day ? `<strong>${this.escapeHtml(item.day)}</strong>` : ''}</td>` : ''}
-                <td>
+                ${dayCell}
+                <td class="public-item-desc">
                     <strong>${this.escapeHtml(item.description)}</strong>
-                    ${item.detail ? `<br><span style="color:#697386; font-size:13px">${this.escapeHtml(item.detail)}</span>` : ''}
+                    ${item.detail ? `<div class="public-item-detail">${this.escapeHtml(item.detail)}</div>` : ''}
+                    <div class="public-item-figures">
+                        <span>${item.quantity} × ${this.money(item.unitPrice)}</span>
+                        <span class="public-item-amount">${this.money(item.amount)}</span>
+                    </div>
                 </td>
                 <td class="num">${item.quantity}</td>
                 <td class="num">${this.money(item.unitPrice)}</td>
@@ -123,8 +130,14 @@ class InvoicePage {
             document.getElementById('scheduleArea').style.display = 'block';
             document.getElementById('scheduleBody').innerHTML = installments.map((inst) => {
                 let status;
+                const received = Number(inst.amountReceived) || 0;
+                const remaining = inst.amountRemaining != null
+                    ? Number(inst.amountRemaining)
+                    : Math.max(0, (Number(inst.amount) || 0) - received);
                 if (inst.status === 'paid') {
                     status = `<span style="color:#16794c; font-weight:600">✓ Paid${inst.paidAt ? ` ${new Date(inst.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</span>`;
+                } else if (received > 0) {
+                    status = `<span style="color:#c2410c; font-weight:600">${this.money(received)} received · ${this.money(remaining)} due</span>`;
                 } else if (nextInstallment && inst.index === nextInstallment.index) {
                     status = '<span style="color:#1f2430; font-weight:600">Due next</span>';
                 } else {
@@ -132,10 +145,17 @@ class InvoicePage {
                 }
                 return `
                     <tr>
-                        <td><strong>${this.escapeHtml(inst.label)}</strong>${inst.percent != null ? ` <span style="color:#697386">(${inst.percent}%)</span>` : ''}</td>
-                        <td>${this.escapeHtml(inst.dueLabel || '')}</td>
+                        <td class="public-item-desc">
+                            <strong>${this.escapeHtml(inst.label)}</strong>${inst.percent != null ? ` <span class="public-item-detail">(${inst.percent}%)</span>` : ''}
+                            <div class="public-schedule-mobile-due">${this.escapeHtml(inst.dueLabel || '')}</div>
+                            <div class="public-item-figures">
+                                <span>${status}</span>
+                                <span class="public-item-amount">${this.money(inst.amount)}</span>
+                            </div>
+                        </td>
+                        <td class="public-schedule-due">${this.escapeHtml(inst.dueLabel || '')}</td>
                         <td class="num">${this.money(inst.amount)}</td>
-                        <td>${status}</td>
+                        <td class="public-schedule-status">${status}</td>
                     </tr>`;
             }).join('');
         }
@@ -181,7 +201,10 @@ class InvoicePage {
         const installments = inv.installments || null;
         if (installments && this.nextInstallmentIndex !== null) {
             const next = installments.find((i) => i.index === this.nextInstallmentIndex);
-            if (next) return `Pay ${next.label} — ${this.money(next.amount)}`;
+            if (next) {
+                const due = next.amountRemaining != null ? next.amountRemaining : next.amount;
+                return `Pay ${next.label} — ${this.money(due)}`;
+            }
         }
         return `Pay ${this.money(inv.total - (inv.amountPaid || 0))}`;
     }
@@ -192,7 +215,7 @@ class InvoicePage {
         const installments = inv.installments || null;
         if (installments && this.nextInstallmentIndex !== null) {
             const next = installments.find((i) => i.index === this.nextInstallmentIndex);
-            if (next) return next.amount;
+            if (next) return next.amountRemaining != null ? next.amountRemaining : next.amount;
         }
         return inv.total - (inv.amountPaid || 0);
     }

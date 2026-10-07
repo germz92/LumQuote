@@ -1622,14 +1622,20 @@ body {
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
     width: 100%;
     padding: 12px;
     border: 1px solid #d1d5db;
     border-radius: 8px;
     font-size: 1rem;
+    font-family: inherit;
     transition: border-color 0.2s;
+    box-sizing: border-box;
 }
+
+.form-group textarea { resize: vertical; min-height: 72px; }
+.form-group input[readonly] { background: #f8fafc; color: #374151; }
 
 .form-group input:focus,
 .form-group select:focus {
@@ -3099,6 +3105,33 @@ body.is-service-reordering * {
 .prompt-modal-content {
     max-width: 500px;
     width: 90%;
+    display: flex;
+    flex-direction: column;
+}
+
+.prompt-modal-content .modal-body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    max-height: none;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.prompt-modal-form {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.prompt-modal-form #promptModalFields {
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.prompt-modal-form .modal-buttons {
+    flex-shrink: 0;
+    margin-top: 16px;
 }
 
 /* Service Discount Modal */

@@ -29,6 +29,7 @@
 
 .invoice-due--overdue { color: #b91c1c; font-weight: var(--font-weight-semibold); }
 .crm-chip--paid { background: var(--color-success-bg); color: var(--color-success); }
+.crm-chip--recorded { background: #e8eef9; color: #1e3a5f; border-color: #c5d4ea; }
 .crm-chip--complete { background: #e0f2fe; color: #0369a1; }
 
 .crm-chip--none { background: #f3f4f6; color: var(--color-text-muted); }
@@ -675,21 +676,27 @@ button.client-dropdown-item.is-active {
 .invoice-items-table {
   table-layout: fixed;
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .invoice-items-table th,
 .invoice-items-table td {
   white-space: normal;
   vertical-align: top;
-  overflow: visible;
+  min-width: 0;
+  padding: 8px 6px;
+  overflow: hidden;
 }
 
 .invoice-items-table input[type="number"],
 .invoice-items-table textarea.inv-line-text {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  padding: 5px 8px;
+  padding: 5px 6px;
   font-size: var(--font-size-sm);
   font-family: inherit;
   background: transparent;
@@ -715,11 +722,19 @@ button.client-dropdown-item.is-active {
   background: var(--color-surface);
 }
 
-.invoice-items-table .col-day { width: 18%; }
-.invoice-items-table .col-qty { width: 70px; }
-.invoice-items-table .col-price { width: 110px; }
-.invoice-items-table .col-amount { width: 100px; }
-.invoice-items-table .col-remove { width: 40px; }
+.invoice-items-table .col-day { width: 15%; }
+.invoice-items-table .col-desc { width: 22%; }
+.invoice-items-table .col-detail { width: 24%; }
+.invoice-items-table .col-qty { width: 8%; }
+.invoice-items-table .col-price { width: 12%; }
+.invoice-items-table .col-amount { width: 13%; }
+.invoice-items-table .col-remove { width: 6%; }
+
+.invoice-items-table .col-remove .crm-btn-sm {
+  width: 28px;
+  min-width: 0;
+  padding: 4px 0;
+}
 
 .invoice-totals {
   max-width: 320px;
@@ -988,8 +1003,81 @@ button.client-dropdown-item.is-active {
   border-bottom: 2px solid var(--color-text);
   padding: 8px;
 }
-.public-items td { padding: 10px 8px; border-bottom: 1px solid var(--color-border); font-size: var(--font-size-sm); }
+.public-items td { padding: 10px 8px; border-bottom: 1px solid var(--color-border); font-size: var(--font-size-sm); vertical-align: top; }
 .public-items .num { text-align: right; white-space: nowrap; }
+.public-item-day { white-space: nowrap; }
+.public-item-detail { color: var(--color-text-secondary); font-size: 13px; margin-top: 2px; }
+.public-item-figures,
+.public-schedule-mobile-due { display: none; }
+
+.invoice-public .public-totals { max-width: 320px; }
+
+@media (max-width: 720px) {
+  .invoice-public .public-doc { padding: 22px 16px; }
+  .invoice-public .public-doc-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .invoice-public .public-doc-header h1 { font-size: 22px; }
+  .invoice-public .public-doc-meta { text-align: left; }
+  .invoice-public .public-parties {
+    flex-direction: column;
+    gap: 18px;
+  }
+  .invoice-public .public-totals {
+    max-width: none;
+    margin-left: 0;
+  }
+
+  .invoice-public .public-items thead { display: none; }
+  .invoice-public .public-items,
+  .invoice-public .public-items tbody,
+  .invoice-public .public-items tr { display: block; width: 100%; }
+  .invoice-public .public-items tr {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .invoice-public .public-items td {
+    display: block;
+    width: auto;
+    border: none;
+    padding: 0;
+    text-align: left;
+    white-space: normal;
+  }
+  .invoice-public .public-items td.num,
+  .invoice-public .public-items td.public-schedule-due,
+  .invoice-public .public-items td.public-schedule-status { display: none; }
+  .invoice-public .public-item-day.is-empty { display: none; }
+  .invoice-public .public-item-day {
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+    white-space: normal;
+  }
+  .invoice-public .public-item-desc strong { font-size: 15px; }
+  .invoice-public .public-schedule-mobile-due {
+    display: block;
+    margin-top: 2px;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+  }
+  .invoice-public .public-item-figures {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--color-text-secondary);
+  }
+  .invoice-public .public-item-amount {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+    white-space: nowrap;
+  }
+}
 
 .paid-banner {
   display: flex;
@@ -1430,8 +1518,7 @@ button.client-dropdown-item.is-active {
 }
 
 .invoice-items-scroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
   max-width: 100%;
   margin-top: 8px;
 }
@@ -1599,9 +1686,15 @@ button.client-dropdown-item.is-active {
     flex: 1 1 100%;
   }
 
-  /* Invoice editor */
+  /* Invoice editor — phone keeps a sideways scroll; desktop fits the card */
+  .project-detail .invoice-items-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .project-detail .invoice-items-table {
     min-width: 560px;
+    max-width: none;
   }
 
   .project-detail .invoice-items-table .col-day { width: 14%; }

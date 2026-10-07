@@ -109,8 +109,11 @@ class QuotesManager {
             // Add filters if set
             const searchTerm = document.getElementById('searchQuotes')?.value || '';
             const userFilter = document.getElementById('userFilter')?.value || '';
+            const { from: dateFrom, to: dateTo } = this.dateRange();
             if (searchTerm) params.append('search', searchTerm);
             if (userFilter) params.append('createdBy', userFilter);
+            if (dateFrom) params.append('dateFrom', dateFrom);
+            if (dateTo) params.append('dateTo', dateTo);
             if (this.when && this.when !== 'all') params.append('when', this.when);
             
             // Add sort parameters for server-side sorting
@@ -302,16 +305,37 @@ class QuotesManager {
         }
     }
 
+    dateRange() {
+        const from = document.getElementById('dateFrom')?.value || '';
+        const to = document.getElementById('dateTo')?.value || '';
+        return { from, to, active: !!(from || to) };
+    }
+
+    dayInDateRange(dayDate, from, to) {
+        const day = this.normalizeDate(dayDate);
+        if (!day) return false;
+        let start = from;
+        let end = to;
+        if (start && end && start > end) {
+            start = to;
+            end = from;
+        }
+        if (start && day < start) return false;
+        if (end && day > end) return false;
+        return true;
+    }
+
     async filterAndSort() {
         const searchTerm = document.getElementById('searchQuotes')?.value || '';
         const sortBy = document.getElementById('sortQuotes')?.value || '';
-        const dateFilter = document.getElementById('dateFilter')?.value || '';
+        const { from: dateFrom, to: dateTo, active: dateActive } = this.dateRange();
         const userFilter = document.getElementById('userFilter')?.value || '';
         console.log('🔍 Filter and sort called:', {
             showingArchived: this.showingArchived,
             searchTerm,
             sortBy,
-            dateFilter,
+            dateFrom,
+            dateTo,
             userFilter,
             sortColumn: this.sortColumn,
             sortDirection: this.sortDirection
@@ -320,13 +344,13 @@ class QuotesManager {
         // Update clear filters button visibility
         const clearBtn = document.getElementById('clearFiltersBtn');
         if (clearBtn) {
-            if (searchTerm || dateFilter || userFilter) {
+            if (searchTerm || dateActive || userFilter) {
                 clearBtn.style.display = 'inline-block';
             } else {
                 clearBtn.style.display = 'none';
             }
         }
-        const drawerActive = !!(dateFilter || userFilter ||
+        const drawerActive = !!(dateActive || userFilter ||
             (this.when && this.when !== 'upcoming') ||
             this.showingArchived);
         if (window.PageControls) {
@@ -339,17 +363,12 @@ class QuotesManager {
         // Reload quotes with filters and sorting from server
         await this.loadQuotes({ showSkeleton: false });
         
-        // Apply date filter client-side (complex date parsing in quoteData.days)
+        // Apply date range client-side (service days live inside quoteData)
         let filtered = [...this.allQuotes];
-        if (dateFilter) {
+        if (dateActive) {
             filtered = filtered.filter(quote => {
                 const days = quote.quoteData?.days || [];
-                return days.some(day => {
-                    if (!day.date) return false;
-                    const dayDate = this.normalizeDate(day.date);
-                    const filterDate = this.normalizeDate(dateFilter);
-                    return dayDate === filterDate;
-                });
+                return days.some((day) => day.date && this.dayInDateRange(day.date, dateFrom, dateTo));
             });
         }
 
@@ -418,9 +437,9 @@ class QuotesManager {
 
     getEmptyStateType() {
         const searchTerm = document.getElementById('searchQuotes')?.value || '';
-        const dateFilter = document.getElementById('dateFilter')?.value || '';
+        const { active: dateActive } = this.dateRange();
         const userFilter = document.getElementById('userFilter')?.value || '';
-        if (searchTerm || dateFilter || userFilter) {
+        if (searchTerm || dateActive || userFilter) {
             return 'filtered';
         }
         if (this.showingArchived) {
@@ -896,7 +915,8 @@ class QuotesManager {
 
     async clearFilters() {
         document.getElementById('searchQuotes').value = '';
-        document.getElementById('dateFilter').value = '';
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
         document.getElementById('userFilter').value = '';
         this.currentPage = 1;
         await this.loadQuotes({ showSkeleton: false });
@@ -923,10 +943,10 @@ class QuotesManager {
             dataArea?.classList.remove('showing-archived');
         }
 
-        const dateFilter = document.getElementById('dateFilter')?.value || '';
+        const { active: dateActive } = this.dateRange();
         const userFilter = document.getElementById('userFilter')?.value || '';
         if (window.PageControls) {
-            PageControls.syncFilterIndicator('#quotesPageControls', !!(dateFilter || userFilter ||
+            PageControls.syncFilterIndicator('#quotesPageControls', !!(dateActive || userFilter ||
                 (this.when && this.when !== 'upcoming') || this.showingArchived));
         }
         

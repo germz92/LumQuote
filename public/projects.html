@@ -58,11 +58,21 @@
                             <option value="complete">Complete</option>
                         </select>
 
-                        <input type="date"
-                               id="dateFilter"
-                               class="pc-select"
-                               title="Filter by project date"
-                               onchange="projectsManager.applyFilters()">
+                        <div class="pc-date-range visible">
+                            <input type="date"
+                                   id="dateFrom"
+                                   class="pc-select"
+                                   aria-label="Project date from"
+                                   title="Project date from"
+                                   onchange="projectsManager.applyFilters()">
+                            <span class="pc-date-sep">to</span>
+                            <input type="date"
+                                   id="dateTo"
+                                   class="pc-select"
+                                   aria-label="Project date to"
+                                   title="Project date to"
+                                   onchange="projectsManager.applyFilters()">
+                        </div>
 
                         <button class="pc-clear" id="clearFiltersBtn" onclick="projectsManager.clearFilters()" style="display: none;">
                             Clear

@@ -36,6 +36,17 @@ const CRM = {
         signed: 'Signed'
     },
 
+    PAYMENT_METHOD_LABELS: {
+        cash: 'Cash',
+        check: 'Check',
+        etransfer: 'e-Transfer',
+        other: 'Other'
+    },
+
+    paymentMethodLabel(method) {
+        return this.PAYMENT_METHOD_LABELS[method] || '';
+    },
+
     INVOICE_STATUS_LABELS: {
         draft: 'Draft',
         sent: 'Sent',

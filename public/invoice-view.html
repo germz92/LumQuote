@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/crm.css">
     <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
 </head>
-<body class="public-doc-page">
+<body class="public-doc-page invoice-public">
     <div class="public-doc" id="docContainer">
         <div class="crm-loading" id="loadingState">Loading invoice…</div>
 
@@ -57,7 +57,7 @@
                 <tbody id="itemsBody"></tbody>
             </table>
 
-            <div class="invoice-totals" style="max-width:300px; margin-left:auto">
+            <div class="invoice-totals public-totals">
                 <div class="row"><span>Subtotal</span><span id="subtotalDisplay"></span></div>
                 <div class="row" id="discountRow" style="display:none"><span>Discount</span><span id="discountDisplay"></span></div>
                 <div class="row" id="paidRow" style="display:none"><span>Paid to date</span><span id="paidDisplay"></span></div>
@@ -66,7 +66,7 @@
 
             <div id="scheduleArea" style="display:none; margin-top:26px">
                 <h3 style="font-size:14px; text-transform:uppercase; letter-spacing:0.04em; color:#697386">Payment Schedule</h3>
-                <table class="public-items">
+                <table class="public-items public-schedule">
                     <thead>
                         <tr><th>Payment</th><th>Due</th><th class="num">Amount</th><th>Status</th></tr>
                     </thead>

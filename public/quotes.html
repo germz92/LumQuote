@@ -57,11 +57,21 @@
                             <option value="name-desc">Name (Z-A)</option>
                         </select>
 
-                        <input type="date"
-                               id="dateFilter"
-                               class="pc-select"
-                               title="Filter by service date"
-                               onchange="quotesManager.filterAndSort()">
+                        <div class="pc-date-range visible">
+                            <input type="date"
+                                   id="dateFrom"
+                                   class="pc-select"
+                                   aria-label="Service date from"
+                                   title="Service date from"
+                                   onchange="quotesManager.filterAndSort()">
+                            <span class="pc-date-sep">to</span>
+                            <input type="date"
+                                   id="dateTo"
+                                   class="pc-select"
+                                   aria-label="Service date to"
+                                   title="Service date to"
+                                   onchange="quotesManager.filterAndSort()">
+                        </div>
 
                         <select id="userFilter" class="pc-select" onchange="quotesManager.filterAndSort()">
                             <option value="">All Users</option>

@@ -78,6 +78,10 @@
   gap: var(--space-2);
 }
 
+.pc-date-range input.pc-select {
+  min-width: 148px;
+}
+
 .pc-date-range.visible {
   display: inline-flex;
 }
@@ -229,7 +233,7 @@ input.pc-select {
   .pc-search { order: 1; }
   .pc-filters-drawer > .pc-select,
   .pc-filters-drawer > input.pc-select { order: 2; }
-  .pc-filters-drawer > .pc-date-range { order: 3; }
+  .pc-filters-drawer > .pc-date-range { order: 2; }
   .pc-filters-drawer > .pc-clear { order: 4; }
   .pc-filters-drawer > .pc-actions { order: 20; margin-left: auto; }
   .pc-toolbar > .pc-primary-cta { order: 21; }
@@ -390,7 +394,13 @@ body[data-app-page="invoices"] .quotes-list-scroll .quotes-table thead th {
   .pc-filters-drawer .pc-date-range.visible {
     display: flex;
     width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+  }
+
+  .pc-filters-drawer .pc-date-range.visible input.pc-select {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .pc-filters-drawer .pc-actions {

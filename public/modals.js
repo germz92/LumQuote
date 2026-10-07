@@ -194,25 +194,13 @@ function showPromptModal(options = {}) {
             messageEl.textContent = '';
         }
 
-        fieldsEl.innerHTML = fields.map((field, index) => {
-            const type = field.type || 'text';
-            const required = field.required !== false;
-            const min = field.min != null ? ` min="${field.min}"` : '';
-            const max = field.max != null ? ` max="${field.max}"` : '';
-            const value = field.value != null ? String(field.value) : '';
-            const placeholder = field.placeholder ? ` placeholder="${String(field.placeholder).replace(/"/g, '&quot;')}"` : '';
-            return `
-                <div class="form-group">
-                    <label for="promptField_${index}">${field.label || field.name}</label>
-                    <input id="promptField_${index}" name="${field.name}" type="${type}" value="${value.replace(/"/g, '&quot;')}"${min}${max}${placeholder}${required ? ' required' : ''} autocomplete="off">
-                </div>`;
-        }).join('');
+        fieldsEl.innerHTML = fields.map((field, index) => promptFieldHtml(field, index)).join('');
 
         currentPromptCallback = resolve;
         modal.style.display = 'flex';
 
         setTimeout(() => {
-            const first = fieldsEl.querySelector('input');
+            const first = fieldsEl.querySelector('input:not([readonly]), select, textarea');
             if (first) {
                 first.focus();
                 if (first.type === 'text' || first.type === 'number') first.select();
@@ -221,11 +209,56 @@ function showPromptModal(options = {}) {
     });
 }
 
+function promptEscape(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function promptFieldHtml(field, index) {
+    const type = field.type || 'text';
+    const required = field.required !== false;
+    const name = promptEscape(field.name);
+    const label = promptEscape(field.label || field.name);
+    const value = field.value != null ? String(field.value) : '';
+    const placeholder = field.placeholder ? ` placeholder="${promptEscape(field.placeholder)}"` : '';
+    const requiredAttr = required ? ' required' : '';
+    let control;
+
+    if (type === 'select') {
+        const options = (field.options || []).map((opt) => {
+            const optValue = typeof opt === 'string' ? opt : opt.value;
+            const optLabel = typeof opt === 'string' ? opt : opt.label;
+            const selected = String(optValue) === value ? ' selected' : '';
+            const disabled = required && optValue === '' ? ' disabled' : '';
+            return `<option value="${promptEscape(optValue)}"${selected}${disabled}>${promptEscape(optLabel)}</option>`;
+        }).join('');
+        control = `<select id="promptField_${index}" name="${name}"${requiredAttr}>${options}</select>`;
+    } else if (type === 'textarea') {
+        const maxLength = field.maxLength ? ` maxlength="${Number(field.maxLength)}"` : '';
+        control = `<textarea id="promptField_${index}" name="${name}" rows="${field.rows || 3}"${placeholder}${maxLength}${requiredAttr}>${promptEscape(value)}</textarea>`;
+    } else {
+        const min = field.min != null ? ` min="${promptEscape(field.min)}"` : '';
+        const max = field.max != null ? ` max="${promptEscape(field.max)}"` : '';
+        const step = field.step != null ? ` step="${promptEscape(field.step)}"` : '';
+        const readonly = field.readonly ? ' readonly' : '';
+        control = `<input id="promptField_${index}" name="${name}" type="${promptEscape(type)}" value="${promptEscape(value)}"${min}${max}${step}${placeholder}${readonly}${requiredAttr} autocomplete="off">`;
+    }
+
+    return `
+        <div class="form-group">
+            <label for="promptField_${index}">${label}</label>
+            ${control}
+        </div>`;
+}
+
 function collectPromptModalValues() {
     const fieldsEl = document.getElementById('promptModalFields');
     if (!fieldsEl) return {};
     const values = {};
-    fieldsEl.querySelectorAll('input').forEach((input) => {
+    fieldsEl.querySelectorAll('input, select, textarea').forEach((input) => {
         values[input.name] = input.value;
     });
     return values;

@@ -247,14 +247,43 @@ class InvoicesManager {
     renderSchedule(plan) {
         if (!plan?.installments?.length) return '';
         const rows = plan.installments.map((inst) => {
-            const statusLabel = inst.status === 'paid' ? 'Paid' : 'Pending';
+            const paid = inst.status === 'paid';
+            const partial = inst.status === 'partial';
+            const stripe = paid && inst.paidViaStripe;
+            const manualMethods = [...new Set((inst.payments || [])
+                .filter((payment) => !payment.paidViaStripe && payment.paymentMethod)
+                .map((payment) => payment.paymentMethod))];
+            const methodLabel = manualMethods.length === 1 ? CRM.paymentMethodLabel(manualMethods[0]) : '';
+            let statusLabel = 'Pending';
+            let tone = 'draft';
+            let title = '';
+            if (partial) {
+                statusLabel = 'Partial';
+                tone = 'partial';
+                title = `${CRM.money(inst.amountReceived || 0)} of ${CRM.money(inst.amount)}`;
+            } else if (paid && stripe) {
+                statusLabel = 'Stripe';
+                tone = 'paid';
+                title = 'Paid by the client through the invoice link';
+            } else if (paid && methodLabel) {
+                statusLabel = methodLabel;
+                tone = 'recorded';
+                title = (inst.payments || []).map((payment) => payment.paymentNote).filter(Boolean).join(' · ') || 'Marked paid by staff';
+            } else if (paid) {
+                statusLabel = 'Paid';
+                tone = 'recorded';
+                title = 'Marked paid by staff';
+            }
+            const amountCell = partial
+                ? `${CRM.money(inst.amountReceived || 0)} <span class="crm-inline-note">/ ${CRM.money(inst.amount)}</span>`
+                : CRM.money(inst.amount);
             return `
                 <tr>
                     <td class="invoice-plan-col-payment">${CRM.escapeHtml(inst.label || 'Payment')}</td>
                     <td class="invoice-plan-col-due">${CRM.escapeHtml(inst.dueLabel || (inst.dueDate ? CRM.formatDate(inst.dueDate) : '—'))}</td>
-                    <td class="invoice-plan-col-amount num">${CRM.money(inst.amount)}</td>
+                    <td class="invoice-plan-col-amount num">${amountCell}</td>
                     <td class="invoice-plan-col-status">
-                        <span class="crm-chip crm-chip--${inst.status === 'paid' ? 'paid' : 'draft'}">${statusLabel}</span>
+                        <span class="crm-chip crm-chip--${tone}" ${title ? `title="${CRM.escapeHtml(title)}"` : ''}>${statusLabel}</span>
                     </td>
                 </tr>`;
         }).join('');

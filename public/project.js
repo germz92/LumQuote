@@ -1558,9 +1558,12 @@ class ProjectPage {
                 <table class="crm-table invoice-items-table">
                     <thead><tr>
                         <th class="col-day">Day</th>
-                        <th>Description</th><th>Detail</th>
-                        <th class="col-qty num">Qty</th><th class="col-price num">Unit Price</th>
-                        <th class="col-amount num">Amount</th><th class="col-remove"></th>
+                        <th class="col-desc">Description</th>
+                        <th class="col-detail">Detail</th>
+                        <th class="col-qty num">Qty</th>
+                        <th class="col-price num">Unit Price</th>
+                        <th class="col-amount num">Amount</th>
+                        <th class="col-remove"></th>
                     </tr></thead>
                     <tbody id="invoiceItemsBody"></tbody>
                 </table>
@@ -1624,21 +1627,140 @@ class ProjectPage {
         return formatted ? ` on ${formatted}` : '';
     }
 
-    async promptPaidDate(title, message) {
+    installmentPaidViaStripe(inst, invoice) {
+        const source = invoice || this.editingInvoice;
+        if (inst?.stripePaymentIntentId) return true;
+        if (!source?.stripePaymentIntentId || !inst?.paidAt || !source.paidAt) return false;
+        const paidAt = new Date(inst.paidAt).getTime();
+        const invoicePaidAt = new Date(source.paidAt).getTime();
+        return Number.isFinite(paidAt) && Number.isFinite(invoicePaidAt) && Math.abs(paidAt - invoicePaidAt) < 5000;
+    }
+
+    installmentPayments(inst) {
+        const stored = Array.isArray(inst?.payments)
+            ? inst.payments.filter((p) => Number(p.amount) > 0)
+            : [];
+        if (stored.length) return stored;
+        if (inst?.status === 'paid' && Number(inst.amount) > 0) {
+            return [{
+                amount: inst.amount,
+                paidAt: inst.paidAt,
+                paymentMethod: inst.paymentMethod || '',
+                paymentNote: inst.paymentNote || '',
+                stripePaymentIntentId: inst.stripePaymentIntentId || null
+            }];
+        }
+        return [];
+    }
+
+    installmentReceived(inst) {
+        const received = this.installmentPayments(inst)
+            .reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
+        return Math.round(received * 100) / 100;
+    }
+
+    installmentRemaining(inst) {
+        const remaining = (Number(inst?.amount) || 0) - this.installmentReceived(inst);
+        return Math.max(0, Math.round(remaining * 100) / 100);
+    }
+
+    paymentViaStripe(payment, inst, invoice) {
+        if (payment?.stripePaymentIntentId) return true;
+        if (payment?.paymentMethod) return false;
+        return this.installmentPaidViaStripe(inst, invoice);
+    }
+
+    paymentLinesHtml(inst, invoice) {
+        return this.installmentPayments(inst).map((payment) => {
+            const stripe = this.paymentViaStripe(payment, inst, invoice);
+            const when = this.paidOnLabel(payment.paidAt);
+            const methodLabel = CRM.paymentMethodLabel(payment.paymentMethod);
+            const label = stripe ? `Stripe${when}` : `${methodLabel || 'Recorded'}${when}`;
+            const tone = stripe ? 'paid' : 'recorded';
+            const title = stripe
+                ? 'Paid by the client through the invoice link'
+                : (payment.paymentNote || 'Marked paid by staff');
+            const note = !stripe && String(payment.paymentNote || '').trim()
+                ? `<div class="crm-inline-note" style="margin-top:2px">${CRM.escapeHtml(payment.paymentNote)}</div>`
+                : '';
+            return `<div style="margin-top:4px">
+                <span class="crm-chip crm-chip--${tone}" title="${CRM.escapeHtml(title)}">${CRM.escapeHtml(label)}</span>
+                <span style="margin-left:6px">${CRM.money(payment.amount)}</span>
+                ${note}
+            </div>`;
+        }).join('');
+    }
+
+    async promptManualPayment(title, message, amountOptions) {
+        const editable = !!(amountOptions && typeof amountOptions === 'object' && amountOptions.editable);
+        const maxAmount = editable ? Math.round(Number(amountOptions.amount) * 100) / 100 : 0;
+        const amountValue = editable
+            ? String(maxAmount)
+            : (typeof amountOptions === 'string' ? amountOptions : CRM.money(amountOptions?.amount || 0));
         const values = await showPromptModal({
             title,
             message,
-            confirmText: 'Mark Paid',
-            fields: [{
-                name: 'paidDate',
-                label: 'Payment date',
-                type: 'date',
-                value: this.todayYmd(),
-                required: true
-            }]
+            confirmText: editable ? 'Record payment' : 'Mark Paid',
+            fields: [
+                editable
+                    ? {
+                        name: 'amount',
+                        label: 'Amount received',
+                        type: 'number',
+                        value: amountValue,
+                        min: '0.01',
+                        max: String(maxAmount),
+                        step: '0.01',
+                        required: true
+                    }
+                    : {
+                        name: 'amount',
+                        label: 'Amount',
+                        type: 'text',
+                        value: amountValue,
+                        readonly: true,
+                        required: false
+                    },
+                {
+                    name: 'paidDate',
+                    label: 'Payment date',
+                    type: 'date',
+                    value: this.todayYmd(),
+                    required: true
+                },
+                {
+                    name: 'paymentMethod',
+                    label: 'Method',
+                    type: 'select',
+                    required: true,
+                    options: [
+                        { value: '', label: 'Choose a method' },
+                        { value: 'cash', label: 'Cash' },
+                        { value: 'check', label: 'Check' },
+                        { value: 'etransfer', label: 'e-Transfer' },
+                        { value: 'other', label: 'Other' }
+                    ]
+                },
+                {
+                    name: 'paymentNote',
+                    label: 'Description',
+                    type: 'textarea',
+                    required: false,
+                    maxLength: 500,
+                    placeholder: 'Check number, reference, or note'
+                }
+            ]
         });
-        if (!values || !values.paidDate) return null;
-        return values.paidDate;
+        if (!values || !values.paidDate || !values.paymentMethod) return null;
+        if (editable) {
+            const amount = Math.round(Number(values.amount) * 100) / 100;
+            if (!Number.isFinite(amount) || amount <= 0 || amount - maxAmount > 0.009) {
+                showAlertModal(`Enter an amount up to ${CRM.money(maxAmount)}.`, 'error');
+                return null;
+            }
+            values.amount = amount;
+        }
+        return values;
     }
 
     recordPaymentSectionHtml(inv) {
@@ -1651,18 +1773,24 @@ class ProjectPage {
         const hasPlan = installments.length > 0;
 
         if (inv.status === 'paid') {
+            const methodLabel = !hasPlan ? CRM.paymentMethodLabel(inv.paymentMethod) : '';
+            const how = !hasPlan && inv.stripePaymentIntentId
+                ? ' online'
+                : (methodLabel ? ` by ${inv.paymentMethod === 'etransfer' ? 'e-transfer' : methodLabel.toLowerCase()}` : '');
             const paidLine = inv.paidAt
-                ? `Paid in full${this.paidOnLabel(inv.paidAt)}.`
-                : 'Paid in full.';
+                ? `Paid in full${how}${this.paidOnLabel(inv.paidAt)}.`
+                : `Paid in full${how}.`;
+            const fullNote = !hasPlan && inv.paymentNote && !inv.stripePaymentIntentId
+                ? `<p class="crm-inline-note" style="margin:6px 0 0">${CRM.escapeHtml(inv.paymentNote)}</p>`
+                : '';
             const installmentRows = hasPlan
                 ? `<div class="invoice-record-installments" style="margin-top:10px">
                     ${installments.map((inst, i) => {
                         const label = CRM.escapeHtml(inst.label || `Payment ${i + 1}`);
                         const amount = CRM.money(inst.amount || 0);
-                        const when = inst.status === 'paid' ? this.paidOnLabel(inst.paidAt) : '';
                         return `<div class="pp-row-static">
                             <strong>${label}</strong> — ${amount}
-                            <span class="crm-chip crm-chip--paid" style="margin-left:6px">Paid${CRM.escapeHtml(when)}</span>
+                            ${this.paymentLinesHtml(inst, inv)}
                         </div>`;
                     }).join('')}
                 </div>`
@@ -1671,6 +1799,7 @@ class ProjectPage {
                 <div class="invoice-record-payment" style="margin-top:28px;padding-top:20px;border-top:1px solid var(--color-border)">
                     <h3 style="font-size:14px;margin:0 0 6px">Payment</h3>
                     <p class="crm-inline-note" style="margin:0">${CRM.escapeHtml(paidLine)}</p>
+                    ${fullNote}
                     ${installmentRows}
                 </div>`;
         }
@@ -1682,16 +1811,23 @@ class ProjectPage {
                     ${installments.map((inst, i) => {
                         const label = CRM.escapeHtml(inst.label || `Payment ${i + 1}`);
                         const amount = CRM.money(inst.amount || 0);
+                        const remaining = this.installmentRemaining(inst);
+                        const stillDue = inst.status === 'partial'
+                            ? `<div class="crm-inline-note" style="margin-top:2px">${CRM.money(remaining)} still due</div>`
+                            : '';
                         if (inst.status === 'paid') {
-                            const when = this.paidOnLabel(inst.paidAt);
                             return `<div class="pp-row-static">
                                 <strong>${label}</strong> — ${amount}
-                                <span class="crm-chip crm-chip--paid" style="margin-left:6px">Paid${CRM.escapeHtml(when)}</span>
+                                ${this.paymentLinesHtml(inst, inv)}
                             </div>`;
                         }
                         return `<div class="pp-row-static" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between">
-                            <span><strong>${label}</strong> — ${amount}</span>
-                            <button type="button" class="crm-btn-sm primary" onclick="projectPage.markInstallmentPaid('${inv._id}', ${i})">Mark paid</button>
+                            <div>
+                                <strong>${label}</strong> — ${amount}
+                                ${this.paymentLinesHtml(inst, inv)}
+                                ${stillDue}
+                            </div>
+                            <button type="button" class="crm-btn-sm primary" onclick="projectPage.markInstallmentPaid('${inv._id}', ${i})">Record payment</button>
                         </div>`;
                     }).join('')}
                 </div>`;
@@ -1704,9 +1840,8 @@ class ProjectPage {
                 <p class="crm-inline-note" style="margin:0 0 14px">
                     For payments received outside Stripe.
                     ${hasPlan
-                        ? 'Mark individual installments as they come in, or mark the full invoice paid.'
+                        ? 'Record the amount received on an installment. You can record less than the scheduled amount, or mark the invoice paid in full.'
                         : 'Marks the invoice paid in full.'}
-                    You will choose the payment date when marking paid.
                     ${remaining > 0 ? ` Balance due: <strong>${CRM.money(remaining)}</strong>.` : ''}
                 </p>
                 ${installmentRows}
@@ -1728,15 +1863,22 @@ class ProjectPage {
     }
 
     planHasPaidInstallment() {
-        return (this.editingInvoice?.paymentPlan?.installments || []).some((i) => i.status === 'paid');
+        return (this.editingInvoice?.paymentPlan?.installments || []).some((i) =>
+            i.status === 'paid' || i.status === 'partial' || (Array.isArray(i.payments) && i.payments.some((p) => Number(p.amount) > 0))
+        );
     }
 
     paidInstallmentHtml(inst) {
         const label = CRM.escapeHtml(inst.label || 'Payment');
+        const remaining = this.installmentRemaining(inst);
+        const stillDue = inst.status === 'partial'
+            ? `<div class="crm-inline-note" style="margin-top:2px">${CRM.money(remaining)} still due</div>`
+            : '';
         return `
             <div class="pp-row-static">
                 <strong>${label}</strong> — ${inst.percent}% (${CRM.money(inst.amount)})
-                <span class="crm-chip crm-chip--paid" style="margin-left:6px">Paid${CRM.escapeHtml(this.paidOnLabel(inst.paidAt))}</span>
+                ${this.paymentLinesHtml(inst)}
+                ${stillDue}
             </div>`;
     }
 
@@ -1757,7 +1899,7 @@ class ProjectPage {
             </label>`;
 
         if (hasPaid) {
-            html += `<p class="crm-inline-note">Paid payments stay as recorded. You can still edit or remove payments that have not been paid.</p>`;
+            html += `<p class="crm-inline-note">Payments with money received stay as recorded. You can still edit or remove payments that have not been paid.</p>`;
         }
 
         if (plan.enabled || hasPaid) {
@@ -1766,7 +1908,7 @@ class ProjectPage {
             const sumOk = Math.abs(percentSum - 100) <= 0.01;
 
             html += plan.installments.map((inst, i) => (
-                inst.status === 'paid'
+                inst.status === 'paid' || inst.status === 'partial'
                     ? this.paidInstallmentHtml(inst)
                     : this.installmentRowHtml(inst, i, total)
             )).join('');
@@ -1861,14 +2003,14 @@ class ProjectPage {
 
     removeInstallment(i) {
         const inst = this.editingInvoice.paymentPlan.installments[i];
-        if (!inst || inst.status === 'paid') return;
+        if (!inst || inst.status === 'paid' || inst.status === 'partial') return;
         this.editingInvoice.paymentPlan.installments.splice(i, 1);
         this.renderPaymentPlan();
     }
 
     updateInstallment(i, field, value) {
         const inst = this.editingInvoice.paymentPlan.installments[i];
-        if (!inst || inst.status === 'paid') return;
+        if (!inst || inst.status === 'paid' || inst.status === 'partial') return;
         if (field === 'percent') {
             inst.percent = Number(value) || 0;
             this.renderPaymentPlanAmounts();
@@ -2074,16 +2216,30 @@ class ProjectPage {
         }
     }
 
+    invoiceForPayment(invoiceId) {
+        if (this.editingInvoice && String(this.editingInvoice._id) === String(invoiceId)) {
+            return this.editingInvoice;
+        }
+        return (this.data?.invoices || []).find((inv) => String(inv._id) === String(invoiceId)) || null;
+    }
+
     async markInvoicePaid(invoiceId) {
-        const paidDate = await this.promptPaidDate(
+        const inv = this.invoiceForPayment(invoiceId);
+        const remaining = Math.max(0, (Number(inv?.total) || 0) - (Number(inv?.amountPaid) || 0));
+        const payment = await this.promptManualPayment(
             'Mark Invoice Paid',
-            'All unpaid installments will be marked paid. Choose the date the payment was received.'
+            'All unpaid installments will be marked paid.',
+            CRM.money(remaining)
         );
-        if (!paidDate) return;
+        if (!payment) return;
         try {
             await CRM.api(`/api/invoices/${invoiceId}/mark-paid`, {
                 method: 'POST',
-                body: { paidDate }
+                body: {
+                    paidDate: payment.paidDate,
+                    paymentMethod: payment.paymentMethod,
+                    paymentNote: payment.paymentNote
+                }
             });
             showAlertModal('Invoice marked as paid.', 'success', null, true);
             await this.reload();
@@ -2097,17 +2253,34 @@ class ProjectPage {
     }
 
     async markInstallmentPaid(invoiceId, index) {
-        const paidDate = await this.promptPaidDate(
-            'Mark Installment Paid',
-            'Choose the date this payment was received (outside Stripe).'
+        const inv = this.invoiceForPayment(invoiceId);
+        const inst = inv?.paymentPlan?.installments?.[index];
+        const scheduled = Number(inst?.amount) || 0;
+        const remaining = this.installmentRemaining(inst || { amount: 0 });
+        const label = inst?.label || 'this payment';
+        const payment = await this.promptManualPayment(
+            'Record payment',
+            `${label} is ${CRM.money(scheduled)}. ${CRM.money(remaining)} is still due. You can record less than that.`,
+            { amount: remaining, editable: true }
         );
-        if (!paidDate) return;
+        if (!payment) return;
         try {
-            await CRM.api(`/api/invoices/${invoiceId}/mark-installment-paid`, {
+            const updated = await CRM.api(`/api/invoices/${invoiceId}/mark-installment-paid`, {
                 method: 'POST',
-                body: { index, paidDate }
+                body: {
+                    index,
+                    amount: payment.amount,
+                    paidDate: payment.paidDate,
+                    paymentMethod: payment.paymentMethod,
+                    paymentNote: payment.paymentNote
+                }
             });
-            showAlertModal('Installment marked as paid.', 'success', null, true);
+            const updatedInst = updated?.invoice?.paymentPlan?.installments?.[index];
+            const left = this.installmentRemaining(updatedInst || {});
+            const message = updatedInst?.status === 'paid'
+                ? 'Payment recorded. This installment is paid in full.'
+                : `Payment recorded. ${CRM.money(left)} is still due on this installment.`;
+            showAlertModal(message, 'success', null, true);
             await this.reload();
             this.showTab('invoices');
             await this.editInvoice(invoiceId);

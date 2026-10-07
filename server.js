@@ -2647,7 +2647,7 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
     const skip = (page - 1) * limit;
     
     // Filter and sort parameters from query string
-    const { archived, search, createdBy: createdByFilter, booked, dateFilter, sortBy, sortDirection, when } = req.query;
+    const { archived, search, createdBy: createdByFilter, booked, sortBy, sortDirection, when } = req.query;
 
     const todayYmd = () => {
       const d = new Date();
@@ -2781,6 +2781,24 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
     const whenClause = quoteWhenClause(when);
     if (whenClause) {
       query.$and = (query.$and || []).concat([whenClause]);
+    }
+
+    // A quote matches when any service day falls inside the range.
+    const isYmd = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+    let dateFrom = isYmd(req.query.dateFrom) ? req.query.dateFrom : '';
+    let dateTo = isYmd(req.query.dateTo) ? req.query.dateTo : '';
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      const swap = dateFrom;
+      dateFrom = dateTo;
+      dateTo = swap;
+    }
+    if (dateFrom || dateTo) {
+      const dateBounds = {};
+      if (dateFrom) dateBounds.$gte = dateFrom;
+      if (dateTo) dateBounds.$lte = `${dateTo}\uffff`;
+      query.$and = (query.$and || []).concat([{
+        'quoteData.days': { $elemMatch: { date: dateBounds } }
+      }]);
     }
     
     // Get total count for pagination

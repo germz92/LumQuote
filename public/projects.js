@@ -86,17 +86,25 @@ class ProjectsManager {
     clearFilters() {
         document.getElementById('searchProjects').value = '';
         document.getElementById('statusFilter').value = '';
-        document.getElementById('dateFilter').value = '';
+        document.getElementById('dateFrom').value = '';
+        document.getElementById('dateTo').value = '';
         this.applyFilters();
     }
 
+    dateRange() {
+        const from = document.getElementById('dateFrom')?.value || '';
+        const to = document.getElementById('dateTo')?.value || '';
+        return { from, to, active: !!(from || to) };
+    }
+
     updateClearButton() {
+        const { active: dateActive } = this.dateRange();
         const hasFilters = document.getElementById('searchProjects').value ||
             document.getElementById('statusFilter').value ||
-            document.getElementById('dateFilter').value;
+            dateActive;
         document.getElementById('clearFiltersBtn').style.display = hasFilters ? '' : 'none';
         const drawerActive = !!(document.getElementById('statusFilter')?.value ||
-            document.getElementById('dateFilter')?.value ||
+            dateActive ||
             (this.when && this.when !== 'upcoming') ||
             this.showingArchived);
         if (window.PageControls) {
@@ -125,10 +133,11 @@ class ProjectsManager {
             });
             const search = document.getElementById('searchProjects')?.value || '';
             const status = document.getElementById('statusFilter')?.value || '';
-            const date = document.getElementById('dateFilter')?.value || '';
+            const { from: dateFrom, to: dateTo } = this.dateRange();
             if (search) params.append('search', search);
             if (status) params.append('status', status);
-            if (date) params.append('date', date);
+            if (dateFrom) params.append('dateFrom', dateFrom);
+            if (dateTo) params.append('dateTo', dateTo);
             if (this.when && this.when !== 'all') params.append('when', this.when);
             const sortable = ['name', 'client', 'dates', 'status', 'contract', 'invoices', 'owner', 'created'];
             if (sortable.includes(this.sortColumn)) {
