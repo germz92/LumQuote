@@ -22,6 +22,7 @@
                 <button class="crm-tab" data-tab="company" onclick="showAdminTab('company')">Company Settings</button>
                 <button class="crm-tab" data-tab="payments" onclick="showAdminTab('payments')">Payments</button>
                 <button class="crm-tab" data-tab="users" onclick="showAdminTab('users')">Users</button>
+                <button class="crm-tab" data-tab="website" onclick="showAdminTab('website')">Website Form</button>
             </div>
 
             <div class="admin-section crm-panel is-active" id="admin-panel-services">
@@ -190,6 +191,142 @@
                         </a>
                     </div>
                 </div>
+            </div>
+
+            <div class="admin-section crm-panel" id="admin-panel-website">
+                <div class="form-designer-head">
+                    <div>
+                        <h2>Website Form</h2>
+                        <p class="subtitle">Change the words visitors see. Name, email, phone, message, and how they heard about you always stay on the form.</p>
+                    </div>
+                    <a class="secondary-button form-designer-open" id="leadFormUrl" href="/inquire" target="_blank" rel="noopener noreferrer">Open form</a>
+                </div>
+
+                <form id="leadFormEditor" class="form-designer" onsubmit="saveLeadForm(event)">
+                    <div class="form-designer-main">
+                        <section class="admin-card form-designer-section">
+                            <h3>Top of the form</h3>
+                            <div class="form-group">
+                                <label for="lf-heading">Heading</label>
+                                <input type="text" id="lf-heading" maxlength="120" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="lf-intro">Short intro</label>
+                                <textarea id="lf-intro" rows="2" maxlength="400"></textarea>
+                            </div>
+                        </section>
+
+                        <section class="admin-card form-designer-section">
+                            <h3>Questions</h3>
+                            <p class="form-designer-note">These labels sit above the fields. The fields themselves stay the same.</p>
+                            <div class="form-designer-grid">
+                                <div class="form-group">
+                                    <label for="lf-name">Name</label>
+                                    <input type="text" id="lf-name" maxlength="80" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-email">Email</label>
+                                    <input type="text" id="lf-email" maxlength="80" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-phone">Phone</label>
+                                    <input type="text" id="lf-phone" maxlength="80" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-message">Message</label>
+                                    <input type="text" id="lf-message" maxlength="80" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-hear">How did you hear about us</label>
+                                    <input type="text" id="lf-hear" maxlength="160" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-submit">Button</label>
+                                    <input type="text" id="lf-submit" maxlength="40" required>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="admin-card form-designer-section">
+                            <h3>Services</h3>
+                            <div class="form-designer-grid">
+                                <div class="form-group">
+                                    <label for="lf-services-legend">Question</label>
+                                    <input type="text" id="lf-services-legend" maxlength="160" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-services-hint">Hint under the question</label>
+                                    <input type="text" id="lf-services-hint" maxlength="160" placeholder="Select all that apply">
+                                </div>
+                            </div>
+                            <div id="lf-services" class="form-designer-services"></div>
+                            <button type="button" class="secondary-button" onclick="addLeadFormService()">Add service</button>
+                        </section>
+
+                        <section class="admin-card form-designer-section">
+                            <h3>After they submit</h3>
+                            <div class="form-group">
+                                <label for="lf-success-title">Heading</label>
+                                <input type="text" id="lf-success-title" maxlength="120" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="lf-success-message">Message</label>
+                                <textarea id="lf-success-message" rows="2" maxlength="400"></textarea>
+                            </div>
+                        </section>
+
+                        <section class="admin-card form-designer-section">
+                            <h3>Confirmation email</h3>
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="lf-confirm-enabled" onchange="toggleLeadConfirmEmail()">
+                                    <span class="checkbox-text">Email a confirmation to the visitor</span>
+                                </label>
+                            </div>
+                            <div id="lf-confirm-fields">
+                                <div class="form-group">
+                                    <label for="lf-confirm-subject">Subject</label>
+                                    <input type="text" id="lf-confirm-subject" maxlength="160">
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-confirm-body">Message</label>
+                                    <textarea id="lf-confirm-body" rows="5" maxlength="4000"></textarea>
+                                    <small class="form-help">Type {{name}} where their name should appear.</small>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+
+                    <aside class="form-designer-side">
+                        <div class="form-preview" aria-hidden="true">
+                            <div class="form-preview-bar">Preview</div>
+                            <div class="form-preview-card">
+                                <h4 id="lf-preview-heading"></h4>
+                                <p id="lf-preview-intro"></p>
+                                <div class="form-preview-field" id="lf-preview-name"></div>
+                                <div class="form-preview-field" id="lf-preview-email"></div>
+                                <div class="form-preview-field" id="lf-preview-phone"></div>
+                                <div class="form-preview-field" id="lf-preview-message"></div>
+                                <p class="form-preview-legend" id="lf-preview-services-legend"></p>
+                                <p class="form-preview-hint" id="lf-preview-services-hint"></p>
+                                <div class="form-preview-services" id="lf-preview-services"></div>
+                                <div class="form-preview-field" id="lf-preview-hear"></div>
+                                <div class="form-preview-button" id="lf-preview-submit"></div>
+                            </div>
+                        </div>
+                        <div class="admin-card form-designer-publish">
+                            <h3>Put it on the website</h3>
+                            <div class="form-group">
+                                <label for="leadFormEmbed">Squarespace embed</label>
+                                <textarea id="leadFormEmbed" rows="4" readonly></textarea>
+                            </div>
+                            <div class="form-designer-actions">
+                                <button type="button" class="secondary-button" onclick="copyLeadFormEmbed()">Copy embed</button>
+                                <button type="submit" class="primary-button">Save form</button>
+                            </div>
+                        </div>
+                    </aside>
+                </form>
             </div>
             </div>
         </main>

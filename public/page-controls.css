@@ -235,7 +235,8 @@ input.pc-select {
   .pc-filters-drawer > input.pc-select { order: 2; }
   .pc-filters-drawer > .pc-date-range { order: 2; }
   .pc-filters-drawer > .pc-clear { order: 4; }
-  .pc-filters-drawer > .pc-actions { order: 20; margin-left: auto; }
+  .pc-filters-drawer > .pc-actions,
+  .pc-toolbar > .pc-actions { order: 20; margin-left: auto; }
   .pc-toolbar > .pc-primary-cta { order: 21; }
 }
 

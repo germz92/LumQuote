@@ -28,6 +28,9 @@ class QuoteCalculator {
         this.lastSavedTime = null;
         this.isHydratingQuote = false;
         this.lastPersistedSnapshot = null;
+        this.currentLeadId = null;
+        this.leadMessage = '';
+        this.leadServices = [];
         
         // Per-event discount toggle
         this.perEventDiscountEnabled = false;
@@ -68,7 +71,8 @@ class QuoteCalculator {
         // Prefer an in-flight navigation payload over a stale local draft
         const hasPendingNavigationLoad = !!sessionStorage.getItem('loadQuoteData')
             || sessionStorage.getItem('lumquote_start_new') === '1'
-            || !!sessionStorage.getItem('invoiceEditorSession');
+            || !!sessionStorage.getItem('invoiceEditorSession')
+            || !!sessionStorage.getItem('leadQuoteDraft');
         if (!hasPendingNavigationLoad) {
             this.loadDraftFromLocalStorage();
         }
@@ -104,6 +108,9 @@ class QuoteCalculator {
                 this.currentArchived = draftData.currentArchived || false;
                 this.currentCreatedBy = draftData.currentCreatedBy || null;
                 this.currentProjectId = draftData.currentProjectId || null;
+                this.currentLeadId = draftData.currentLeadId || null;
+                this.leadMessage = draftData.leadMessage || '';
+                this.leadServices = draftData.leadServices || [];
                 this.perEventDiscountEnabled = draftData.perEventDiscountEnabled || false;
                 
                 console.log('📄 Restoring from localStorage:', {
@@ -123,6 +130,7 @@ class QuoteCalculator {
         this.updateLocationDisplay();
         this.updateQuoteActionsMenu();
         this.applyPerEventDiscountState();
+        this.renderLeadBanner();
         console.log('📄 Display updated after localStorage restore');
                 }, 0);
                 
@@ -174,6 +182,9 @@ class QuoteCalculator {
                 currentArchived: this.currentArchived,
                 currentCreatedBy: this.currentCreatedBy,
                 currentProjectId: this.currentProjectId,
+                currentLeadId: this.currentLeadId,
+                leadMessage: this.leadMessage,
+                leadServices: this.leadServices,
                 perEventDiscountEnabled: this.perEventDiscountEnabled,
                 invoiceEditMode: this.invoiceEditMode,
                 invoiceEditorSession: this.invoiceEditorSession,
@@ -211,6 +222,9 @@ class QuoteCalculator {
         this.currentArchived = false;
         this.currentCreatedBy = null;
         this.currentProjectId = null;
+        this.currentLeadId = null;
+        this.leadMessage = '';
+        this.leadServices = [];
         this.currentQuoteTitle = 'Conference Services Quote';
         this.currentLocation = null;
         this.currentLeadSource = null;
@@ -1725,6 +1739,40 @@ class QuoteCalculator {
         }
     }
 
+    applyLeadContext(draft) {
+        if (!draft?.leadId) return;
+        this.currentLeadId = draft.leadId;
+        this.leadMessage = draft.message || '';
+        this.leadServices = Array.isArray(draft.services) ? draft.services : [];
+        if (draft.name) this.currentClientName = draft.name;
+        if (draft.leadSource) this.currentLeadSource = draft.leadSource;
+        const title = this.currentQuoteTitle || '';
+        if (!title || title === 'Conference Services Quote' || title.startsWith('Untitled')) {
+            this.currentQuoteTitle = draft.name ? `${draft.name} Quote` : 'New Quote';
+            this.updateQuoteTitleDisplay();
+        }
+        this.updateClientDisplay();
+        this.renderLeadBanner();
+        this.updateQuoteActionsMenu();
+        this.saveDraftToLocalStorage(true);
+    }
+
+    renderLeadBanner() {
+        const existing = document.getElementById('leadContextBanner');
+        if (!this.currentLeadId || !this.leadMessage) {
+            existing?.remove();
+            return;
+        }
+        const main = document.querySelector('.main-content');
+        if (!main) return;
+        const banner = existing || document.createElement('div');
+        banner.id = 'leadContextBanner';
+        banner.className = 'lead-context-banner';
+        const services = (this.leadServices || []).join(', ');
+        banner.innerHTML = `<h3>Lead inquiry</h3><p>${this.escapeHtml(this.leadMessage)}</p>${services ? `<p>${this.escapeHtml(services)}</p>` : ''}`;
+        if (!existing) main.prepend(banner);
+    }
+
     // Resolves the project select value; creates a new project when "__new__" is chosen.
     async resolveSelectedProjectId(quoteTitle, clientName, clientCompany) {
         const select = document.getElementById('saveQuoteProject');
@@ -1994,6 +2042,11 @@ class QuoteCalculator {
         try {
             const projectId = await this.resolveSelectedProjectId(title, clientName, clientCompany);
 
+            if (oldQuoteName && oldQuoteName === title) {
+                await this.overwriteQuote(title, quoteData, clientName, clientCompany, location, leadSource, projectId);
+                return;
+            }
+
             const response = await fetch('/api/save-quote', {
                 method: 'POST',
                 headers: {
@@ -2006,7 +2059,9 @@ class QuoteCalculator {
                     clientCompany: clientCompany || null,
                     location: location || null,
                     leadSource: leadSource || null,
-                    projectId: projectId
+                    projectId: projectId,
+                    leadId: this.currentLeadId || undefined,
+                    replaceQuoteName: (this.currentLeadId && oldQuoteName && oldQuoteName !== title) ? oldQuoteName : undefined
                 })
             });
 
@@ -2060,7 +2115,7 @@ class QuoteCalculator {
             }
         } catch (error) {
             console.error('Error saving quote:', error);
-            showAlertModal('Error saving quote. Please try again.', 'error');
+            showAlertModal(error.message || 'Error saving quote. Please try again.', 'error');
         }
     }
     
@@ -2195,7 +2250,8 @@ class QuoteCalculator {
                     location: this.currentLocation || null,
                     leadSource: this.currentLeadSource || null,
                     // undefined is dropped by JSON.stringify → server leaves project link untouched
-                    projectId: this.currentProjectId || undefined
+                    projectId: this.currentProjectId || undefined,
+                    leadId: this.currentLeadId || undefined
                 })
             });
             
@@ -2216,7 +2272,8 @@ class QuoteCalculator {
                         clientCompany: this.currentClientCompany || null,
                         location: this.currentLocation || null,
                         leadSource: this.currentLeadSource || null,
-                        projectId: this.currentProjectId || undefined
+                        projectId: this.currentProjectId || undefined,
+                        leadId: this.currentLeadId || undefined
                     })
                 });
                 
@@ -2237,7 +2294,8 @@ class QuoteCalculator {
                             clientCompany: this.currentClientCompany || null,
                             location: this.currentLocation || null,
                             leadSource: this.currentLeadSource || null,
-                            projectId: this.currentProjectId || undefined
+                            projectId: this.currentProjectId || undefined,
+                            leadId: this.currentLeadId || undefined
                         })
                     });
                     result = await response.json().catch(() => ({}));
@@ -2575,6 +2633,9 @@ class QuoteCalculator {
             if (projectId !== undefined) {
                 payload.projectId = projectId;
             }
+            if (this.currentLeadId) {
+                payload.leadId = this.currentLeadId;
+            }
             const response = await fetch('/api/overwrite-quote', {
                 method: 'POST',
                 headers: {
@@ -2874,9 +2935,12 @@ class QuoteCalculator {
             this.currentProjectId = projectRef && typeof projectRef === 'object'
                 ? (projectRef._id || null)
                 : (projectRef || null);
+            this.currentLeadId = quote.lead || null;
+            if (!quote.lead) this.leadMessage = '';
             this.currentQuoteTitle = quoteData.quoteTitle || quote.name;
             this.updateQuoteTitleDisplay();
             this.updateQuoteActionsMenu();
+            this.renderLeadBanner();
             
             // Ensure all services have quantity property and days have date property
             this.days.forEach(day => {
@@ -3331,9 +3395,12 @@ class QuoteCalculator {
             this.currentArchived = quote.archived || false;
             this.currentCreatedBy = quote.createdBy?._id || null;
             this.currentProjectId = quote.project || null;
+            this.currentLeadId = quote.lead || null;
+            if (!quote.lead) this.leadMessage = '';
             this.currentQuoteTitle = quote.quoteData?.quoteTitle || quote.name;
             this.updateQuoteTitleDisplay();
             this.updateQuoteActionsMenu();
+            this.renderLeadBanner();
             
             // Ensure all services have quantity property and days have date property
             this.days.forEach(day => {
@@ -5167,6 +5234,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (sessionStorage.getItem('lumquote_start_new') === '1') {
             sessionStorage.removeItem('lumquote_start_new');
             calculator.beginUntitledAutoSave();
+        }
+
+        const leadDraftRaw = sessionStorage.getItem('leadQuoteDraft');
+        if (leadDraftRaw) {
+            sessionStorage.removeItem('leadQuoteDraft');
+            try {
+                calculator.applyLeadContext(JSON.parse(leadDraftRaw));
+            } catch (error) {
+                console.error('Error applying lead context:', error);
+            }
         }
 
         // Arriving from a project's "New Quote" button — prefill client/title from the project

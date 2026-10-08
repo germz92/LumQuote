@@ -3,9 +3,10 @@
  */
 const APP_NAV = [
     { id: 'projects', label: 'Projects', href: '/projects' },
-    { id: 'clients', label: 'Clients', href: '/clients' },
     { id: 'quotes', label: 'Quotes', href: '/quotes' },
+    { id: 'leads', label: 'Leads', href: '/leads' },
     { id: 'invoices', label: 'Invoices', href: '/invoices' },
+    { id: 'clients', label: 'Clients', href: '/clients' },
     { id: 'calendar', label: 'Calendar', href: '/calendar' }
 ];
 
@@ -27,8 +28,36 @@ const AppShell = {
         this.initProfileMenu();
         this.initMobileNav();
         this.refreshUserProfile();
+        this.refreshUnseenLeads(page === 'leads');
         this.updateLayoutOffsets();
         body.classList.add('app-has-shell');
+    },
+
+    async refreshUnseenLeads(markSeen) {
+        try {
+            if (markSeen) {
+                await fetch('/api/leads/seen', { method: 'POST', credentials: 'include' });
+            }
+            const response = await fetch('/api/leads/unseen-count', { credentials: 'include' });
+            if (!response.ok) return;
+            const data = await response.json();
+            const count = Number(data.count) || 0;
+            document.querySelectorAll('[data-nav="leads"]').forEach((link) => {
+                let badge = link.querySelector('.nav-unseen-badge');
+                if (!count) {
+                    badge?.remove();
+                    return;
+                }
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'nav-unseen-badge';
+                    link.appendChild(badge);
+                }
+                badge.textContent = count > 99 ? '99+' : String(count);
+            });
+        } catch (error) {
+            // Nav still works if the unseen count cannot be loaded.
+        }
     },
 
     updateLayoutOffsets() {
@@ -52,6 +81,7 @@ const AppShell = {
     detectPage() {
         const path = window.location.pathname.replace(/\/$/, '') || '/';
         if (path === '/quotes' || path === '/') return 'quotes';
+        if (path === '/leads' || path.startsWith('/leads/')) return 'leads';
         if (path === '/projects' || path.startsWith('/projects/')) return 'projects';
         if (path === '/invoices') return 'invoices';
         if (path === '/clients') return 'clients';

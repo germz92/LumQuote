@@ -287,6 +287,7 @@ app.use((req, res, next) => {
       req.path.startsWith('/api/auth/') ||
       req.path.startsWith('/login.') ||
       req.path.startsWith('/assets/') ||
+      req.path === '/inquire' ||              // public website lead form
       req.path.startsWith('/sign/') ||        // public contract signing (token-protected)
       req.path.startsWith('/invoice/') ||     // public invoice view (token-protected)
       req.path.startsWith('/portal/') ||      // password-protected client portal
@@ -2009,7 +2010,9 @@ const lumQuoteUserSchema = new mongoose.Schema({
   profileImagePath: { type: String, default: null },
   profileImageUrl: { type: String, default: null },
   cloudinaryPublicId: { type: String, default: null },
-  lastLogin: { type: Date, default: Date.now }
+  lastLogin: { type: Date, default: Date.now },
+  leadAssignHiddenUserIds: { type: [String], default: [] },
+  leadsLastSeenAt: { type: Date, default: null }
 }, { timestamps: true });
 
 const LumQuoteUser = mongoose.model('LumQuoteUser', lumQuoteUserSchema, 'lumQuoteUsers');
@@ -2277,6 +2280,7 @@ function buildClientUser(record) {
     lastName: record.lastName || '',
     email: record.email || '',
     role: record.role || 'user',
+    leadAssignHiddenUserIds: Array.isArray(record.leadAssignHiddenUserIds) ? record.leadAssignHiddenUserIds.map(String) : [],
     profileImageUrl: resolveProfileImageUrl(record),
     initials: getInitialsFromName(record.name, record.firstName, record.lastName)
   };
@@ -2337,6 +2341,7 @@ const savedQuoteSchema = new mongoose.Schema({
   archived: { type: Boolean, default: false },
   booked: { type: Boolean, default: false },
   project: { type: mongoose.Schema.Types.ObjectId, ref: 'CrmProject', default: null },
+  lead: { type: mongoose.Schema.Types.ObjectId, ref: 'InquiryLead', default: null },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   sharedWith: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'LumQuoteUser' },
@@ -2377,7 +2382,8 @@ require('./lib/crm-routes')(app, {
   requireApiAuth,
   SavedQuote,
   Service,
-  getOrCreateUserRecord: (userName) => getOrCreateUserRecord(userName)
+  getOrCreateUserRecord: (userName) => getOrCreateUserRecord(userName),
+  generateQuoteHTML
 });
 
 // User management endpoints
@@ -2478,11 +2484,28 @@ async function getOrCreateUserRecord(userName) {
 // Save quote endpoint (auto-assigns createdBy from logged-in user)
 app.post('/api/save-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, clientCompany, location, leadSource, booked, projectId } = req.body;
+    const { name, quoteData, clientName, clientCompany, location, leadSource, booked, projectId, leadId, replaceQuoteName } = req.body;
     const user = req.user;
     
     if (!name || !quoteData) {
       return res.status(400).json({ error: 'Name and quote data are required' });
+    }
+
+    const { prepareLeadAttach, commitLeadLink, markLeadConverted } = require('./lib/crm-models');
+    let leadToLink = null;
+    if (leadId) {
+      try {
+        const actor = await resolveLumQuoteUserFromToken(user);
+        leadToLink = await prepareLeadAttach({
+          leadId,
+          quoteId: null,
+          replaceQuoteName: replaceQuoteName || null,
+          isAdmin: user.role === 'admin',
+          lumQuoteUserId: actor?._id || null
+        });
+      } catch (error) {
+        return res.status(error.statusCode || 400).json({ error: error.message || 'Could not link this lead' });
+      }
     }
 
     // Check if quote with this name already exists
@@ -2518,6 +2541,13 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
 
     const result = await savedQuote.save();
 
+    if (leadToLink) {
+      await commitLeadLink(leadToLink, result, user.name || user.fullName || '');
+    }
+    if (result.project) {
+      await markLeadConverted(result);
+    }
+
     if (result.project) {
       const { Project, syncProjectDatesFromQuotes } = require('./lib/crm-models');
       const project = await Project.findById(result.project);
@@ -2537,7 +2567,7 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
 // Overwrite existing quote (with access control)
 app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, clientCompany, location, leadSource, booked, projectId } = req.body;
+    const { name, quoteData, clientName, clientCompany, location, leadSource, booked, projectId, leadId } = req.body;
     const user = req.user;
     
     if (!name || !quoteData) {
@@ -2555,6 +2585,22 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
     const accessLevel = await canAccessQuote(user, existingQuote, true);
     if (!accessLevel || accessLevel === 'read') {
       return res.status(403).json({ error: 'You do not have permission to edit this quote' });
+    }
+
+    const { prepareLeadAttach, commitLeadLink, markLeadConverted } = require('./lib/crm-models');
+    let leadToLink = null;
+    if (leadId) {
+      try {
+        const actor = await resolveLumQuoteUserFromToken(user);
+        leadToLink = await prepareLeadAttach({
+          leadId,
+          quoteId: existingQuote._id,
+          isAdmin: user.role === 'admin',
+          lumQuoteUserId: actor?._id || null
+        });
+      } catch (error) {
+        return res.status(error.statusCode || 400).json({ error: error.message || 'Could not link this lead' });
+      }
     }
 
     const previousProjectId = existingQuote.project ? String(existingQuote.project) : null;
@@ -2580,6 +2626,13 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
       updateFields,
       { new: true }
     );
+
+    if (leadToLink && result) {
+      await commitLeadLink(leadToLink, result, user.name || user.fullName || '');
+    }
+    if (result?.project) {
+      await markLeadConverted(result);
+    }
 
     const { Project, syncProjectDatesFromQuotes } = require('./lib/crm-models');
     const nextProjectId = result?.project ? String(result.project) : null;

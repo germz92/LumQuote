@@ -746,3 +746,21 @@ body.invoice-edit-mode #autoSaveIndicator {
     width: 100%;
   }
 }
+
+.lead-context-banner {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.lead-context-banner h3 {
+  margin: 0 0 6px;
+  font-size: var(--font-size-sm);
+}
+
+.lead-context-banner p {
+  margin: 0;
+  white-space: pre-wrap;
+}

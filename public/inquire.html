@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Lumetry Media</title>
+    <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
+    <link rel="stylesheet" href="design-tokens.css">
+    <link rel="stylesheet" href="inquire.css">
+</head>
+<body>
+    <main class="inquire">
+        <img src="/assets/logo.png" alt="Lumetry Media" class="inquire-logo">
+        <h1 id="inquireHeading">Tell us about your project</h1>
+        <p class="inquire-intro" id="inquireIntro">Share a few details and the Lumetry Media team will follow up.</p>
+
+        <form id="inquireForm" class="inquire-card" novalidate>
+            <div class="inquire-hp" aria-hidden="true">
+                <label for="companyWebsite">Company website</label>
+                <input type="text" id="companyWebsite" name="companyWebsite" tabindex="-1" autocomplete="off">
+            </div>
+
+            <div class="form-group">
+                <label for="name" id="inquireNameLabel">Name *</label>
+                <input type="text" id="name" name="name" required maxlength="120" autocomplete="name">
+            </div>
+            <div class="form-group">
+                <label for="email" id="inquireEmailLabel">Email *</label>
+                <input type="email" id="email" name="email" required maxlength="200" autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="phone" id="inquirePhoneLabel">Phone *</label>
+                <input type="tel" id="phone" name="phone" required maxlength="40" autocomplete="tel">
+            </div>
+            <div class="form-group">
+                <label for="message" id="inquireMessageLabel">Message *</label>
+                <textarea id="message" name="message" required maxlength="4000" rows="5"></textarea>
+            </div>
+            <fieldset class="form-group">
+                <legend id="inquireServicesLegend">Which services are you interested in? *</legend>
+                <p class="field-hint" id="inquireServicesHint">Select all that apply.</p>
+                <div id="inquireServices">
+                    <label class="inquire-check"><input type="checkbox" name="services" value="Photography"> Photography</label>
+                    <label class="inquire-check"><input type="checkbox" name="services" value="Videography"> Videography</label>
+                    <label class="inquire-check"><input type="checkbox" name="services" value="Headshot Booth"> Headshot Booth</label>
+                    <label class="inquire-check"><input type="checkbox" name="services" value="AI Photo Booth"> AI Photo Booth</label>
+                    <label class="inquire-check"><input type="checkbox" name="services" value="AI Stickers"> AI Stickers</label>
+                </div>
+            </fieldset>
+            <div class="form-group">
+                <label for="leadSource" id="inquireHearLabel">How did you hear about us? *</label>
+                <select id="leadSource" required onchange="handleLeadSourceChange()">
+                    <option value="">Select one</option>
+                </select>
+            </div>
+            <div class="form-group" id="leadSourceReferralGroup" style="display: none;">
+                <label for="leadSourceReferral">Referred by *</label>
+                <input type="text" id="leadSourceReferral" maxlength="120">
+            </div>
+            <div class="form-group" id="leadSourceOtherGroup" style="display: none;">
+                <label for="leadSourceOther">Specify lead source *</label>
+                <input type="text" id="leadSourceOther" maxlength="120">
+            </div>
+            <div class="form-group" id="leadSourceEventGroup" style="display: none;">
+                <label for="leadSourceEvent">Event name *</label>
+                <input type="text" id="leadSourceEvent" maxlength="120">
+            </div>
+            <p id="inquireError" class="inquire-error" role="alert" hidden></p>
+            <button type="submit" class="inquire-submit" id="inquireSubmit">Send</button>
+        </form>
+
+        <div id="inquireSuccess" class="inquire-card inquire-success" hidden>
+            <h2 id="inquireSuccessTitle">Thanks, we received it.</h2>
+            <p id="inquireSuccessMessage">Someone from Lumetry Media will be in touch.</p>
+        </div>
+    </main>
+    <script src="lead-sources.js"></script>
+    <script src="inquire.js"></script>
+</body>
+</html>

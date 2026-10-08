@@ -2,7 +2,7 @@
  * Admin: page tabs, contract template workspace + company settings.
  */
 
-const ADMIN_TABS = ['services', 'contracts', 'company', 'payments', 'users'];
+const ADMIN_TABS = ['services', 'contracts', 'company', 'payments', 'users', 'website'];
 
 function showAdminTab(tab) {
     if (!ADMIN_TABS.includes(tab)) tab = 'services';
@@ -15,6 +15,216 @@ function showAdminTab(tab) {
     history.replaceState(null, '', `#${tab}`);
 }
 window.showAdminTab = showAdminTab;
+
+function leadFormPublicOrigin() {
+    const origin = window.location.origin;
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+        return 'https://lumquote.com';
+    }
+    return origin;
+}
+
+function leadFormEmbedSnippet() {
+    return `<iframe src="${leadFormPublicOrigin()}/inquire" title="Contact Lumetry Media" style="width:100%;min-height:900px;border:0;"></iframe>`;
+}
+
+function initLeadFormTab() {
+    const url = `${window.location.origin}/inquire`;
+    const link = document.getElementById('leadFormUrl');
+    if (link) link.href = url;
+    const code = document.getElementById('leadFormEmbed');
+    if (code) code.value = leadFormEmbedSnippet();
+}
+
+async function copyLeadFormEmbed() {
+    const snippet = leadFormEmbedSnippet();
+    try {
+        await navigator.clipboard.writeText(snippet);
+        showAlertModal('Embed code copied. Paste it into a Squarespace code block.', 'success', null, true);
+    } catch (error) {
+        const code = document.getElementById('leadFormEmbed');
+        if (code) {
+            code.focus();
+            code.select();
+        }
+        showAlertModal('Could not copy automatically. Select the embed code and copy it.', 'error');
+    }
+}
+window.copyLeadFormEmbed = copyLeadFormEmbed;
+initLeadFormTab();
+
+function leadFormServiceRow(value) {
+    const row = document.createElement('div');
+    row.className = 'lead-form-service-row';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 80;
+    input.value = value || '';
+    input.placeholder = 'Service name';
+    input.setAttribute('aria-label', 'Service name');
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'lead-form-remove';
+    remove.textContent = '×';
+    remove.setAttribute('aria-label', 'Remove service');
+    remove.addEventListener('click', () => {
+        const rows = document.querySelectorAll('#lf-services .lead-form-service-row');
+        if (rows.length <= 1) return;
+        row.remove();
+        refreshLeadFormPreview();
+    });
+    row.append(input, remove);
+    return row;
+}
+
+function renderLeadFormServices(services) {
+    const list = document.getElementById('lf-services');
+    if (!list) return;
+    const names = Array.isArray(services) && services.length ? services : [''];
+    list.replaceChildren(...names.map((name) => leadFormServiceRow(name)));
+}
+
+function addLeadFormService() {
+    const list = document.getElementById('lf-services');
+    if (!list) return;
+    list.append(leadFormServiceRow(''));
+    list.lastElementChild?.querySelector('input')?.focus();
+    refreshLeadFormPreview();
+}
+window.addLeadFormService = addLeadFormService;
+
+function fillLeadFormEditor(form) {
+    const set = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value || '';
+    };
+    set('lf-heading', form.heading);
+    set('lf-intro', form.intro);
+    set('lf-name', form.nameLabel);
+    set('lf-email', form.emailLabel);
+    set('lf-phone', form.phoneLabel);
+    set('lf-message', form.messageLabel);
+    set('lf-services-legend', form.servicesLegend);
+    set('lf-services-hint', form.servicesHint);
+    set('lf-hear', form.hearAboutLabel);
+    set('lf-submit', form.submitLabel);
+    set('lf-success-title', form.successTitle);
+    set('lf-success-message', form.successMessage);
+    const confirmEnabled = document.getElementById('lf-confirm-enabled');
+    if (confirmEnabled) confirmEnabled.checked = form.confirmationEmailEnabled !== false;
+    set('lf-confirm-subject', form.confirmationEmailSubject);
+    set('lf-confirm-body', form.confirmationEmailBody);
+    renderLeadFormServices(form.services);
+    toggleLeadConfirmEmail();
+    refreshLeadFormPreview();
+}
+
+function toggleLeadConfirmEmail() {
+    const enabled = document.getElementById('lf-confirm-enabled');
+    const fields = document.getElementById('lf-confirm-fields');
+    if (fields) fields.hidden = enabled ? !enabled.checked : false;
+}
+window.toggleLeadConfirmEmail = toggleLeadConfirmEmail;
+
+function previewText(id, fallback) {
+    const value = document.getElementById(id)?.value?.trim();
+    return value || fallback;
+}
+
+function refreshLeadFormPreview() {
+    const set = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+    set('lf-preview-heading', previewText('lf-heading', 'Heading'));
+    const intro = document.getElementById('lf-preview-intro');
+    if (intro) {
+        intro.textContent = document.getElementById('lf-intro')?.value?.trim() || '';
+        intro.hidden = !intro.textContent;
+    }
+    set('lf-preview-name', `${previewText('lf-name', 'Name')} *`);
+    set('lf-preview-email', `${previewText('lf-email', 'Email')} *`);
+    set('lf-preview-phone', `${previewText('lf-phone', 'Phone')} *`);
+    set('lf-preview-message', `${previewText('lf-message', 'Message')} *`);
+    set('lf-preview-services-legend', `${previewText('lf-services-legend', 'Services')} *`);
+    const hint = document.getElementById('lf-preview-services-hint');
+    if (hint) {
+        hint.textContent = document.getElementById('lf-services-hint')?.value?.trim() || '';
+        hint.hidden = !hint.textContent;
+    }
+    set('lf-preview-hear', `${previewText('lf-hear', 'How did you hear about us')} *`);
+    set('lf-preview-submit', previewText('lf-submit', 'Send'));
+    const chips = document.getElementById('lf-preview-services');
+    if (chips) {
+        const names = [...document.querySelectorAll('#lf-services input')]
+            .map((input) => input.value.trim())
+            .filter(Boolean);
+        chips.replaceChildren(...(names.length ? names : ['Service']).map((name) => {
+            const chip = document.createElement('span');
+            chip.className = 'form-preview-chip';
+            chip.textContent = name;
+            return chip;
+        }));
+    }
+}
+
+document.getElementById('leadFormEditor')?.addEventListener('input', refreshLeadFormPreview);
+
+async function loadLeadFormEditor() {
+    try {
+        const response = await fetch('/api/public/lead-form', { credentials: 'include' });
+        const form = await response.json();
+        if (!response.ok) throw new Error(form.error || 'Failed to load the form');
+        fillLeadFormEditor(form);
+    } catch (error) {
+        showAlertModal(error.message || 'Failed to load the form.', 'error');
+    }
+}
+
+async function saveLeadForm(event) {
+    event.preventDefault();
+    const services = [...document.querySelectorAll('#lf-services input')]
+        .map((input) => input.value.trim())
+        .filter(Boolean);
+    if (!services.length) {
+        showAlertModal('Add at least one service.', 'error');
+        return;
+    }
+    const body = {
+        heading: document.getElementById('lf-heading').value,
+        intro: document.getElementById('lf-intro').value,
+        nameLabel: document.getElementById('lf-name').value,
+        emailLabel: document.getElementById('lf-email').value,
+        phoneLabel: document.getElementById('lf-phone').value,
+        messageLabel: document.getElementById('lf-message').value,
+        servicesLegend: document.getElementById('lf-services-legend').value,
+        servicesHint: document.getElementById('lf-services-hint').value,
+        hearAboutLabel: document.getElementById('lf-hear').value,
+        submitLabel: document.getElementById('lf-submit').value,
+        successTitle: document.getElementById('lf-success-title').value,
+        successMessage: document.getElementById('lf-success-message').value,
+        confirmationEmailEnabled: document.getElementById('lf-confirm-enabled').checked,
+        confirmationEmailSubject: document.getElementById('lf-confirm-subject').value,
+        confirmationEmailBody: document.getElementById('lf-confirm-body').value,
+        services
+    };
+    try {
+        const response = await fetch('/api/admin/lead-form', {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const saved = await response.json();
+        if (!response.ok) throw new Error(saved.error || 'Failed to save the form');
+        fillLeadFormEditor(saved);
+        showAlertModal('Form saved.', 'success', null, true);
+    } catch (error) {
+        showAlertModal(error.message || 'Failed to save the form.', 'error');
+    }
+}
+window.saveLeadForm = saveLeadForm;
+loadLeadFormEditor();
 
 // Deep links like /admin#contracts open on the right tab
 const initialAdminTab = window.location.hash.replace('#', '');

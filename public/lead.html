@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lead - LumQuote</title>
+    <link rel="stylesheet" href="/design-tokens.css">
+    <link rel="stylesheet" href="/components.css">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/phase2.css">
+    <link rel="stylesheet" href="/phase5.css">
+    <link rel="stylesheet" href="/crm.css">
+    <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
+</head>
+<body data-app-page="leads" data-app-title="Lead">
+    <div class="container">
+        <main class="main-content">
+            <div class="project-detail" id="leadPage">
+                <div class="project-hero">
+                    <div>
+                        <a href="/leads" class="crm-inline-note" style="text-decoration:none">&larr; All leads</a>
+                        <div class="project-hero-meta" id="leadHeroMeta" style="margin-top:8px"></div>
+                    </div>
+                    <div class="crm-actions-row" id="leadHeroActions"></div>
+                </div>
+                <div class="crm-overview-grid">
+                    <div class="crm-card">
+                        <div class="crm-card-header">
+                            <h3>Inquiry</h3>
+                            <span id="leadStatusChip"></span>
+                        </div>
+                        <div class="crm-overview-card-body" id="leadInquiry"></div>
+                    </div>
+                    <div class="lead-side-stack">
+                        <div class="crm-card">
+                            <div class="crm-card-header">
+                                <h3>Quote</h3>
+                            </div>
+                            <div class="crm-overview-card-body" id="leadQuotePanel"></div>
+                        </div>
+                        <div class="crm-card crm-notes-card">
+                            <div class="crm-card-header">
+                                <h3>Notes</h3>
+                            </div>
+                            <div class="crm-overview-card-body">
+                                <textarea id="leadNotes" class="crm-notes-textarea" rows="6" placeholder="Internal notes about this lead" aria-label="Lead notes"></textarea>
+                            </div>
+                            <div class="crm-actions-row">
+                                <button type="button" class="primary-button" onclick="leadPage.saveNotes()">Save notes</button>
+                            </div>
+                        </div>
+                        <div class="crm-card">
+                            <div class="crm-card-header">
+                                <h3>Activity</h3>
+                            </div>
+                            <div class="crm-overview-card-body" id="leadActivity"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="/toasts.js"></script>
+    <script src="/a11y.js"></script>
+    <script src="/modals.js"></script>
+    <script src="/shell.js"></script>
+    <script src="/crm-common.js"></script>
+    <script src="/lead-page.js"></script>
+</body>
+</html>
