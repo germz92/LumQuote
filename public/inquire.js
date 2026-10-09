@@ -49,6 +49,83 @@ fetch('/api/public/lead-form')
     .then((form) => { if (form) applyInquiryForm(form); })
     .catch(() => {});
 
+function enhanceLeadSourceSelect() {
+    const select = document.getElementById('leadSource');
+    if (!select || select.dataset.enhanced === 'true') return;
+    select.dataset.enhanced = 'true';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'inquire-source';
+    select.parentNode.insertBefore(wrap, select);
+    wrap.appendChild(select);
+    select.classList.add('inquire-source-native');
+    select.tabIndex = -1;
+    select.setAttribute('aria-hidden', 'true');
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'inquire-source-button';
+    button.setAttribute('aria-haspopup', 'listbox');
+    button.setAttribute('aria-expanded', 'false');
+
+    const list = document.createElement('ul');
+    list.className = 'inquire-source-list';
+    list.hidden = true;
+    list.setAttribute('role', 'listbox');
+
+    function currentLabel() {
+        const option = [...select.options].find((item) => item.value === select.value);
+        return option ? option.textContent : 'Select one';
+    }
+
+    function syncButton() {
+        button.textContent = currentLabel();
+        button.classList.toggle('is-placeholder', !select.value);
+    }
+
+    function closeList() {
+        list.hidden = true;
+        button.setAttribute('aria-expanded', 'false');
+    }
+
+    function renderOptions() {
+        list.replaceChildren(...[...select.options].filter((option) => option.value).map((option) => {
+            const item = document.createElement('li');
+            const choice = document.createElement('button');
+            choice.type = 'button';
+            choice.className = 'inquire-source-option';
+            choice.textContent = option.textContent;
+            choice.setAttribute('role', 'option');
+            if (option.value === select.value) choice.setAttribute('aria-selected', 'true');
+            choice.addEventListener('click', () => {
+                select.value = option.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                syncButton();
+                closeList();
+            });
+            item.appendChild(choice);
+            return item;
+        }));
+    }
+
+    button.addEventListener('click', () => {
+        const willOpen = list.hidden;
+        if (willOpen) renderOptions();
+        list.hidden = !willOpen;
+        button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!wrap.contains(event.target)) closeList();
+    });
+
+    select.addEventListener('change', syncButton);
+    wrap.append(button, list);
+    syncButton();
+}
+
+document.addEventListener('DOMContentLoaded', enhanceLeadSourceSelect);
+
 document.getElementById('inquireForm').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
