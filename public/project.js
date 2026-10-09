@@ -978,6 +978,7 @@ class ProjectPage {
                         <span>📄 ${CRM.escapeHtml(contract.uploadedFile?.filename || 'contract.pdf')}</span>
                         <a class="crm-btn-sm" href="/api/contracts/${contract._id}/file" target="_blank">View</a>
                     </div>
+                    ${this.contractFilePreview(contract)}
                     <div class="crm-actions-row">
                         <button class="secondary-button" onclick="document.getElementById('externalContractFileInput').click()">Replace PDF</button>
                         <input type="file" id="externalContractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadExternalContract(this.files[0])">
@@ -1027,6 +1028,7 @@ class ProjectPage {
                         <span>📄 ${CRM.escapeHtml(contract.uploadedFile?.filename || 'contract.pdf')}</span>
                         <a class="crm-btn-sm" href="/api/contracts/${contract._id}/file" target="_blank">View</a>
                     </div>
+                    ${this.contractFilePreview(contract)}
                     <div class="crm-actions-row">
                         ${!isSigned ? `
                             <button class="primary-button" onclick="projectPage.emailContract()">Send Contract</button>
@@ -1082,6 +1084,12 @@ class ProjectPage {
                 ContractEditor.applyFieldResponses?.(preview, contract.fieldResponses || []);
             }
         }
+    }
+
+    contractFilePreview(contract) {
+        if (!contract?._id) return '';
+        const title = CRM.escapeHtml(contract.uploadedFile?.filename || 'Contract PDF');
+        return `<iframe class="contract-pdf-frame" style="margin:16px 0" src="/api/contracts/${encodeURIComponent(contract._id)}/file" title="${title}"></iframe>`;
     }
 
     mountContractEditor() {

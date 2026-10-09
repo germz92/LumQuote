@@ -115,6 +115,7 @@ class LeadPage {
                 <div class="form-group form-group--full"><label>Services</label><p>${CRM.escapeHtml((lead.services || []).join(', ') || '—')}</p></div>
                 <div class="form-group form-group--full"><label>How they heard about us</label><p>${CRM.escapeHtml(lead.leadSource || '—')}</p></div>
                 <div class="form-group form-group--full"><label>Message</label><p class="lead-message">${CRM.escapeHtml(lead.message || '—')}</p></div>
+                ${this.estimateBlock(lead)}
                 ${assign}
             </div>
         `;
@@ -123,6 +124,23 @@ class LeadPage {
         if (notes && document.activeElement !== notes) notes.value = lead.notes || '';
         this.renderQuote();
         this.renderActivity();
+    }
+
+    estimateBlock(lead) {
+        const summary = lead.estimate?.summary;
+        if (!summary) return '';
+        const rows = String(summary).split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
+            const splitAt = line.lastIndexOf(': ');
+            if (splitAt === -1) return { label: line, value: '' };
+            return { label: line.slice(0, splitAt), value: line.slice(splitAt + 2) };
+        });
+        return `<div class="form-group form-group--full">
+            <label>Estimate</label>
+            <div class="lead-estimate">${rows.map((row) => {
+                const total = /^estimate$/i.test(row.label);
+                return `<div class="lead-estimate-row${total ? ' is-total' : ''}"><span>${CRM.escapeHtml(row.label)}</span><span>${CRM.escapeHtml(row.value)}</span></div>`;
+            }).join('')}</div>
+        </div>`;
     }
 
     renderActivity() {

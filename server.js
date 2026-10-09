@@ -288,6 +288,7 @@ app.use((req, res, next) => {
       req.path.startsWith('/login.') ||
       req.path.startsWith('/assets/') ||
       req.path === '/inquire' ||              // public website lead form
+      req.path === '/estimate' ||             // public photography estimate calculator
       req.path.startsWith('/sign/') ||        // public contract signing (token-protected)
       req.path.startsWith('/invoice/') ||     // public invoice view (token-protected)
       req.path.startsWith('/portal/') ||      // password-protected client portal
@@ -378,6 +379,40 @@ const Service = mongoose.model('Service', serviceSchema, 'website');
 
 // Routes
 // Get all services
+const ESTIMATE_RATE_NAMES = {
+  leadDay: 'Lead Photographer - Full Day',
+  additionalDay: 'Additional Photographer - Full Day',
+  leadExtraHours: 'Lead Photographer - Additional Hours',
+  additionalExtraHours: 'Additional Photographer - Additional Hours',
+  liveGallery: 'Live Gallery',
+  leadVideoDay: 'Lead Highlight Videographer - Full Day',
+  additionalVideoDay: 'Additional Highlight Videographer - Full Day',
+  leadVideoExtraHours: 'Lead Highlight Videographer - Additional Hours',
+  additionalVideoExtraHours: 'Additional Highlight Videographer - Hourly',
+  videoEditWeek: 'Highlight Video Edit - 60-90 sec (1 Week)',
+  videoEditSameDay: 'Highlight Video Edit - 60-90 sec (Same Day)'
+};
+
+app.get('/api/public/estimate-rates', async (req, res) => {
+  try {
+    const names = Object.values(ESTIMATE_RATE_NAMES);
+    const services = await Service.find({ name: { $in: names } }).select('name price').lean();
+    const prices = new Map(services.map((service) => [service.name, Number(service.price) || 0]));
+    const missing = names.filter((name) => !prices.has(name));
+    if (missing.length) {
+      return res.status(500).json({ error: 'Estimate pricing is not configured.' });
+    }
+    const rates = {};
+    for (const [key, name] of Object.entries(ESTIMATE_RATE_NAMES)) {
+      rates[key] = prices.get(name);
+    }
+    res.json({ rates });
+  } catch (error) {
+    console.error('Error loading estimate rates:', error);
+    res.status(500).json({ error: 'Failed to load estimate pricing' });
+  }
+});
+
 app.get('/api/services', async (req, res) => {
   try {
     const services = await Service.find().populate('dependsOn', 'name').sort({ sortOrder: 1, createdAt: 1 });

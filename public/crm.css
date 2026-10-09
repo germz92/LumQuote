@@ -409,6 +409,29 @@ body[data-app-page="leads"] .leads-table thead th {
   .lead-assign-board { height: auto; max-height: 50vh; }
 }
 .lead-message { white-space: pre-wrap; }
+.lead-estimate {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.lead-estimate-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.92rem;
+}
+.lead-estimate-row:first-child { border-top: 0; }
+.lead-estimate-row span:last-child {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lead-estimate-row.is-total {
+  background: #f8fafc;
+  font-weight: 700;
+}
 .form-designer-head {
   display: flex;
   justify-content: space-between;
@@ -509,9 +532,16 @@ body[data-app-page="leads"] .leads-table thead th {
   font-size: 13px;
   font-weight: 650;
 }
-.form-designer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.form-designer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .form-designer-actions .primary-button,
-.form-designer-actions .secondary-button { flex: 1; }
+.form-designer-actions .secondary-button {
+  width: 100%;
+  white-space: normal;
+}
 @media (max-width: 960px) {
   .form-designer,
   .form-designer-grid { grid-template-columns: 1fr; }

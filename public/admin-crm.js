@@ -39,13 +39,46 @@ window.addEventListener('message', function (event) {
 </script>`;
 }
 
+function estimateEmbedSnippet() {
+    const origin = leadFormPublicOrigin();
+    return `<iframe id="lumquote-estimate" src="${origin}/estimate" title="Photography estimate" style="width:100%;height:900px;border:0;display:block;"></iframe>
+<script>
+window.addEventListener('message', function (event) {
+  if (event.origin !== '${origin}') return;
+  var frame = document.getElementById('lumquote-estimate');
+  var data = event.data || {};
+  if (!frame || data.type !== 'lumquote-estimate-height') return;
+  var height = Number(data.height);
+  if (height > 300 && height < 3000) frame.style.height = height + 'px';
+});
+</script>`;
+}
+
 function initLeadFormTab() {
     const url = `${window.location.origin}/inquire`;
     const link = document.getElementById('leadFormUrl');
     if (link) link.href = url;
     const code = document.getElementById('leadFormEmbed');
     if (code) code.value = leadFormEmbedSnippet();
+    const estimateCode = document.getElementById('estimateEmbed');
+    if (estimateCode) estimateCode.value = estimateEmbedSnippet();
 }
+
+async function copyEstimateEmbed() {
+    const snippet = estimateEmbedSnippet();
+    try {
+        await navigator.clipboard.writeText(snippet);
+        showAlertModal('Estimate embed copied. Paste it into a Squarespace code block.', 'success', null, true);
+    } catch (error) {
+        const code = document.getElementById('estimateEmbed');
+        if (code) {
+            code.focus();
+            code.select();
+        }
+        showAlertModal('Could not copy automatically. Select the embed code and copy it.', 'error');
+    }
+}
+window.copyEstimateEmbed = copyEstimateEmbed;
 
 async function copyLeadFormEmbed() {
     const snippet = leadFormEmbedSnippet();

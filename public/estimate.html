@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photography Estimate - Lumetry Media</title>
+    <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
+    <link rel="stylesheet" href="design-tokens.css">
+    <link rel="stylesheet" href="estimate.css">
+</head>
+<body>
+    <main class="estimate">
+        <h1>Get an instant estimate</h1>
+        <p class="estimate-intro">Photography and videography coverage based on current Lumetry Media pricing. This is an estimate, not a quote.</p>
+
+        <div class="estimate-card" id="estimateForm">
+            <div class="estimate-body">
+            <div class="estimate-columns">
+            <div>
+            <section class="estimate-field">
+                <div class="estimate-label-row">
+                    <h2>Number of Days</h2>
+                </div>
+                <div class="estimate-slider">
+                    <input type="range" id="estimateDays" min="1" max="10" value="1" aria-valuemin="1" aria-valuemax="10">
+                    <span class="estimate-slider-value" id="estimateDaysValue">1</span>
+                </div>
+                <div class="estimate-scale"><span>1</span><span>10</span></div>
+            </section>
+
+            <label class="estimate-check">
+                <input type="checkbox" id="estimateExtraHours" checked>
+                <span>Days, need more than 8 hours</span>
+            </label>
+
+            <section class="estimate-field">
+                <div class="estimate-label-row">
+                    <h2>Number of Photographers</h2>
+                </div>
+                <div class="estimate-slider">
+                    <input type="range" id="estimatePhotographers" min="1" max="10" value="1" aria-valuemin="1" aria-valuemax="10">
+                    <span class="estimate-slider-value" id="estimatePhotographersValue">1</span>
+                </div>
+                <div class="estimate-scale"><span>1</span><span>10</span></div>
+            </section>
+
+            <section class="estimate-field">
+                <div class="estimate-label-row">
+                    <h2>Number of Videographers</h2>
+                </div>
+                <div class="estimate-slider">
+                    <input type="range" id="estimateVideographers" min="0" max="10" value="0" aria-valuemin="0" aria-valuemax="10">
+                    <span class="estimate-slider-value" id="estimateVideographersValue">0</span>
+                </div>
+                <div class="estimate-scale"><span>0</span><span>10</span></div>
+            </section>
+            </div>
+            <div class="estimate-side">
+            <fieldset class="estimate-field">
+                <div class="estimate-label-row">
+                    <legend>Photo delivery</legend>
+                </div>
+                <label class="estimate-radio"><input type="radio" name="photoDelivery" value="standard" checked> 48 hours (included)</label>
+                <label class="estimate-radio"><input type="radio" name="photoDelivery" value="live"> Live Gallery <span class="estimate-hint" id="estimateLiveHint"></span></label>
+            </fieldset>
+
+            <fieldset class="estimate-field is-disabled" id="videoDelivery" disabled>
+                <div class="estimate-label-row">
+                    <legend>Video delivery</legend>
+                </div>
+                <label class="estimate-radio"><input type="radio" name="videoDelivery" value="week" checked> 1 week <span class="estimate-hint" id="estimateVideoWeekHint"></span></label>
+                <label class="estimate-radio"><input type="radio" name="videoDelivery" value="sameDay"> On-Site Edit <span class="estimate-hint" id="estimateVideoSameDayHint"></span></label>
+            </fieldset>
+            </div>
+            </div>
+            </div>
+
+            <p id="estimateError" class="estimate-error" hidden></p>
+
+            <section class="estimate-total">
+                <div>
+                    <h2>Estimate</h2>
+                    <p class="estimate-amount" id="estimateAmount">—</p>
+                    <button type="button" class="estimate-quote-btn" id="estimateQuoteBtn" disabled>Send me a quote</button>
+                </div>
+                <ul class="estimate-breakdown" id="estimateBreakdown"></ul>
+            </section>
+
+            <div class="estimate-modal" id="estimateQuoteModal" hidden>
+                <div class="estimate-modal-card" role="dialog" aria-modal="true" aria-labelledby="estimateQuoteTitle">
+                    <div class="estimate-modal-head">
+                        <h2 id="estimateQuoteTitle">Send me a quote</h2>
+                        <button type="button" class="estimate-modal-close" id="estimateQuoteClose" aria-label="Close">&times;</button>
+                    </div>
+                    <form id="estimateQuoteForm">
+                        <div class="estimate-hp" aria-hidden="true">
+                            <label for="companyWebsite">Company website</label>
+                            <input type="text" id="companyWebsite" name="companyWebsite" tabindex="-1" autocomplete="off">
+                        </div>
+                        <div class="estimate-quote-columns">
+                            <div class="estimate-quote-details">
+                                <label for="quoteName">Name *</label>
+                                <input type="text" id="quoteName" name="name" required maxlength="120" autocomplete="name">
+                                <label for="quoteEmail">Email *</label>
+                                <input type="email" id="quoteEmail" name="email" required maxlength="200" autocomplete="email">
+                                <label for="quotePhone">Phone *</label>
+                                <input type="tel" id="quotePhone" name="phone" required maxlength="40" autocomplete="tel">
+                                <label for="leadSource">How did you hear about us? *</label>
+                                <select id="leadSource" required onchange="handleLeadSourceChange()">
+                                    <option value="">Select one</option>
+                                </select>
+                                <div id="leadSourceReferralGroup" style="display: none;">
+                                    <label for="leadSourceReferral">Referred by *</label>
+                                    <input type="text" id="leadSourceReferral" maxlength="120">
+                                </div>
+                                <div id="leadSourceOtherGroup" style="display: none;">
+                                    <label for="leadSourceOther">Specify lead source *</label>
+                                    <input type="text" id="leadSourceOther" maxlength="120">
+                                </div>
+                                <div id="leadSourceEventGroup" style="display: none;">
+                                    <label for="leadSourceEvent">Event name *</label>
+                                    <input type="text" id="leadSourceEvent" maxlength="120">
+                                </div>
+                            </div>
+                            <div class="estimate-quote-message">
+                                <label for="quoteMessage">Message</label>
+                                <textarea id="quoteMessage" name="message" maxlength="4000" placeholder="Anything else we should know"></textarea>
+                            </div>
+                        </div>
+                        <p id="estimateQuoteError" class="estimate-error" hidden></p>
+                        <button type="submit" class="estimate-quote-btn" id="estimateQuoteSubmit">Send</button>
+                    </form>
+                    <div id="estimateQuoteSuccess" hidden>
+                        <h2>Thanks, we received it.</h2>
+                        <p>Someone from Lumetry Media will follow up with a quote.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script src="lead-sources.js"></script>
+    <script src="estimate.js"></script>
+</body>
+</html>
