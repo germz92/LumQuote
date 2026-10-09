@@ -139,43 +139,49 @@
             </div>
             <div class="modal-body">
                 <form id="createLeadForm" onsubmit="leadsManager.createLead(event)">
-                    <div class="form-group">
-                        <label for="newLeadName">Name *</label>
-                        <input type="text" id="newLeadName" required maxlength="120" placeholder="Full name">
-                    </div>
-                    <div class="form-group">
-                        <label for="newLeadEmail">Email *</label>
-                        <input type="email" id="newLeadEmail" required maxlength="200" placeholder="name@email.com">
-                    </div>
-                    <div class="form-group">
-                        <label for="newLeadPhone">Phone *</label>
-                        <input type="tel" id="newLeadPhone" required maxlength="40" placeholder="Phone number">
-                    </div>
-                    <div class="form-group">
-                        <label for="newLeadMessage">Message *</label>
-                        <textarea id="newLeadMessage" required maxlength="4000" rows="4" placeholder="What they need"></textarea>
-                    </div>
-                    <fieldset class="form-group lead-service-fieldset">
-                        <legend>Services *</legend>
-                        <div id="newLeadServices" class="lead-service-list"></div>
-                    </fieldset>
-                    <div class="form-group">
-                        <label for="leadSource">How did you hear about us? *</label>
-                        <select id="leadSource" required onchange="handleLeadSourceChange()">
-                            <option value="">Select lead source</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="leadSourceReferralGroup" style="display: none;">
-                        <label for="leadSourceReferral">Referred by *</label>
-                        <input type="text" id="leadSourceReferral" maxlength="120">
-                    </div>
-                    <div class="form-group" id="leadSourceOtherGroup" style="display: none;">
-                        <label for="leadSourceOther">Specify lead source *</label>
-                        <input type="text" id="leadSourceOther" maxlength="120">
-                    </div>
-                    <div class="form-group" id="leadSourceEventGroup" style="display: none;">
-                        <label for="leadSourceEvent">Event name *</label>
-                        <input type="text" id="leadSourceEvent" maxlength="120">
+                    <div class="create-lead-columns">
+                        <div>
+                            <div class="form-group">
+                                <label for="newLeadName">Name *</label>
+                                <input type="text" id="newLeadName" required maxlength="120" placeholder="Full name">
+                            </div>
+                            <div class="form-group">
+                                <label for="newLeadEmail">Email *</label>
+                                <input type="email" id="newLeadEmail" required maxlength="200" placeholder="name@email.com">
+                            </div>
+                            <div class="form-group">
+                                <label for="newLeadPhone">Phone *</label>
+                                <input type="tel" id="newLeadPhone" required maxlength="40" placeholder="Phone number">
+                            </div>
+                            <div class="form-group">
+                                <label for="leadSource">How did you hear about us? *</label>
+                                <select id="leadSource" required onchange="handleLeadSourceChange()">
+                                    <option value="">Select lead source</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="leadSourceReferralGroup" style="display: none;">
+                                <label for="leadSourceReferral">Referred by *</label>
+                                <input type="text" id="leadSourceReferral" maxlength="120">
+                            </div>
+                            <div class="form-group" id="leadSourceOtherGroup" style="display: none;">
+                                <label for="leadSourceOther">Specify lead source *</label>
+                                <input type="text" id="leadSourceOther" maxlength="120">
+                            </div>
+                            <div class="form-group" id="leadSourceEventGroup" style="display: none;">
+                                <label for="leadSourceEvent">Event name *</label>
+                                <input type="text" id="leadSourceEvent" maxlength="120">
+                            </div>
+                        </div>
+                        <div>
+                            <div class="form-group">
+                                <label for="newLeadMessage">Message *</label>
+                                <textarea id="newLeadMessage" required maxlength="4000" rows="5" placeholder="What they need"></textarea>
+                            </div>
+                            <fieldset class="form-group lead-service-fieldset">
+                                <legend>Services *</legend>
+                                <div id="newLeadServices" class="lead-service-list"></div>
+                            </fieldset>
+                        </div>
                     </div>
                     <div class="modal-buttons">
                         <button type="button" class="secondary-button" onclick="leadsManager.closeCreateModal()">Cancel</button>

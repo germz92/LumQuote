@@ -237,6 +237,20 @@ body[data-app-page="leads"] .leads-table thead th {
   font-size: 13px;
   cursor: pointer;
 }
+#createLeadModal .modal-content {
+  max-width: 920px;
+}
+#createLeadModal .create-lead-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 28px;
+  align-items: start;
+}
+#createLeadModal .lead-service-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
 #createLeadModal .lead-service-fieldset {
   border: 1px solid #d1d5db;
   border-radius: 8px;
@@ -249,10 +263,11 @@ body[data-app-page="leads"] .leads-table thead th {
   font-weight: 600;
   color: #374151;
 }
-#createLeadModal .lead-service-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+@media (max-width: 720px) {
+  #createLeadModal .create-lead-columns,
+  #createLeadModal .lead-service-list {
+    grid-template-columns: 1fr;
+  }
 }
 #createLeadModal .lead-service-check {
   display: flex;

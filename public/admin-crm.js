@@ -25,7 +25,7 @@ function leadFormPublicOrigin() {
 }
 
 function leadFormEmbedSnippet() {
-    return `<iframe src="${leadFormPublicOrigin()}/inquire" title="Contact Lumetry Media" style="width:100%;min-height:900px;border:0;"></iframe>`;
+    return `<iframe src="${leadFormPublicOrigin()}/inquire" title="Contact Lumetry Media" style="width:100%;min-height:680px;border:0;"></iframe>`;
 }
 
 function initLeadFormTab() {

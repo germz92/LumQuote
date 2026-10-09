@@ -7,9 +7,16 @@ body {
 }
 
 .inquire {
-  max-width: 560px;
+  max-width: 920px;
   margin: 0 auto;
   padding: 32px 20px 48px;
+}
+
+.inquire-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 28px;
+  align-items: start;
 }
 
 .inquire-logo {
@@ -59,11 +66,28 @@ body {
   color: inherit;
 }
 
+.inquire-services {
+  margin: 0;
+  padding: 10px 14px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.inquire-services legend {
+  padding: 0 4px;
+}
+
+#inquireServices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+
 .inquire-check {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 6px 0;
+  margin: 0;
   font-weight: 500;
 }
 
@@ -109,4 +133,11 @@ body {
   left: -9999px;
   height: 0;
   overflow: hidden;
+}
+
+@media (max-width: 720px) {
+  .inquire-columns,
+  #inquireServices {
+    grid-template-columns: 1fr;
+  }
 }
