@@ -84,11 +84,25 @@ function enhanceLeadSourceSelect() {
         button.classList.toggle('is-placeholder', !select.value);
     }
 
+    function placeList() {
+        const rect = button.getBoundingClientRect();
+        const width = Math.min(Math.max(rect.width, 320), window.innerWidth - 16);
+        list.style.width = `${width}px`;
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+        list.style.left = `${left}px`;
+        const menuHeight = list.offsetHeight;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const top = menuHeight + 6 <= spaceBelow || spaceBelow >= rect.top
+            ? rect.bottom + 6
+            : rect.top - menuHeight - 6;
+        const fitted = Math.max(8, Math.min(top, window.innerHeight - menuHeight - 8));
+        list.style.top = `${fitted}px`;
+    }
+
     function closeList() {
         if (list.hidden) return;
         list.hidden = true;
         button.setAttribute('aria-expanded', 'false');
-        scheduleInquireHeight();
     }
 
     function renderOptions() {
@@ -116,7 +130,11 @@ function enhanceLeadSourceSelect() {
         if (willOpen) renderOptions();
         list.hidden = !willOpen;
         button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-        scheduleInquireHeight();
+        if (willOpen) placeList();
+    });
+
+    window.addEventListener('resize', () => {
+        if (!list.hidden) placeList();
     });
 
     document.addEventListener('click', (event) => {
