@@ -25,7 +25,18 @@ function leadFormPublicOrigin() {
 }
 
 function leadFormEmbedSnippet() {
-    return `<iframe src="${leadFormPublicOrigin()}/inquire" title="Contact Lumetry Media" style="width:100%;min-height:680px;border:0;"></iframe>`;
+    const origin = leadFormPublicOrigin();
+    return `<iframe id="lumquote-inquire" src="${origin}/inquire" title="Contact Lumetry Media" style="width:100%;height:1600px;border:0;display:block;"></iframe>
+<script>
+window.addEventListener('message', function (event) {
+  if (event.origin !== '${origin}') return;
+  var frame = document.getElementById('lumquote-inquire');
+  var data = event.data || {};
+  if (!frame || data.type !== 'lumquote-inquire-height') return;
+  var height = Number(data.height);
+  if (height > 400 && height < 5000) frame.style.height = height + 'px';
+});
+</script>`;
 }
 
 function initLeadFormTab() {

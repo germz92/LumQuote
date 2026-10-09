@@ -29,6 +29,7 @@ function applyInquiryForm(form) {
         success.textContent = form.successMessage || '';
         success.hidden = !form.successMessage;
     }
+    scheduleInquireHeight();
     const services = document.getElementById('inquireServices');
     if (services && Array.isArray(form.services) && form.services.length) {
         services.replaceChildren(...form.services.map((name) => {
@@ -84,8 +85,10 @@ function enhanceLeadSourceSelect() {
     }
 
     function closeList() {
+        if (list.hidden) return;
         list.hidden = true;
         button.setAttribute('aria-expanded', 'false');
+        scheduleInquireHeight();
     }
 
     function renderOptions() {
@@ -113,6 +116,7 @@ function enhanceLeadSourceSelect() {
         if (willOpen) renderOptions();
         list.hidden = !willOpen;
         button.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        scheduleInquireHeight();
     });
 
     document.addEventListener('click', (event) => {
@@ -124,7 +128,22 @@ function enhanceLeadSourceSelect() {
     syncButton();
 }
 
-document.addEventListener('DOMContentLoaded', enhanceLeadSourceSelect);
+function publishInquireHeight() {
+    const height = Math.ceil(document.body.scrollHeight);
+    if (!height || window.parent === window) return;
+    window.parent.postMessage({ type: 'lumquote-inquire-height', height }, '*');
+}
+
+function scheduleInquireHeight() {
+    requestAnimationFrame(() => requestAnimationFrame(publishInquireHeight));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    enhanceLeadSourceSelect();
+    scheduleInquireHeight();
+});
+window.addEventListener('load', scheduleInquireHeight);
+window.addEventListener('resize', scheduleInquireHeight);
 
 document.getElementById('inquireForm').addEventListener('submit', async (event) => {
     event.preventDefault();
