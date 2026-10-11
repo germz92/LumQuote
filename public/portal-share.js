@@ -74,7 +74,7 @@ const PortalShare = {
                 </div>
                 <label for="portalSharePassword">New password</label>
                 <input type="text" id="portalSharePassword" placeholder="Leave blank to keep the current password" autocomplete="off">
-                <p class="field-hint">This password is visible to admins. A new one must be at least 6 characters.</p>` : `
+                <p class="field-hint">Copy this password and send it with the link. A new one must be at least 6 characters.</p>` : `
                 <label for="portalSharePassword">${data.hasPassword ? 'New password' : 'Password'}</label>
                 <input type="text" id="portalSharePassword" placeholder="At least 6 characters" autocomplete="off">
                 <p class="field-hint">${data.hasPassword

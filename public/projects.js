@@ -6,6 +6,10 @@ class ProjectsManager {
     constructor() {
         this.projects = [];
         this.showingArchived = false;
+        this.listView = 'projects';
+        this.groups = [];
+        this.expandedGroups = new Set();
+        this.projectsHeadHtml = '';
         this.currentPage = 1;
         this.pageSize = 50;
         this.totalProjects = 0;
@@ -19,6 +23,8 @@ class ProjectsManager {
     }
 
     async init() {
+        const head = document.getElementById('projectsTableHead');
+        if (head) this.projectsHeadHtml = head.innerHTML;
         this.syncWhenToggle();
         this.updateClearButton();
         await this.loadProjects();
@@ -75,6 +81,11 @@ class ProjectsManager {
     }
 
     applyFilters() {
+        if (this.listView === 'groups') {
+            this.render();
+            this.updateClearButton();
+            return;
+        }
         this.currentPage = 1;
         this.loadProjects().then(() => {
             this.render();
@@ -181,6 +192,12 @@ class ProjectsManager {
     }
 
     render() {
+        if (this.listView === 'groups') {
+            this.renderGroups();
+            return;
+        }
+        const head = document.getElementById('projectsTableHead');
+        if (head && this.projectsHeadHtml) head.innerHTML = this.projectsHeadHtml;
         const tbody = document.getElementById('projectsTableBody');
         const empty = document.getElementById('projectsEmpty');
         if (!tbody) return;
@@ -188,11 +205,122 @@ class ProjectsManager {
         if (this.projects.length === 0) {
             tbody.innerHTML = '';
             empty.style.display = 'block';
+            if (empty.querySelector('h3')) empty.querySelector('h3').textContent = 'No projects yet';
+            if (empty.querySelector('p')) empty.querySelector('p').textContent = 'Create a project or save a quote — every quote automatically belongs to a project.';
         } else {
             empty.style.display = 'none';
             tbody.innerHTML = this.projects.map((project) => this.renderRow(project)).join('');
         }
         this.renderPagination();
+        this.updateSortIndicators();
+    }
+
+    async loadGroups() {
+        const data = await CRM.api('/api/projects/groups');
+        this.groups = Array.isArray(data.groups) ? data.groups : [];
+    }
+
+    setListView(view) {
+        if (view !== 'groups' && view !== 'projects') return;
+        this.listView = view;
+        document.getElementById('viewProjectsBtn')?.classList.toggle('is-active', view === 'projects');
+        document.getElementById('viewGroupsBtn')?.classList.toggle('is-active', view === 'groups');
+        const groupsBar = document.getElementById('groupsViewBar');
+        if (groupsBar) groupsBar.style.display = view === 'groups' ? '' : 'none';
+        const search = document.getElementById('searchProjects');
+        if (search) search.placeholder = view === 'groups' ? 'Search project groups...' : 'Search projects...';
+        if (view === 'groups') {
+            this.loadGroups().then(() => this.render()).catch((error) => {
+                showAlertModal(error.message || 'Could not load project groups.', 'error');
+            });
+            return;
+        }
+        this.render();
+        this.updateSortIndicators();
+    }
+
+    filteredGroups() {
+        const term = (document.getElementById('searchProjects')?.value || '').trim().toLowerCase();
+        if (!term) return this.groups;
+        return this.groups.filter((group) => {
+            const haystack = [
+                group.name,
+                group.clientName,
+                group.clientCompany,
+                ...(group.projects || []).map((project) => project.name)
+            ].join(' ').toLowerCase();
+            return haystack.includes(term);
+        });
+    }
+
+    renderGroups() {
+        const head = document.getElementById('projectsTableHead');
+        const tbody = document.getElementById('projectsTableBody');
+        const empty = document.getElementById('projectsEmpty');
+        const pagination = document.getElementById('paginationContainer');
+        if (pagination) pagination.innerHTML = '';
+        if (!tbody) return;
+        if (head) {
+            head.innerHTML = `
+                <tr>
+                    <th style="width:28px"></th>
+                    <th>Project group</th>
+                    <th>Projects</th>
+                    <th class="col-fold-sm">Dates</th>
+                    <th class="col-fold-sm">Client</th>
+                </tr>`;
+        }
+        const groups = this.filteredGroups();
+        if (!groups.length) {
+            tbody.innerHTML = '';
+            if (empty) {
+                empty.style.display = 'block';
+                empty.querySelector('h3').textContent = 'No project groups yet';
+                empty.querySelector('p').textContent = 'Use Group projects to put split billing on one LumDash event.';
+            }
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        tbody.innerHTML = groups.map((group) => {
+            const id = String(group._id);
+            const isOpen = this.expandedGroups.has(id);
+            const count = (group.projects || []).length;
+            const client = [group.clientName, group.clientCompany].filter(Boolean).join(' · ');
+            const mainRow = `
+                <tr class="client-row ${isOpen ? 'is-open' : ''}" onclick="projectsManager.toggleGroup('${CRM.escapeJs(id)}')">
+                    <td class="client-caret"><span class="caret ${isOpen ? 'open' : ''}">▸</span></td>
+                    <td><strong>${CRM.escapeHtml(group.name || 'Untitled project')}</strong></td>
+                    <td>${count} project${count === 1 ? '' : 's'}</td>
+                    <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDateRange(group.startDate, group.endDate))}</td>
+                    <td class="col-fold-sm">${client ? CRM.escapeHtml(client) : '<span class="crm-inline-note">—</span>'}</td>
+                </tr>`;
+            if (!isOpen) return mainRow;
+            const projectRows = (group.projects || []).map((project) => `
+                <tr>
+                    <td><span class="project-name-with-group">${CRM.projectGroupIcon(project.isPrimary ? 'primary' : 'member')}<a href="/projects/${CRM.escapeHtml(project._id)}" onclick="event.stopPropagation()">${CRM.escapeHtml(project.name || 'Untitled project')}</a></span></td>
+                    <td>${CRM.escapeHtml(project.clientName || '—')}</td>
+                    <td>${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</td>
+                    <td>${CRM.projectStatusChip(project.status)}</td>
+                </tr>`).join('');
+            return mainRow + `
+                <tr class="client-projects-row">
+                    <td></td>
+                    <td colspan="4">
+                        <table class="client-projects-table">
+                            <thead>
+                                <tr><th>Project</th><th>Client</th><th>Dates</th><th>Status</th></tr>
+                            </thead>
+                            <tbody>${projectRows}</tbody>
+                        </table>
+                    </td>
+                </tr>`;
+        }).join('');
+    }
+
+    toggleGroup(id) {
+        if (this.expandedGroups.has(id)) this.expandedGroups.delete(id);
+        else this.expandedGroups.add(id);
+        this.renderGroups();
     }
 
     renderRow(project) {
@@ -289,7 +417,7 @@ class ProjectsManager {
                 <td class="quote-title-cell">
                     <div class="list-row-primary">
                         <span class="crm-project-name-wrap">
-                            <span class="crm-project-name" title="${CRM.escapeHtml(project.name)}">${CRM.escapeHtml(project.name)}</span>
+                            <span class="crm-project-name" title="${CRM.escapeHtml(project.name)}">${CRM.projectGroupIcon(project.groupRole)}${CRM.escapeHtml(project.name)}</span>
                             ${sharedBadge}
                         </span>
                         ${metaHtml}
@@ -769,6 +897,7 @@ class ProjectsManager {
             LeadSources.populateLeadSourceSelect();
             LeadSources.setLeadSourceFormValue('');
         }
+        await this.fillCreateGroupOptions();
         document.getElementById('createProjectModal').style.display = 'flex';
         try {
             const clients = await CRM.api('/api/crm/clients');
@@ -813,7 +942,8 @@ class ProjectsManager {
             startDate: document.getElementById('newProjectStart').value || null,
             endDate: document.getElementById('newProjectEnd').value || null,
             location,
-            leadSource: leadSource || null
+            leadSource: leadSource || null,
+            lumdashProject: document.getElementById('newProjectGroup')?.value || null
         };
         if (creatingClient) {
             const clientName = document.getElementById('newClientName').value.trim();
@@ -835,6 +965,106 @@ class ProjectsManager {
             const project = await CRM.api('/api/projects', { method: 'POST', body });
             this.closeCreateModal();
             window.location.href = `/projects/${project._id}`;
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    async loadGroupOptions() {
+        const data = await CRM.api('/api/projects/group-options');
+        this.groupOptions = Array.isArray(data.projects) ? data.projects : [];
+        return this.groupOptions;
+    }
+
+    async fillCreateGroupOptions() {
+        const select = document.getElementById('newProjectGroup');
+        if (!select) return;
+        let projects = [];
+        try {
+            projects = await this.loadGroupOptions();
+        } catch {
+            projects = [];
+        }
+        const primaries = projects.filter((project) => !project.lumdashProject);
+        select.innerHTML = `<option value="">New group</option>${primaries.map((project) => (
+            `<option value="${CRM.escapeHtml(project._id)}">${CRM.escapeHtml(project.name || 'Untitled project')}</option>`
+        )).join('')}`;
+    }
+
+    async openGroupModal() {
+        try {
+            await this.loadGroupOptions();
+        } catch (error) {
+            showAlertModal(error.message || 'Could not load projects.', 'error');
+            return;
+        }
+        const primaries = this.groupOptions.filter((project) => !project.lumdashProject);
+        const select = document.getElementById('groupPrimary');
+        select.innerHTML = primaries.map((project) => (
+            `<option value="${CRM.escapeHtml(project._id)}">${CRM.escapeHtml(project.name || 'Untitled project')}</option>`
+        )).join('');
+        if (!primaries.length) {
+            showAlertModal('Create a project before grouping.', 'error');
+            return;
+        }
+        const search = document.getElementById('groupMemberSearch');
+        if (search) search.value = '';
+        this.renderGroupMembers();
+        document.getElementById('groupProjectsModal').style.display = 'flex';
+    }
+
+    closeGroupModal() {
+        document.getElementById('groupProjectsModal').style.display = 'none';
+    }
+
+    renderGroupMembers() {
+        const list = document.getElementById('groupMemberList');
+        const primaryId = document.getElementById('groupPrimary')?.value || '';
+        if (!list) return;
+        const members = (this.groupOptions || []).filter((project) => String(project._id) !== primaryId && !this.groupHasChildren(project._id));
+        if (!members.length) {
+            list.innerHTML = '<p class="crm-inline-note">No other projects to add.</p>';
+            const empty = document.getElementById('groupMemberSearchEmpty');
+            if (empty) empty.hidden = true;
+            return;
+        }
+        list.innerHTML = members.map((project) => {
+            const checked = project.lumdashProject && String(project.lumdashProject) === primaryId;
+            return `<label style="display:flex;align-items:center;gap:8px;margin:0 0 8px">
+                <input type="checkbox" value="${CRM.escapeHtml(project._id)}" ${checked ? 'checked' : ''} style="width:auto;padding:0">
+                <span>${CRM.escapeHtml(project.name || 'Untitled project')}</span>
+            </label>`;
+        }).join('');
+        this.filterGroupMembers();
+    }
+
+    filterGroupMembers() {
+        const term = (document.getElementById('groupMemberSearch')?.value || '').trim().toLowerCase();
+        const labels = [...document.querySelectorAll('#groupMemberList label')];
+        let visible = 0;
+        labels.forEach((label) => {
+            const match = !term || (label.textContent || '').toLowerCase().includes(term);
+            label.style.display = match ? 'flex' : 'none';
+            if (match) visible += 1;
+        });
+        const empty = document.getElementById('groupMemberSearchEmpty');
+        if (empty) empty.hidden = !labels.length || visible > 0;
+    }
+
+    groupHasChildren(projectId) {
+        return (this.groupOptions || []).some((project) => project.lumdashProject && String(project.lumdashProject) === String(projectId));
+    }
+
+    async saveProjectGroup() {
+        const primaryId = document.getElementById('groupPrimary')?.value;
+        if (!primaryId) return;
+        const projectIds = [...document.querySelectorAll('#groupMemberList input:checked')].map((input) => input.value);
+        try {
+            await CRM.api('/api/projects/group', { method: 'POST', body: { primaryId, projectIds } });
+            this.closeGroupModal();
+            showAlertModal('Project group saved.', 'success', null, true);
+            await this.loadProjects();
+            this.render();
         } catch (error) {
             showAlertModal(error.message, 'error');
         }

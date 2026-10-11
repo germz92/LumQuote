@@ -340,7 +340,7 @@ class ClientsManager {
 
             const projectRows = group.projects.map((p) => `
                 <tr>
-                    <td><a href="/projects/${p._id}" onclick="event.stopPropagation()">${CRM.escapeHtml(p.name)}</a></td>
+                    <td><span class="project-name-with-group">${CRM.projectGroupIcon(p.groupRole)}<a href="/projects/${p._id}" onclick="event.stopPropagation()">${CRM.escapeHtml(p.name)}</a></span></td>
                     <td>${CRM.escapeHtml(p.contactName || '—')}</td>
                     <td>${CRM.escapeHtml(CRM.formatDateRange(p.startDate, p.endDate))}</td>
                     <td>${CRM.projectStatusChip(p.status)}</td>
@@ -367,7 +367,7 @@ class ClientsManager {
     expandProjectsRow(projects, colspan) {
         const projectRows = (projects || []).map((p) => `
             <tr>
-                <td><a href="/projects/${p._id}" onclick="event.stopPropagation()">${CRM.escapeHtml(p.name)}</a></td>
+                <td><span class="project-name-with-group">${CRM.projectGroupIcon(p.groupRole)}<a href="/projects/${p._id}" onclick="event.stopPropagation()">${CRM.escapeHtml(p.name)}</a></span></td>
                 <td>${CRM.escapeHtml(CRM.formatDateRange(p.startDate, p.endDate))}</td>
                 <td>${CRM.projectStatusChip(p.status)}</td>
                 <td class="num">${p.quoteTotal > 0 ? CRM.money(p.quoteTotal, { cents: false }) : '—'}</td>

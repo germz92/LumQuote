@@ -40,10 +40,16 @@
                             </svg>
                             <span class="pc-filters-toggle-label">Filters</span>
                         </button>
-                        <button type="button" class="btn btn-primary btn-md pc-primary-cta" onclick="projectsManager.openCreateModal()" title="New Project">
-                            <span class="pc-cta-full">+ New Project</span>
-                            <span class="pc-cta-short" aria-hidden="true">+</span>
-                        </button>
+                        <div class="pc-list-actions">
+                            <div class="pc-view-toggle" role="group" aria-label="Project list">
+                                <button type="button" class="pc-btn is-active" id="viewProjectsBtn" onclick="projectsManager.setListView('projects')">Projects</button>
+                                <button type="button" class="pc-btn" id="viewGroupsBtn" onclick="projectsManager.setListView('groups')">Project groups</button>
+                            </div>
+                            <button type="button" class="btn btn-primary btn-md pc-primary-cta" onclick="projectsManager.openCreateModal()" title="New Project">
+                                <span class="pc-cta-full">+ New Project</span>
+                                <span class="pc-cta-short" aria-hidden="true">+</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="pc-filters-drawer" id="projectsFiltersDrawer">
@@ -97,13 +103,19 @@
                 </div>
                 </div>
 
+                <div id="groupsViewBar" class="groups-view-bar" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-md" onclick="projectsManager.openGroupModal()">
+                        Group projects
+                    </button>
+                </div>
+
                 <div id="projectsDataArea" class="quotes-data-area">
                     <div id="projectsSkeleton" class="quotes-skeleton" aria-hidden="true"></div>
 
                     <div class="quotes-list-scroll">
                     <div id="projectsListView" class="quotes-list-view">
                         <table class="quotes-table projects-table">
-                            <thead>
+                            <thead id="projectsTableHead">
                                 <tr>
                                     <th class="sortable" onclick="projectsManager.sortByColumn('name')">
                                         Project <span class="sort-indicator" data-sort="name"></span>
@@ -293,11 +305,44 @@
                         <label for="leadSourceEvent">Event name *</label>
                         <input type="text" id="leadSourceEvent" placeholder="e.g., LDI, InfoComm" maxlength="120">
                     </div>
+                    <div class="form-group">
+                        <label for="newProjectGroup">Project group</label>
+                        <select id="newProjectGroup">
+                            <option value="">New group</option>
+                        </select>
+                        <p class="crm-inline-note" style="margin:6px 0 0">Join an existing group so this project uses that LumDash event when it is booked or signed.</p>
+                    </div>
                     <div class="modal-buttons">
                         <button type="button" class="secondary-button" onclick="projectsManager.closeCreateModal()">Cancel</button>
                         <button type="submit" class="primary-button">Create Project</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="groupProjectsModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Group projects</h2>
+                <span class="close" onclick="projectsManager.closeGroupModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p class="crm-inline-note" style="margin-bottom:16px">Projects in a group stay separate for contracts and invoices. LumDash gets one event, named after the main project.</p>
+                <div class="form-group">
+                    <label for="groupPrimary">Main project</label>
+                    <select id="groupPrimary" onchange="projectsManager.renderGroupMembers()"></select>
+                </div>
+                <div class="form-group">
+                    <label for="groupMemberSearch">Also in this group</label>
+                    <input type="search" id="groupMemberSearch" placeholder="Search projects" autocomplete="off" oninput="projectsManager.filterGroupMembers()">
+                    <div id="groupMemberList" style="max-height:240px;overflow:auto;margin-top:10px"></div>
+                    <p id="groupMemberSearchEmpty" class="crm-inline-note" hidden>No matching projects.</p>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="secondary-button" onclick="projectsManager.closeGroupModal()">Cancel</button>
+                    <button type="button" class="primary-button" onclick="projectsManager.saveProjectGroup()">Save group</button>
+                </div>
             </div>
         </div>
     </div>

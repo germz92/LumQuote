@@ -150,6 +150,10 @@ class ProjectPage {
         document.querySelectorAll('#panel-overview input, #panel-overview select, #panel-overview textarea').forEach((el) => {
             el.disabled = !editable;
         });
+        const lumdashEvent = document.getElementById('projLumdashEvent');
+        if (lumdashEvent && (this.data?.lumdashPeers || []).length) {
+            lumdashEvent.disabled = true;
+        }
 
         // Hide mutate actions; keep view/copy/download/open/pdf.
         const keepText = /^(open|copy|copied!|pdf|download)/i;
@@ -202,6 +206,7 @@ class ProjectPage {
         if (window.LeadSources) {
             LeadSources.setLeadSourceFormValue(project.leadSource || quoteLeadSource);
         }
+        this.fillLumdashEvent();
 
         const client = project.client || {};
         const address = client.address || {};
@@ -213,6 +218,39 @@ class ProjectPage {
         document.getElementById('clientCity').value = address.city || '';
         document.getElementById('clientState').value = address.state || '';
         document.getElementById('clientZip').value = address.zip || '';
+    }
+
+    fillLumdashEvent() {
+        const select = document.getElementById('projLumdashEvent');
+        const note = document.getElementById('projLumdashPeers');
+        if (!select) return;
+        const project = this.data?.project || {};
+        const options = this.data?.lumdashOptions || [];
+        const current = project.lumdashProject?._id || project.lumdashProject || '';
+        select.innerHTML = `<option value="">This project</option>${options.map((item) => (
+            `<option value="${CRM.escapeHtml(item._id)}">${CRM.escapeHtml(item.name || 'Untitled project')}</option>`
+        )).join('')}`;
+        select.value = current ? String(current) : '';
+        const group = (this.data?.lumdashGroup || []).filter((item) => item && item._id);
+        const others = group.filter((item) => String(item._id) !== String(project._id));
+        const list = document.getElementById('projLumdashGroup');
+        if (list) {
+            list.innerHTML = others.length ? others.map((item) => {
+                const dates = CRM.formatDateRange(item.startDate, item.endDate);
+                return `<li>
+                    <a href="/projects/${CRM.escapeHtml(item._id)}">${CRM.projectGroupIcon(item.isPrimary ? 'primary' : 'member')}${CRM.escapeHtml(item.name || 'Untitled project')}</a>
+                    ${dates ? `<span class="crm-inline-note">${CRM.escapeHtml(dates)}</span>` : ''}
+                </li>`;
+            }).join('') : '';
+        }
+        if (!note) return;
+        if (others.length && current) {
+            note.textContent = 'LumDash uses the main project’s event for this group.';
+        } else if (others.length) {
+            note.textContent = 'LumDash uses this project’s event for the group.';
+        } else {
+            note.textContent = 'This project is its own group until other projects join it.';
+        }
     }
 
     // ---------- Overview actions ----------
@@ -552,7 +590,8 @@ class ProjectPage {
                     endDate: document.getElementById('projEnd').value || null,
                     notes: document.getElementById('projNotes').value,
                     location: document.getElementById('projLocation')?.value.trim() || null,
-                    leadSource: leadSource || null
+                    leadSource: leadSource || null,
+                    lumdashProject: document.getElementById('projLumdashEvent')?.value || null
                 }
             });
             showAlertModal('Project saved.', 'success', null, true);

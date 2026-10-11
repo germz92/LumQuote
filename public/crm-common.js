@@ -192,6 +192,16 @@ const CRM = {
         return options;
     },
 
+    projectGroupIcon(role) {
+        if (role !== 'primary' && role !== 'member') return '';
+        const main = role === 'primary';
+        const label = main ? 'Main project' : 'In a project group';
+        const svg = main
+            ? '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><polygon points="12 3 14.8 8.8 21 9.6 16.4 14 17.6 20.2 12 17.2 6.4 20.2 7.6 14 3 9.6 9.2 8.8 12 3"></polygon></svg>'
+            : '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>';
+        return `<span class="project-group-icon${main ? ' is-main' : ''}" title="${label}">${svg}</span>`;
+    },
+
     projectStatusChip(projectOrStatus, invoices) {
         const { key, label } = this.projectDisplayStatus(projectOrStatus, invoices);
         return `<span class="crm-chip crm-chip--${this.escapeHtml(key || 'lead')}">${this.escapeHtml(label)}</span>`;

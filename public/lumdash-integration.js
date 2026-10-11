@@ -205,21 +205,42 @@ async function sendTransferPayload(transferData) {
     }
 }
 
+function groupDateRange(projects) {
+    const starts = projects.map((project) => project.startDate).filter(Boolean).sort();
+    const ends = projects.map((project) => project.endDate || project.startDate).filter(Boolean).sort();
+    if (!starts.length && !ends.length) return null;
+    return {
+        startDate: starts[0] || ends[0],
+        endDate: ends[ends.length - 1] || starts[starts.length - 1]
+    };
+}
+
+async function loadProjectForTransfer(projectId) {
+    if (window.CRM) return CRM.api(`/api/projects/${projectId}`);
+    const response = await fetch(`/api/projects/${projectId}`, { credentials: 'include' });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error || 'Failed to load project');
+    return json;
+}
+
 async function transferProjectToLumDash(projectId) {
     if (!projectId) return { success: false, error: 'Missing project' };
 
     try {
-        const data = await (window.CRM
-            ? CRM.api(`/api/projects/${projectId}`)
-            : fetch(`/api/projects/${projectId}`, { credentials: 'include' }).then(async (r) => {
-                const json = await r.json();
-                if (!r.ok) throw new Error(json.error || 'Failed to load project');
-                return json;
-            }));
-
-        const project = data.project || data;
+        let data = await loadProjectForTransfer(projectId);
+        let project = data.project || data;
+        const linked = project.lumdashProject?._id || (typeof project.lumdashProject === 'string' ? project.lumdashProject : '');
+        if (linked && String(linked) !== String(project._id)) {
+            data = await loadProjectForTransfer(linked);
+            project = data.project || data;
+        }
         const quotes = data.quotes || [];
         const transferData = buildTransferPayloadFromProject(project, quotes);
+        const range = groupDateRange([project, ...(data.lumdashPeers || [])]);
+        if (range?.startDate) {
+            transferData.startDate = range.startDate;
+            transferData.endDate = range.endDate || range.startDate;
+        }
         return sendTransferPayload(transferData);
     } catch (err) {
         console.error('Error loading project for LumDash transfer:', err);
