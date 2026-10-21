@@ -672,6 +672,7 @@ body[data-app-page="leads"] .leads-table thead th {
   border-bottom: 1px solid var(--color-border);
   margin-bottom: var(--space-6);
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .crm-tab {
