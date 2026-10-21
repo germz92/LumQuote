@@ -6,7 +6,6 @@
 
 .app-shell {
   background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
 }
 
 .app-shell-inner {
@@ -57,19 +56,18 @@
   display: block;
 }
 
-.app-topbar-account {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 2px solid transparent;
-  border-radius: var(--radius-full);
-  background: transparent;
-  cursor: pointer;
+/* Keeps the mobile logo centred while the fixed account menu sits over the right end */
+.app-topbar-account-space {
+  flex-shrink: 0;
+  width: 44px;
 }
 
-.app-topbar-account .app-profile-avatar {
-  --avatar-size: 34px;
+/* Account menu: fixed at the top-right of the viewport on every page */
+.app-profile-menu.app-account {
+  position: fixed;
+  top: 18px;
+  right: 48px;
+  z-index: 240;
 }
 
 /* ── Sidebar ───────────────────────────────────────────────── */
@@ -237,79 +235,6 @@
   transition: transform var(--transition-base);
 }
 
-/* Account block pinned to the foot of the sidebar */
-.app-sidebar-account {
-  margin-top: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--color-border);
-}
-
-.app-sidebar-account .app-profile-trigger {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  min-height: 48px;
-  padding: var(--space-1) var(--space-2);
-  box-sizing: border-box;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  text-align: left;
-}
-
-.app-sidebar-account .app-profile-trigger:hover {
-  background: var(--color-bg);
-  border-color: transparent;
-}
-
-.app-sidebar-account .app-profile-trigger[aria-expanded="true"] {
-  background: var(--color-bg);
-  border-color: var(--color-border);
-}
-
-.app-sidebar-account .app-profile-avatar {
-  --avatar-size: 32px;
-}
-
-.app-sidebar-account .app-profile-dropdown {
-  min-width: 0;
-}
-
-.app-profile-trigger-meta {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-}
-
-.app-profile-trigger-name {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.app-profile-trigger-hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  white-space: nowrap;
-}
-
-.app-profile-trigger-chevron {
-  display: inline-flex;
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  color: var(--color-text-muted);
-}
-
-.app-profile-trigger-chevron svg {
-  width: 16px;
-  height: 16px;
-}
-
 /* Collapsed icon rail (desktop only) */
 @media (min-width: 769px) {
   html.app-sidebar-collapsed .app-sidebar {
@@ -337,9 +262,7 @@
     padding: 0;
   }
 
-  html.app-sidebar-collapsed .app-nav-link-label,
-  html.app-sidebar-collapsed .app-profile-trigger-meta,
-  html.app-sidebar-collapsed .app-profile-trigger-chevron {
+  html.app-sidebar-collapsed .app-nav-link-label {
     display: none;
   }
 
@@ -358,17 +281,6 @@
     line-height: 16px;
   }
 
-  html.app-sidebar-collapsed .app-sidebar-account .app-profile-trigger {
-    justify-content: center;
-    padding: var(--space-1) 0;
-  }
-
-  html.app-sidebar-collapsed .app-sidebar-account .app-profile-dropdown {
-    left: calc(100% + var(--space-2));
-    right: auto;
-    bottom: 0;
-    min-width: 220px;
-  }
 }
 
 /* Mobile hamburger (lives in the slim top bar) */
@@ -504,11 +416,9 @@
   text-transform: uppercase;
 }
 
-/* Opens upward from the account trigger at the foot of the sidebar */
 .app-profile-dropdown {
   position: absolute;
-  bottom: calc(100% + var(--space-2));
-  left: 0;
+  top: calc(100% + var(--space-2));
   right: 0;
   z-index: var(--z-dropdown, 200);
   min-width: 220px;
@@ -526,7 +436,7 @@
 @keyframes profile-menu-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
@@ -876,6 +786,16 @@ body.app-has-shell .header {
     padding-top: var(--app-topbar-height, 56px);
   }
 
+  /* Centred in the slim top bar; must match the desktop selector's specificity */
+  .app-profile-menu.app-account {
+    top: 8px;
+    right: var(--space-4);
+  }
+
+  body.app-mobile-nav-open .app-account {
+    visibility: hidden;
+  }
+
   .app-sidebar-backdrop {
     display: block;
     position: fixed;
@@ -904,7 +824,9 @@ body.app-has-shell .header {
     pointer-events: none;
   }
 
-  .app-sidebar.is-open {
+  /* Beats the collapsed-rail selector, which is the default and would keep the drawer off-screen */
+  .app-sidebar.is-open,
+  html.app-sidebar-collapsed .app-sidebar.is-open {
     transform: translateX(0);
     visibility: visible;
     pointer-events: auto;

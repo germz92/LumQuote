@@ -169,11 +169,45 @@ const AppShell = {
                     <div class="app-brand">
                         <img src="/assets/logo.png" alt="Lumetry Media" class="app-brand-logo" onclick="window.location.href='/quotes'">
                     </div>
-                    <button type="button" class="app-topbar-account" id="appTopbarAccount" aria-label="Open menu">
-                        <span class="app-profile-avatar" id="appTopbarAvatar" aria-hidden="true"></span>
-                    </button>
+                    <span class="app-topbar-account-space" aria-hidden="true"></span>
                 </div>
             </header>
+            <div class="app-profile-menu app-account" id="appProfileMenu">
+                <button
+                    type="button"
+                    class="app-profile-trigger"
+                    id="appProfileTrigger"
+                    aria-haspopup="menu"
+                    aria-expanded="false"
+                    aria-controls="appProfileDropdown"
+                    aria-label="Account menu"
+                >
+                    <span class="app-profile-avatar" id="appProfileAvatar" aria-hidden="true"></span>
+                </button>
+                <div
+                    class="app-profile-dropdown"
+                    id="appProfileDropdown"
+                    role="menu"
+                    hidden
+                >
+                    <div class="app-profile-dropdown-header">
+                        <span class="app-profile-avatar app-profile-avatar--lg" id="appProfileDropdownAvatar" aria-hidden="true"></span>
+                        <div class="app-profile-dropdown-meta">
+                            <div class="app-profile-dropdown-name" id="appProfileDropdownName"></div>
+                            <div class="app-profile-dropdown-email" id="appProfileDropdownEmail"></div>
+                        </div>
+                    </div>
+                    <a href="/reports" class="app-profile-dropdown-item" role="menuitem" data-profile-admin-only hidden>Reports</a>
+                    <a href="/admin" class="app-profile-dropdown-item" role="menuitem" data-profile-admin-only hidden>Admin</a>
+                    <label class="app-profile-dropdown-item app-profile-dropdown-item--action" role="menuitem">
+                        <span>Update photo</span>
+                        <input type="file" id="appProfilePhotoInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+                    </label>
+                    <button type="button" class="app-profile-dropdown-item app-profile-dropdown-item--action" id="appProfileRemovePhoto" role="menuitem" hidden>Remove photo</button>
+                    <div class="app-profile-dropdown-divider" role="separator"></div>
+                    <button type="button" class="app-profile-dropdown-item app-profile-dropdown-item--danger" role="menuitem" onclick="logout()">Log out</button>
+                </div>
+            </div>
             <div class="app-sidebar-backdrop" id="appMobileNavBackdrop" aria-hidden="true"></div>
             <aside class="app-sidebar" id="appSidebar" aria-label="Main">
                 <div class="app-sidebar-top">
@@ -197,49 +231,6 @@ const AppShell = {
                     </span>
                     <span class="app-nav-link-label">Collapse</span>
                 </button>
-                <div class="app-profile-menu app-sidebar-account" id="appProfileMenu">
-                    <div
-                        class="app-profile-dropdown"
-                        id="appProfileDropdown"
-                        role="menu"
-                        hidden
-                    >
-                        <div class="app-profile-dropdown-header">
-                            <span class="app-profile-avatar app-profile-avatar--lg" id="appProfileDropdownAvatar" aria-hidden="true"></span>
-                            <div class="app-profile-dropdown-meta">
-                                <div class="app-profile-dropdown-name" id="appProfileDropdownName"></div>
-                                <div class="app-profile-dropdown-email" id="appProfileDropdownEmail"></div>
-                            </div>
-                        </div>
-                        <a href="/reports" class="app-profile-dropdown-item" role="menuitem" data-profile-admin-only hidden>Reports</a>
-                        <a href="/admin" class="app-profile-dropdown-item" role="menuitem" data-profile-admin-only hidden>Admin</a>
-                        <label class="app-profile-dropdown-item app-profile-dropdown-item--action" role="menuitem">
-                            <span>Update photo</span>
-                            <input type="file" id="appProfilePhotoInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
-                        </label>
-                        <button type="button" class="app-profile-dropdown-item app-profile-dropdown-item--action" id="appProfileRemovePhoto" role="menuitem" hidden>Remove photo</button>
-                        <div class="app-profile-dropdown-divider" role="separator"></div>
-                        <button type="button" class="app-profile-dropdown-item app-profile-dropdown-item--danger" role="menuitem" onclick="logout()">Log out</button>
-                    </div>
-                    <button
-                        type="button"
-                        class="app-profile-trigger"
-                        id="appProfileTrigger"
-                        aria-haspopup="menu"
-                        aria-expanded="false"
-                        aria-controls="appProfileDropdown"
-                        aria-label="Account menu"
-                    >
-                        <span class="app-profile-avatar" id="appProfileAvatar" aria-hidden="true"></span>
-                        <span class="app-profile-trigger-meta">
-                            <span class="app-profile-trigger-name" id="appProfileTriggerName">Account</span>
-                            <span class="app-profile-trigger-hint">Account menu</span>
-                        </span>
-                        <span class="app-profile-trigger-chevron" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                        </span>
-                    </button>
-                </div>
             </aside>
             <div class="app-shell-body">
                 <div class="app-shell-inner">
@@ -325,15 +316,12 @@ const AppShell = {
 
         this.mountAvatar(document.getElementById('appProfileAvatar'), user);
         this.mountAvatar(document.getElementById('appProfileDropdownAvatar'), user);
-        this.mountAvatar(document.getElementById('appTopbarAvatar'), user);
 
         const nameEl = document.getElementById('appProfileDropdownName');
-        const triggerNameEl = document.getElementById('appProfileTriggerName');
         const emailEl = document.getElementById('appProfileDropdownEmail');
         const removeBtn = document.getElementById('appProfileRemovePhoto');
 
         if (nameEl) nameEl.textContent = user.name;
-        if (triggerNameEl) triggerNameEl.textContent = user.name;
         if (emailEl) {
             emailEl.textContent = user.email || '';
             emailEl.hidden = !user.email;
@@ -386,6 +374,7 @@ const AppShell = {
 
         trigger.addEventListener('click', (event) => {
             event.stopPropagation();
+            this.setMobileNavOpen(false);
             this.setProfileMenuOpen(!this.profileMenuOpen);
         });
 
@@ -427,20 +416,12 @@ const AppShell = {
         const drawer = document.getElementById('appSidebar');
         const backdrop = document.getElementById('appMobileNavBackdrop');
         const closeBtn = document.getElementById('appMobileNavClose');
-        const accountBtn = document.getElementById('appTopbarAccount');
         if (!toggle || !drawer || !backdrop) return;
 
         toggle.addEventListener('click', (event) => {
             event.stopPropagation();
             this.setProfileMenuOpen(false);
             this.setMobileNavOpen(!this.mobileNavOpen);
-        });
-
-        // The mobile avatar opens the drawer and jumps to the account menu at its foot.
-        accountBtn?.addEventListener('click', (event) => {
-            event.stopPropagation();
-            this.setMobileNavOpen(true);
-            this.setProfileMenuOpen(true);
         });
 
         closeBtn?.addEventListener('click', () => this.setMobileNavOpen(false));
@@ -474,8 +455,6 @@ const AppShell = {
 
         if (open) {
             document.getElementById('appMobileNavClose')?.focus();
-        } else {
-            this.setProfileMenuOpen(false);
         }
     },
 
@@ -503,7 +482,6 @@ const AppShell = {
             button.setAttribute('aria-label', label);
             button.setAttribute('title', label);
         }
-        this.setProfileMenuOpen(false);
     },
 
     setProfileMenuOpen(open) {

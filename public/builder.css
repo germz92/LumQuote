@@ -16,6 +16,13 @@ body[data-app-page="quote"] .quote-section {
   margin: 0;
 }
 
+/* Leave room for the fixed top-right account menu on desktop */
+@media (min-width: 769px) {
+  body[data-app-page="quote"] .builder-sticky-chrome {
+    padding-right: calc(48px + 52px);
+  }
+}
+
 /* Sticky builder chrome (below fixed app topbar) */
 .builder-sticky-chrome {
   position: sticky;
