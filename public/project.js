@@ -970,6 +970,32 @@ class ProjectPage {
 
     // ---------- Contract tab ----------
 
+    contractLinkHtml(contract) {
+        if (!contract || contract.source === 'external') return '';
+        const isSigned = contract.status === 'signed';
+        if (!contract.publicToken) {
+            if (isSigned) return '';
+            return `
+                <section class="invoice-section">
+                    <h3>Client link</h3>
+                    <p class="crm-inline-note">Create a link when the client should review and sign this contract.</p>
+                    <button type="button" class="secondary-button" onclick="projectPage.sendContract()">Create client link</button>
+                </section>`;
+        }
+        const url = `${window.location.origin}/sign/${contract.publicToken}`;
+        return `
+            <section class="invoice-section">
+                <h3>Client link</h3>
+                <div class="invoice-share-link">
+                    <input type="text" readonly id="contractLinkText" value="${CRM.escapeHtml(url)}" aria-label="Client signing link" onclick="this.select()">
+                    <button type="button" class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(url)}', this)">Copy link</button>
+                    <a class="crm-btn-sm" href="/sign/${CRM.escapeHtml(contract.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>
+                    ${isSigned ? '' : `<button type="button" class="crm-btn-sm primary" onclick="projectPage.emailContract()">Email client</button>`}
+                </div>
+                ${this.docTrackingHtml(contract)}
+            </section>`;
+    }
+
     renderContract() {
         const area = document.getElementById('contractArea');
         const contract = this.data.contract;
@@ -977,25 +1003,26 @@ class ProjectPage {
         if (!contract) {
             area.innerHTML = `
                 <div class="crm-card">
-                    <h3>Create a Contract</h3>
-                    <p class="crm-inline-note" style="margin-bottom:16px">
-                        Generate a contract from a quote's services using your template library, or upload an unsigned PDF to send for signature in LumQuote.
-                    </p>
-                    <div class="crm-actions-row">
-                        <button class="primary-button" onclick="projectPage.openGenerateContractModal()">Generate from Quote</button>
-                        <button class="secondary-button" onclick="document.getElementById('contractFileInput').click()">Upload Contract PDF</button>
-                        <input type="file" id="contractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadContract(this.files[0])">
+                    <div class="crm-card-header">
+                        <h3>Contract</h3>
                     </div>
-                </div>
-                <div class="crm-card">
-                    <h3>Signed outside LumQuote</h3>
-                    <p class="crm-inline-note" style="margin-bottom:16px">
-                        Already created, signed, and processed elsewhere? File the finished PDF here. It is stored as signed and will not go through LumQuote e-sign.
-                    </p>
-                    <div class="crm-actions-row">
-                        <button class="secondary-button" onclick="document.getElementById('externalContractFileInput').click()">Upload signed PDF</button>
-                        <input type="file" id="externalContractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadExternalContract(this.files[0])">
-                    </div>
+                    <section class="invoice-section">
+                        <h3>Create a contract</h3>
+                        <p class="crm-inline-note">Generate one from a quote, or upload an unsigned PDF to send for signature.</p>
+                        <div class="crm-actions-row">
+                            <button class="primary-button" onclick="projectPage.openGenerateContractModal()">Generate from Quote</button>
+                            <button class="secondary-button" onclick="document.getElementById('contractFileInput').click()">Upload Contract PDF</button>
+                            <input type="file" id="contractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadContract(this.files[0])">
+                        </div>
+                    </section>
+                    <section class="invoice-section">
+                        <h3>Signed outside LumQuote</h3>
+                        <p class="crm-inline-note">File a finished PDF that was already signed elsewhere. It will not go through LumQuote e-sign.</p>
+                        <div class="crm-actions-row">
+                            <button class="secondary-button" onclick="document.getElementById('externalContractFileInput').click()">Upload signed PDF</button>
+                            <input type="file" id="externalContractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadExternalContract(this.files[0])">
+                        </div>
+                    </section>
                 </div>`;
             return;
         }
@@ -1010,110 +1037,110 @@ class ProjectPage {
                         <h3>${CRM.escapeHtml(contract.title || 'Contract')}</h3>
                         ${CRM.contractStatusChip(contract.status)}
                     </div>
-                    <p class="crm-inline-note" style="margin-bottom:16px">
-                        Filed as signed outside LumQuote${signedAt ? ` on ${signedAt}` : ''}.
-                    </p>
-                    <div class="contract-file-box">
-                        <span>📄 ${CRM.escapeHtml(contract.uploadedFile?.filename || 'contract.pdf')}</span>
-                        <a class="crm-btn-sm" href="/api/contracts/${contract._id}/file" target="_blank">View</a>
-                    </div>
-                    ${this.contractFilePreview(contract)}
-                    <div class="crm-actions-row">
-                        <button class="secondary-button" onclick="document.getElementById('externalContractFileInput').click()">Replace PDF</button>
-                        <input type="file" id="externalContractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadExternalContract(this.files[0])">
-                        <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
-                    </div>
+                    <section class="invoice-section">
+                        <h3>Filed contract</h3>
+                        <p class="crm-inline-note">Signed outside LumQuote${signedAt ? ` on ${CRM.escapeHtml(signedAt)}` : ''}.</p>
+                        <div class="contract-file-box">
+                            <span>${CRM.escapeHtml(contract.uploadedFile?.filename || 'contract.pdf')}</span>
+                            <a class="crm-btn-sm" href="/api/contracts/${contract._id}/file" target="_blank">View</a>
+                        </div>
+                        ${this.contractFilePreview(contract)}
+                    </section>
+                    <section class="invoice-section">
+                        <div class="crm-actions-row">
+                            <button class="secondary-button" onclick="document.getElementById('externalContractFileInput').click()">Replace PDF</button>
+                            <input type="file" id="externalContractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadExternalContract(this.files[0])">
+                            <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
+                        </div>
+                    </section>
                 </div>`;
             return;
         }
 
         const isSigned = contract.status === 'signed';
         const sig = contract.signature || {};
-
         const statusRow = `
             <div class="crm-card-header">
                 <h3>${CRM.escapeHtml(contract.title || 'Contract')}</h3>
                 ${CRM.contractStatusChip(contract.status)}
             </div>`;
-
-        const linkRow = contract.publicToken ? `
-            <div class="invoice-share-link" style="margin-bottom:16px">
-                <span id="contractLinkText">${CRM.escapeHtml(`${window.location.origin}/sign/${contract.publicToken}`)}</span>
-                <button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/sign/${contract.publicToken}`)}', this)">Copy</button>
-                <a class="crm-btn-sm" href="/sign/${CRM.escapeHtml(contract.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>
-            </div>
-            ${this.docTrackingHtml(contract)}` : '';
-
         const signedBlock = isSigned ? `
-            <div class="crm-card" style="border-color: var(--color-success);">
-                <h3>Signed</h3>
+            <section class="invoice-section">
+                <h3>Client signature</h3>
                 <p class="crm-inline-note">
                     Signed by <strong>${CRM.escapeHtml(sig.name || '')}</strong> (${sig.method === 'drawn' ? 'drawn' : 'typed'} signature)
-                    on ${sig.signedAt ? new Date(sig.signedAt).toLocaleString('en-US') : ''}<br>
-                    IP: ${CRM.escapeHtml(sig.ip || 'n/a')}<br>
-                    Document SHA-256: <code style="font-size:11px">${CRM.escapeHtml(sig.documentHash || 'n/a')}</code>
+                    on ${sig.signedAt ? CRM.escapeHtml(new Date(sig.signedAt).toLocaleString('en-US')) : ''}.
+                    IP ${CRM.escapeHtml(sig.ip || 'n/a')}.
                 </p>
-                ${sig.method === 'drawn' && sig.imageData ? `<img src="${sig.imageData}" alt="Signature" style="max-height:70px;border-bottom:1px solid #333">` : ''}
-            </div>` : '';
-
+                <p class="crm-inline-note">Document SHA-256: <code>${CRM.escapeHtml(sig.documentHash || 'n/a')}</code></p>
+                ${sig.method === 'drawn' && sig.imageData ? `<img class="contract-signature-image" src="${sig.imageData}" alt="Signature">` : ''}
+            </section>` : '';
         const counterBlock = this.countersignBlock(contract);
 
         if (contract.source === 'uploaded') {
             area.innerHTML = `
                 <div class="crm-card">
                     ${statusRow}
-                    ${linkRow}
-                    <div class="contract-file-box">
-                        <span>📄 ${CRM.escapeHtml(contract.uploadedFile?.filename || 'contract.pdf')}</span>
-                        <a class="crm-btn-sm" href="/api/contracts/${contract._id}/file" target="_blank">View</a>
-                    </div>
-                    ${this.contractFilePreview(contract)}
-                    <div class="crm-actions-row">
-                        ${!isSigned ? `
-                            <button class="primary-button" onclick="projectPage.emailContract()">Send Contract</button>
-                            <button class="secondary-button" onclick="projectPage.sendContract()">${contract.status === 'sent' ? 'Refresh Signature Link' : 'Create Signature Link'}</button>
-                            <button class="secondary-button" onclick="document.getElementById('contractFileInput').click()">Replace PDF</button>
-                            <input type="file" id="contractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadContract(this.files[0])">
-                            <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
-                        ` : `
-                            <a class="primary-button" style="text-decoration:none" href="/api/contracts/${contract._id}/pdf">Download Signature Certificate</a>
-                        `}
-                    </div>
-                </div>
-                ${counterBlock}
-                ${signedBlock}`;
+                    ${this.contractLinkHtml(contract)}
+                    <section class="invoice-section">
+                        <h3>Contract file</h3>
+                        <div class="contract-file-box">
+                            <span>${CRM.escapeHtml(contract.uploadedFile?.filename || 'contract.pdf')}</span>
+                            <a class="crm-btn-sm" href="/api/contracts/${contract._id}/file" target="_blank">View</a>
+                        </div>
+                        ${this.contractFilePreview(contract)}
+                    </section>
+                    <section class="invoice-section">
+                        <div class="crm-actions-row">
+                            ${isSigned ? `
+                                <a class="primary-button" style="text-decoration:none" href="/api/contracts/${contract._id}/pdf">Download Signature Certificate</a>
+                            ` : `
+                                <button class="secondary-button" onclick="document.getElementById('contractFileInput').click()">Replace PDF</button>
+                                <input type="file" id="contractFileInput" accept="application/pdf" hidden onchange="projectPage.uploadContract(this.files[0])">
+                                <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
+                            `}
+                        </div>
+                    </section>
+                    ${counterBlock}
+                    ${signedBlock}
+                </div>`;
             return;
         }
 
-        // Generated contract
         area.innerHTML = `
             <div class="crm-card">
                 ${statusRow}
-                ${linkRow}
+                ${this.contractLinkHtml(contract)}
                 ${!isSigned ? `
-                <div class="form-group">
-                    <label for="contractTitle">Contract Title</label>
-                    <input type="text" id="contractTitle" value="${CRM.escapeHtml(contract.title || '')}">
-                </div>
-                <div class="contract-editor-toolbar" id="contractEditorToolbar"></div>
-                <div class="contract-editor" id="contractEditor" contenteditable="true">${contract.contentHtml || ''}</div>
-                <div class="crm-actions-row">
-                    <button class="primary-button" onclick="projectPage.saveContract()">Save Contract</button>
-                    <button class="secondary-button" onclick="projectPage.emailContract()">Send Contract</button>
-                    <button class="secondary-button" onclick="projectPage.sendContract()">${contract.status === 'sent' ? 'Refresh Signature Link' : 'Create Signature Link'}</button>
-                    <a class="crm-btn-sm" href="/api/contracts/${contract._id}/pdf">Preview PDF</a>
-                    <button class="crm-btn-sm" onclick="projectPage.openGenerateContractModal()">Regenerate from Quote</button>
-                    <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
-                </div>
+                <section class="invoice-section">
+                    <h3>Contract</h3>
+                    <div class="form-group">
+                        <label for="contractTitle">Title</label>
+                        <input type="text" id="contractTitle" value="${CRM.escapeHtml(contract.title || '')}">
+                    </div>
+                    <div class="contract-editor-toolbar" id="contractEditorToolbar"></div>
+                    <div class="contract-editor" id="contractEditor" contenteditable="true">${contract.contentHtml || ''}</div>
+                </section>
+                <section class="invoice-section">
+                    <div class="crm-actions-row">
+                        <button class="primary-button" onclick="projectPage.saveContract()">Save Contract</button>
+                        <a class="crm-btn-sm" href="/api/contracts/${contract._id}/pdf">Preview PDF</a>
+                        <button class="crm-btn-sm" onclick="projectPage.openGenerateContractModal()">Regenerate from Quote</button>
+                        <button class="crm-btn-sm danger" onclick="projectPage.deleteContract()">Delete</button>
+                    </div>
+                </section>
                 ` : `
-                <div class="contract-editor" style="background:#fafbfc">${contract.contentHtml || ''}</div>
-                <div class="crm-actions-row">
-                    <a class="primary-button" style="text-decoration:none" href="/api/contracts/${contract._id}/pdf">Download Signed PDF</a>
-                </div>
+                <section class="invoice-section">
+                    <h3>Contract</h3>
+                    <div class="contract-editor contract-editor--locked">${contract.contentHtml || ''}</div>
+                    <div class="crm-actions-row">
+                        <a class="primary-button" style="text-decoration:none" href="/api/contracts/${contract._id}/pdf">Download Signed PDF</a>
+                    </div>
+                </section>
                 `}
-            </div>
-            ${counterBlock}
-            ${signedBlock}`;
+                ${counterBlock}
+                ${signedBlock}
+            </div>`;
 
         if (!isSigned) {
             this.mountContractEditor();
@@ -1144,43 +1171,39 @@ class ProjectPage {
 
         if (cs.signedAt) {
             return `
-                <div class="crm-card" style="border-color: var(--color-success);">
-                    <h3>Countersigned</h3>
+                <section class="invoice-section">
+                    <h3>Countersignature</h3>
                     <p class="crm-inline-note">
                         Countersigned by <strong>${CRM.escapeHtml(cs.name || '')}</strong>${cs.title ? `, ${CRM.escapeHtml(cs.title)}` : ''}
                         (${cs.method === 'drawn' ? 'drawn' : 'typed'} signature)
-                        on ${new Date(cs.signedAt).toLocaleString('en-US')}
+                        on ${CRM.escapeHtml(new Date(cs.signedAt).toLocaleString('en-US'))}.
                     </p>
                     ${cs.method === 'drawn' && cs.imageData
-                        ? `<img src="${cs.imageData}" alt="Countersignature" style="max-height:70px;border-bottom:1px solid #333">`
-                        : `<div style="font-family:'Brush Script MT','Segoe Script',cursive;font-size:26px;border-bottom:1px solid #333;display:inline-block;padding:0 20px 2px">${CRM.escapeHtml(cs.name || '')}</div>`}
-                </div>`;
+                        ? `<img class="contract-signature-image" src="${cs.imageData}" alt="Countersignature">`
+                        : `<div class="contract-signature-typed">${CRM.escapeHtml(cs.name || '')}</div>`}
+                </section>`;
         }
 
         return `
-            <div class="crm-card">
+            <section class="invoice-section">
                 <h3>Countersignature</h3>
-                <p class="crm-inline-note" style="margin-bottom:14px">
-                    Sign on behalf of your company. The countersignature appears on the client's signing page
-                    and in the contract PDF — whether or not the client has signed yet.
-                </p>
+                <p class="crm-inline-note">Sign on behalf of your company. This appears on the client's signing page and in the PDF.</p>
                 <div class="crm-form-grid">
                     <div class="form-group">
-                        <label for="csName">Full Name</label>
+                        <label for="csName">Full name</label>
                         <input type="text" id="csName" placeholder="Your full legal name"
                                oninput="document.getElementById('csPreview').textContent = this.value.trim() || '\u00a0'">
                     </div>
                     <div class="form-group">
                         <label for="csTitle">Title</label>
-                        <input type="text" id="csTitle" placeholder="e.g., Owner, Managing Director">
+                        <input type="text" id="csTitle" placeholder="Owner, Managing Director">
                     </div>
                 </div>
-                <div class="typed-signature-preview" id="csPreview" style="margin:10px 0 14px">&nbsp;</div>
+                <div class="typed-signature-preview" id="csPreview">&nbsp;</div>
                 <div class="crm-actions-row">
                     <button class="primary-button" onclick="projectPage.countersign()">Countersign</button>
-                    <span class="crm-inline-note">Recorded with timestamp and IP for the audit trail</span>
                 </div>
-            </div>`;
+            </section>`;
     }
 
     async countersign() {
@@ -1464,7 +1487,7 @@ class ProjectPage {
                             <td>
                                 <div class="crm-row-actions">
                                     ${(inv.status === 'draft' || inv.status === 'sent') ? `<button class="crm-btn-sm primary" onclick="projectPage.editInvoice('${inv._id}')">Edit</button>` : ''}
-                                    ${inv.publicToken && inv.status !== 'void' ? `<button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Link</button>` : ''}
+                                    ${inv.publicToken && inv.status !== 'void' ? `<button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Copy link</button>` : ''}
                                     ${inv.publicToken && inv.status !== 'void' ? `<a class="crm-btn-sm" href="/invoice/${CRM.escapeHtml(inv.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>` : ''}
                                     <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">PDF</a>
                                     ${(inv.status === 'draft' || inv.status === 'sent') ? `<button class="crm-btn-sm danger" onclick="projectPage.voidOrDeleteInvoice('${inv._id}', '${inv.status}')">${inv.status === 'draft' ? 'Delete' : 'Void'}</button>` : ''}
@@ -1555,10 +1578,35 @@ class ProjectPage {
             </div>`;
     }
 
+    invoiceLinkHtml(inv) {
+        const canSend = inv.status === 'draft' || inv.status === 'sent';
+        if (!inv.publicToken) {
+            return `
+                <section class="invoice-section">
+                    <h3>Client link</h3>
+                    <p class="crm-inline-note">Create a link when the client should view and pay this invoice.</p>
+                    ${canSend ? `<button type="button" class="secondary-button" onclick="projectPage.sendInvoice()">Create client link</button>` : ''}
+                </section>`;
+        }
+        const url = `${window.location.origin}/invoice/${inv.publicToken}`;
+        return `
+            <section class="invoice-section">
+                <h3>Client link</h3>
+                <div class="invoice-share-link">
+                    <input type="text" readonly value="${CRM.escapeHtml(url)}" aria-label="Client invoice link" onclick="this.select()">
+                    <button type="button" class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(url)}', this)">Copy link</button>
+                    <a class="crm-btn-sm" href="/invoice/${CRM.escapeHtml(inv.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>
+                    ${canSend ? `<button type="button" class="crm-btn-sm primary" onclick="projectPage.emailInvoice()">Email client</button>` : ''}
+                </div>
+                ${this.docTrackingHtml(inv)}
+            </section>`;
+    }
+
     renderInvoiceEditor() {
         const inv = this.editingInvoice;
         const area = document.getElementById('invoiceEditorArea');
         if (!inv) { area.innerHTML = ''; return; }
+        const planOn = !!inv.paymentPlan?.enabled;
 
         area.innerHTML = `
             <div class="crm-card" id="invoiceEditorCard">
@@ -1570,94 +1618,95 @@ class ProjectPage {
                     </div>
                 </div>
 
-                <div class="crm-form-grid">
+                ${this.invoiceLinkHtml(inv)}
+
+                <section class="invoice-section">
+                    <h3>Invoice details</h3>
+                    <div class="crm-form-grid">
+                        <div class="form-group">
+                            <label>Text under invoice number</label>
+                            <input type="text" id="invSubtitle" value="${CRM.escapeHtml(inv.subtitle || '')}" placeholder="e.g., ${CRM.escapeHtml(this.data.project.name)}">
+                        </div>
+                        <div class="form-group">
+                            <label>Issue date</label>
+                            <input type="date" id="invIssueDate" value="${CRM.escapeHtml(inv.issueDate || '')}">
+                        </div>
+                        <div class="form-group form-group--full">
+                            <label>Note at top of invoice</label>
+                            <textarea id="invHeaderNote" rows="2" placeholder="Optional message shown above the line items">${CRM.escapeHtml(inv.headerNote || '')}</textarea>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="invoice-section">
+                    <div class="invoice-parties">
+                        <div>
+                            <h3>Bill to</h3>
+                            <div class="crm-form-grid">${this.partyFields('invTo', inv.to || {})}</div>
+                        </div>
+                        <div>
+                            <h3>From</h3>
+                            <div class="crm-form-grid">${this.partyFields('invFrom', inv.from || {})}</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="invoice-section">
+                    <h3>Line items</h3>
+                    <div class="invoice-items-scroll">
+                    <table class="crm-table invoice-items-table">
+                        <thead><tr>
+                            <th class="col-day">Day</th>
+                            <th class="col-desc">Description</th>
+                            <th class="col-detail">Detail</th>
+                            <th class="col-qty num">Qty</th>
+                            <th class="col-price num">Unit Price</th>
+                            <th class="col-amount num">Amount</th>
+                            <th class="col-remove"></th>
+                        </tr></thead>
+                        <tbody id="invoiceItemsBody"></tbody>
+                    </table>
+                    </div>
+                    <button class="crm-btn-sm" style="margin-top:8px" onclick="projectPage.addInvoiceLine()">+ Add Line</button>
+                    <div class="invoice-totals">
+                        <div class="row"><span>Subtotal</span><span id="invSubtotalDisplay">$0.00</span></div>
+                        <div class="row">
+                            <span>Discount</span>
+                            <span>-$<input type="number" id="invDiscount" min="0" step="0.01" value="${inv.discountAmount || 0}"
+                                style="width:90px;text-align:right;border:1px solid var(--color-border);border-radius:4px;padding:2px 6px"
+                                oninput="projectPage.recalcInvoiceTotals()"></span>
+                        </div>
+                        <div class="row grand"><span>Total</span><span id="invTotalDisplay">$0.00</span></div>
+                    </div>
+                </section>
+
+                <section class="invoice-section">
+                    <h3>When payment is due</h3>
+                    <div id="ppBox"></div>
+                    <div id="invoiceFullDue" class="invoice-full-due" ${planOn ? 'hidden' : ''}>
+                        <div class="form-group">
+                            <label>Due date</label>
+                            <input type="date" id="invDueDate" value="${CRM.escapeHtml(inv.dueDate || '')}">
+                        </div>
+                        <div class="invoice-reminder-block" id="invoiceReminderBlock">
+                            <label>Reminder emails</label>
+                            ${this.reminderEditorHtml(inv.reminders, 'invoice', null)}
+                        </div>
+                    </div>
+                </section>
+
+                <section class="invoice-section">
                     <div class="form-group">
-                        <label>Text under invoice number</label>
-                        <input type="text" id="invSubtitle" value="${CRM.escapeHtml(inv.subtitle || '')}" placeholder="e.g., ${CRM.escapeHtml(this.data.project.name)}">
+                        <label>Note at bottom of invoice</label>
+                        <textarea id="invFooterNote" rows="2" placeholder="Payment terms or a thank-you">${CRM.escapeHtml(inv.footerNote || '')}</textarea>
                     </div>
-                    <div class="form-group">
-                        <label>Issue Date</label>
-                        <input type="date" id="invIssueDate" value="${CRM.escapeHtml(inv.issueDate || '')}">
+                    <div class="crm-actions-row">
+                        <button class="primary-button" onclick="projectPage.saveInvoice()">Save Invoice</button>
+                        ${(inv.status === 'draft' || inv.status === 'sent') ? `
+                        <button type="button" class="secondary-button" onclick="projectPage.openInvoiceInQuoteEditor('${inv._id}')">Open in Quote Editor</button>` : ''}
+                        <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">Download PDF</a>
                     </div>
-                    <div class="form-group">
-                        <label>Due Date</label>
-                        <input type="date" id="invDueDate" value="${CRM.escapeHtml(inv.dueDate || '')}">
-                    </div>
-                    <div class="form-group form-group--full invoice-reminder-block" id="invoiceReminderBlock" ${inv.paymentPlan?.enabled ? 'hidden' : ''}>
-                        <label>Payment reminder emails</label>
-                        <p class="crm-inline-note" style="margin:0 0 8px">These email the client about the due date above. They do not change when payment is due.</p>
-                        ${this.reminderEditorHtml(inv.reminders, 'invoice', null)}
-                    </div>
-                    <div class="form-group form-group--full">
-                        <label>Note at top of invoice</label>
-                        <textarea id="invHeaderNote" rows="2" placeholder="Optional message shown above the line items">${CRM.escapeHtml(inv.headerNote || '')}</textarea>
-                    </div>
-                </div>
-
-                <div class="crm-form-grid invoice-parties-grid" style="margin-top:20px">
-                    <div>
-                        <h3 style="font-size:14px">Bill To</h3>
-                        <div class="crm-form-grid">${this.partyFields('invTo', inv.to || {})}</div>
-                    </div>
-                    <div>
-                        <h3 style="font-size:14px">From</h3>
-                        <div class="crm-form-grid">${this.partyFields('invFrom', inv.from || {})}</div>
-                    </div>
-                </div>
-
-                <h3 style="font-size:14px;margin-top:24px">Line Items</h3>
-                <div class="invoice-items-scroll">
-                <table class="crm-table invoice-items-table">
-                    <thead><tr>
-                        <th class="col-day">Day</th>
-                        <th class="col-desc">Description</th>
-                        <th class="col-detail">Detail</th>
-                        <th class="col-qty num">Qty</th>
-                        <th class="col-price num">Unit Price</th>
-                        <th class="col-amount num">Amount</th>
-                        <th class="col-remove"></th>
-                    </tr></thead>
-                    <tbody id="invoiceItemsBody"></tbody>
-                </table>
-                </div>
-                <button class="crm-btn-sm" style="margin-top:8px" onclick="projectPage.addInvoiceLine()">+ Add Line</button>
-
-                <div class="invoice-totals">
-                    <div class="row"><span>Subtotal</span><span id="invSubtotalDisplay">$0.00</span></div>
-                    <div class="row">
-                        <span>Discount</span>
-                        <span>-$<input type="number" id="invDiscount" min="0" step="0.01" value="${inv.discountAmount || 0}"
-                            style="width:90px;text-align:right;border:1px solid var(--color-border);border-radius:4px;padding:2px 6px"
-                            oninput="projectPage.recalcInvoiceTotals()"></span>
-                    </div>
-                    <div class="row grand"><span>Total</span><span id="invTotalDisplay">$0.00</span></div>
-                </div>
-
-                <h3 style="font-size:14px;margin-top:24px">Payment Plan</h3>
-                <div id="ppBox"></div>
-
-                <div class="form-group" style="margin-top:20px">
-                    <label>Note at bottom of invoice</label>
-                    <textarea id="invFooterNote" rows="2" placeholder="e.g., payment terms, thank-you message">${CRM.escapeHtml(inv.footerNote || '')}</textarea>
-                </div>
-
-                ${inv.publicToken ? `
-                <div class="invoice-share-link" style="margin-top:14px">
-                    <span>${CRM.escapeHtml(`${window.location.origin}/invoice/${inv.publicToken}`)}</span>
-                    <button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Copy</button>
-                    <a class="crm-btn-sm" href="/invoice/${CRM.escapeHtml(inv.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>
-                </div>
-                ${this.docTrackingHtml(inv)}` : ''}
-
-                <div class="crm-actions-row">
-                    <button class="primary-button" onclick="projectPage.saveInvoice()">Save Invoice</button>
-                    ${(inv.status === 'draft' || inv.status === 'sent') ? `
-                    <button type="button" class="secondary-button" onclick="projectPage.openInvoiceInQuoteEditor('${inv._id}')">Open in Quote Editor</button>` : ''}
-                    ${(inv.status === 'draft' || inv.status === 'sent') ? `
-                    <button type="button" class="secondary-button" onclick="projectPage.emailInvoice()">Send Invoice</button>` : ''}
-                    <button class="secondary-button" onclick="projectPage.sendInvoice()">${inv.status === 'draft' ? 'Get Shareable Link' : 'Refresh Shareable Link'}</button>
-                    <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">Download PDF</a>
-                </div>
+                </section>
 
                 ${this.recordPaymentSectionHtml(inv)}
             </div>`;
@@ -1848,8 +1897,8 @@ class ProjectPage {
                 </div>`
                 : '';
             return `
-                <div class="invoice-record-payment" style="margin-top:28px;padding-top:20px;border-top:1px solid var(--color-border)">
-                    <h3 style="font-size:14px;margin:0 0 6px">Payment</h3>
+                <div class="invoice-section invoice-record-payment">
+                    <h3>Payment</h3>
                     <p class="crm-inline-note" style="margin:0">${CRM.escapeHtml(paidLine)}</p>
                     ${fullNote}
                     ${installmentRows}
@@ -1887,8 +1936,8 @@ class ProjectPage {
 
         const remaining = Math.max(0, (Number(inv.total) || 0) - (Number(inv.amountPaid) || 0));
         return `
-            <div class="invoice-record-payment" style="margin-top:28px;padding-top:20px;border-top:1px solid var(--color-border)">
-                <h3 style="font-size:14px;margin:0 0 6px">Record payment</h3>
+            <div class="invoice-section invoice-record-payment">
+                <h3>Record a payment</h3>
                 <p class="crm-inline-note" style="margin:0 0 14px">
                     For payments received outside Stripe.
                     ${hasPlan
@@ -1945,11 +1994,24 @@ class ProjectPage {
         });
 
         const hasPaid = this.planHasPaidInstallment();
+        const splitOn = !!(plan.enabled || hasPaid);
         let html = `
-            <label class="checkbox-label" style="margin:0 0 10px">
-                <input type="checkbox" id="ppEnabled" ${plan.enabled ? 'checked' : ''} ${hasPaid ? 'disabled' : ''} onchange="projectPage.togglePaymentPlan(this.checked)">
-                <span class="checkbox-text">Split this invoice into scheduled payments</span>
-            </label>`;
+            <div class="due-mode" role="radiogroup" aria-label="How this invoice is paid">
+                <label class="due-mode-option">
+                    <input type="radio" name="invoiceDueMode" ${splitOn ? '' : 'checked'} ${hasPaid ? 'disabled' : ''} onchange="if (this.checked) projectPage.togglePaymentPlan(false)">
+                    <span>
+                        <strong>One payment</strong>
+                        <span class="due-mode-hint">The full balance is due on one date.</span>
+                    </span>
+                </label>
+                <label class="due-mode-option">
+                    <input type="radio" name="invoiceDueMode" ${splitOn ? 'checked' : ''} ${hasPaid ? 'disabled' : ''} onchange="if (this.checked) projectPage.togglePaymentPlan(true)">
+                    <span>
+                        <strong>Split payments</strong>
+                        <span class="due-mode-hint">A deposit and later payments, each with its own due date.</span>
+                    </span>
+                </label>
+            </div>`;
 
         if (hasPaid) {
             html += `<p class="crm-inline-note">Payments with money received stay as recorded. You can still edit or remove payments that have not been paid.</p>`;
@@ -1989,34 +2051,52 @@ class ProjectPage {
         ];
         return `
             <div class="pp-row" data-idx="${i}">
-                <input type="text" class="pp-label" placeholder="e.g., Deposit" value="${CRM.escapeHtml(inst.label || '')}"
-                    oninput="projectPage.updateInstallment(${i}, 'label', this.value)">
-                <span class="pp-percent">
-                    <input type="number" min="0" max="100" step="0.01" value="${inst.percent ?? ''}"
-                        oninput="projectPage.updateInstallment(${i}, 'percent', this.value)">%
-                </span>
-                <span class="pp-amount" id="ppAmount-${i}">${CRM.money(amount)}</span>
-                <select onchange="projectPage.updateInstallment(${i}, 'dueType', this.value)">
-                    <option value="immediate" ${inst.dueType === 'immediate' ? 'selected' : ''}>Due immediately</option>
-                    <option value="fixed" ${inst.dueType === 'fixed' ? 'selected' : ''}>Fixed date</option>
-                    <option value="relative" ${inst.dueType === 'relative' ? 'selected' : ''}>Relative to…</option>
-                </select>
-                ${inst.dueType === 'fixed' ? `
-                    <input type="date" value="${CRM.escapeHtml(inst.dueDate || '')}"
-                        onchange="projectPage.updateInstallment(${i}, 'dueDate', this.value)">` : ''}
-                ${inst.dueType === 'relative' ? `
-                    <span class="pp-relative">
-                        <input type="number" min="0" step="1" value="${offsetAbs}"
-                            oninput="projectPage.updateInstallment(${i}, 'offsetAbs', this.value)">
-                        <select onchange="projectPage.updateInstallment(${i}, 'direction', this.value)">
-                            <option value="before" ${direction === 'before' ? 'selected' : ''}>days before</option>
-                            <option value="after" ${direction === 'after' ? 'selected' : ''}>days after</option>
+                <div class="pp-card-grid">
+                    <label class="pp-field">Payment
+                        <input type="text" class="pp-label" placeholder="Deposit" value="${CRM.escapeHtml(inst.label || '')}"
+                            oninput="projectPage.updateInstallment(${i}, 'label', this.value)">
+                    </label>
+                    <label class="pp-field">Percent
+                        <span class="pp-percent">
+                            <input type="number" min="0" max="100" step="0.01" value="${inst.percent ?? ''}"
+                                oninput="projectPage.updateInstallment(${i}, 'percent', this.value)">%
+                        </span>
+                    </label>
+                    <label class="pp-field">Amount
+                        <span class="pp-amount" id="ppAmount-${i}">${CRM.money(amount)}</span>
+                    </label>
+                    <button type="button" class="crm-btn-sm danger pp-remove" onclick="projectPage.removeInstallment(${i})" title="Remove payment">Remove</button>
+                </div>
+                <div class="pp-card-due">
+                    <label class="pp-field">Due
+                        <select onchange="projectPage.updateInstallment(${i}, 'dueType', this.value)">
+                            <option value="immediate" ${inst.dueType === 'immediate' ? 'selected' : ''}>Immediately</option>
+                            <option value="fixed" ${inst.dueType === 'fixed' ? 'selected' : ''}>On a date</option>
+                            <option value="relative" ${inst.dueType === 'relative' ? 'selected' : ''}>Relative to a date</option>
                         </select>
-                        <select onchange="projectPage.updateInstallment(${i}, 'anchor', this.value)">
-                            ${anchors.map(([value, label]) => `<option value="${value}" ${inst.anchor === value ? 'selected' : ''}>${label}</option>`).join('')}
-                        </select>
-                    </span>` : ''}
-                <button type="button" class="crm-btn-sm danger" onclick="projectPage.removeInstallment(${i})" title="Remove">×</button>
+                    </label>
+                    ${inst.dueType === 'fixed' ? `
+                        <label class="pp-field">Date
+                            <input type="date" value="${CRM.escapeHtml(inst.dueDate || '')}"
+                                onchange="projectPage.updateInstallment(${i}, 'dueDate', this.value)">
+                        </label>` : ''}
+                    ${inst.dueType === 'relative' ? `
+                        <label class="pp-field">Days
+                            <input type="number" min="0" step="1" value="${offsetAbs}"
+                                oninput="projectPage.updateInstallment(${i}, 'offsetAbs', this.value)">
+                        </label>
+                        <label class="pp-field">When
+                            <select onchange="projectPage.updateInstallment(${i}, 'direction', this.value)">
+                                <option value="before" ${direction === 'before' ? 'selected' : ''}>Before</option>
+                                <option value="after" ${direction === 'after' ? 'selected' : ''}>After</option>
+                            </select>
+                        </label>
+                        <label class="pp-field">Anchor
+                            <select onchange="projectPage.updateInstallment(${i}, 'anchor', this.value)">
+                                ${anchors.map(([value, label]) => `<option value="${value}" ${inst.anchor === value ? 'selected' : ''}>${label}</option>`).join('')}
+                            </select>
+                        </label>` : ''}
+                </div>
                 ${this.reminderEditorHtml(inst.reminders, 'installment', i)}
             </div>`;
     }
@@ -2115,8 +2195,7 @@ class ProjectPage {
     renderInvoiceReminders() {
         const block = document.getElementById('invoiceReminderBlock');
         if (!block) return;
-        block.innerHTML = `<label>Payment reminder emails</label>
-            <p class="crm-inline-note" style="margin:0 0 8px">These email the client about the due date above. They do not change when payment is due.</p>
+        block.innerHTML = `<label>Reminder emails</label>
             ${this.reminderEditorHtml(this.editingInvoice.reminders, 'invoice', null)}`;
     }
 
@@ -2128,8 +2207,8 @@ class ProjectPage {
             return;
         }
         plan.enabled = enabled;
-        const reminderBlock = document.getElementById('invoiceReminderBlock');
-        if (reminderBlock) reminderBlock.hidden = !!enabled;
+        const fullDue = document.getElementById('invoiceFullDue');
+        if (fullDue) fullDue.hidden = !!enabled;
         if (enabled && plan.installments.length === 0) {
             this.applyPreset5050();
             return;

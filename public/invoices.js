@@ -128,6 +128,7 @@ class InvoicesManager {
             this.totalInvoices = data.total || 0;
             this.totalPages = data.totalPages || 1;
             this.currentPage = data.page || 1;
+            this.renderMetrics(data.summary);
         } catch (error) {
             console.error('Error loading invoices:', error);
             showAlertModal('Error loading invoices. Please try again.', 'error');
@@ -135,6 +136,27 @@ class InvoicesManager {
         } finally {
             this.showLoading(false);
         }
+    }
+
+    renderMetrics(summary) {
+        const collected = document.getElementById('metricCollected');
+        const collectedNote = document.getElementById('metricCollectedNote');
+        const open = document.getElementById('metricOpen');
+        const revenue = document.getElementById('metricRevenue');
+        if (!collected || !open || !revenue) return;
+        const stats = summary || {};
+        collected.textContent = CRM.money(stats.collectedMonth || 0, { cents: false });
+        if (collectedNote) collectedNote.textContent = stats.monthLabel || 'This month';
+        open.textContent = CRM.money(stats.openBalance || 0, { cents: false });
+        const change = stats.rollingChangePercent;
+        if (change == null || Number.isNaN(Number(change))) {
+            revenue.textContent = '—';
+            revenue.className = 'invoice-metric__value';
+            return;
+        }
+        const percent = Math.round(Number(change));
+        revenue.textContent = `${percent > 0 ? '+' : ''}${percent}%`;
+        revenue.className = `invoice-metric__value ${percent < 0 ? 'invoice-metric__value--down' : 'invoice-metric__value--up'}`;
     }
 
     showLoading(show) {

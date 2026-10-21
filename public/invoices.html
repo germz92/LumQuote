@@ -68,6 +68,30 @@
                 </div>
                 </div>
 
+                <div class="invoice-metrics" id="invoiceMetrics">
+                    <article class="invoice-metric invoice-metric--collected">
+                        <div class="invoice-metric__body">
+                            <div class="invoice-metric__label">Collected</div>
+                            <div class="invoice-metric__value invoice-metric__value--collected" id="metricCollected">—</div>
+                            <div class="invoice-metric__note" id="metricCollectedNote">This month</div>
+                        </div>
+                    </article>
+                    <article class="invoice-metric invoice-metric--open">
+                        <div class="invoice-metric__body">
+                            <div class="invoice-metric__label">Open invoices</div>
+                            <div class="invoice-metric__value invoice-metric__value--open" id="metricOpen">—</div>
+                            <div class="invoice-metric__note">Still due</div>
+                        </div>
+                    </article>
+                    <article class="invoice-metric invoice-metric--revenue">
+                        <div class="invoice-metric__body">
+                            <div class="invoice-metric__label">Revenue</div>
+                            <div class="invoice-metric__value" id="metricRevenue">—</div>
+                            <div class="invoice-metric__note">Rolling 30 days</div>
+                        </div>
+                    </article>
+                </div>
+
                 <div id="invoicesDataArea" class="quotes-data-area">
                     <div id="invoicesSkeleton" class="quotes-skeleton" aria-hidden="true"></div>
 

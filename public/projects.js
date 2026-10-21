@@ -161,6 +161,7 @@ class ProjectsManager {
             this.totalProjects = data.total || 0;
             this.totalPages = data.totalPages || 1;
             this.currentPage = data.page || 1;
+            this.renderStatusMetrics(data.statusSummary);
         } catch (error) {
             console.error('Error loading projects:', error);
             showAlertModal('Error loading projects. Please try again.', 'error');
@@ -168,6 +169,23 @@ class ProjectsManager {
         } finally {
             this.showLoading(false);
         }
+    }
+
+    renderStatusMetrics(summary) {
+        const strip = document.getElementById('projectMetrics');
+        if (strip) strip.hidden = !!this.showingArchived;
+        const stats = summary || {};
+        const fields = [
+            ['metricQuoted', stats.quoted],
+            ['metricSigned', stats.contract_signed],
+            ['metricInvoiced', stats.invoiced],
+            ['metricPartial', stats.partial],
+            ['metricPaid', stats.paid]
+        ];
+        fields.forEach(([id, value]) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = Number(value || 0).toLocaleString('en-US');
+        });
     }
 
     showLoading(show) {
@@ -223,6 +241,7 @@ class ProjectsManager {
     setListView(view) {
         if (view !== 'groups' && view !== 'projects') return;
         this.listView = view;
+        document.querySelector('.projects-table')?.classList.toggle('is-groups', view === 'groups');
         document.getElementById('viewProjectsBtn')?.classList.toggle('is-active', view === 'projects');
         document.getElementById('viewGroupsBtn')?.classList.toggle('is-active', view === 'groups');
         const groupsBar = document.getElementById('groupsViewBar');
@@ -297,9 +316,15 @@ class ProjectsManager {
             if (!isOpen) return mainRow;
             const projectRows = (group.projects || []).map((project) => `
                 <tr>
-                    <td><span class="project-name-with-group">${CRM.projectGroupIcon(project.isPrimary ? 'primary' : 'member')}<a href="/projects/${CRM.escapeHtml(project._id)}" onclick="event.stopPropagation()">${CRM.escapeHtml(project.name || 'Untitled project')}</a></span></td>
-                    <td>${CRM.escapeHtml(project.clientName || '—')}</td>
-                    <td>${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</td>
+                    <td>
+                        <span class="project-name-with-group">${CRM.projectGroupIcon(project.isPrimary ? 'primary' : 'member')}<a href="/projects/${CRM.escapeHtml(project._id)}" onclick="event.stopPropagation()">${CRM.escapeHtml(project.name || 'Untitled project')}</a></span>
+                        ${CRM.listRowMeta([
+                            project.clientName || '',
+                            CRM.formatDateRange(project.startDate, project.endDate)
+                        ])}
+                    </td>
+                    <td class="col-fold-sm">${CRM.escapeHtml(project.clientName || '—')}</td>
+                    <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</td>
                     <td>${CRM.projectStatusChip(project.status)}</td>
                 </tr>`).join('');
             return mainRow + `
@@ -308,7 +333,7 @@ class ProjectsManager {
                     <td colspan="4">
                         <table class="client-projects-table">
                             <thead>
-                                <tr><th>Project</th><th>Client</th><th>Dates</th><th>Status</th></tr>
+                                <tr><th>Project</th><th class="col-fold-sm">Client</th><th class="col-fold-sm">Dates</th><th>Status</th></tr>
                             </thead>
                             <tbody>${projectRows}</tbody>
                         </table>

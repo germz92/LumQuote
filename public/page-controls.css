@@ -270,21 +270,19 @@ input.pc-select {
   box-shadow: var(--shadow-sm);
 }
 
-body[data-app-page="projects"] .quotes-list-scroll,
 body[data-app-page="quotes"] .quotes-list-scroll,
 body[data-app-page="clients"] .quotes-list-scroll,
+body[data-app-page="projects"] .quotes-list-scroll,
 body[data-app-page="invoices"] .quotes-list-scroll {
   overflow: auto;
   max-height: max(360px, calc(100vh - 310px));
 }
 
-body[data-app-page="invoices"] .quotes-list-view {
-  min-width: 0;
-  width: 100%;
-}
-
+body[data-app-page="projects"] .quotes-list-scroll,
 body[data-app-page="invoices"] .quotes-list-scroll {
   overflow-x: hidden;
+  overflow-y: auto;
+  max-height: max(360px, calc(100vh - 360px));
 }
 
 body[data-app-page="quotes"] .quotes-data-area > .quotes-grid {
@@ -292,10 +290,101 @@ body[data-app-page="quotes"] .quotes-data-area > .quotes-grid {
   max-height: max(360px, calc(100vh - 310px));
 }
 
+/* ---------- Full-height list pages (desktop) ----------
+   Quotes, Clients, Leads, Projects, and Invoices never scroll the page;
+   the header and controls stay put and only the table scrolls. Detail pages
+   (project, lead) do not have .quotes-page-section and are left alone. */
+
+@media (min-width: 769px) {
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) .container {
+    height: 100vh;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) #app-shell-mount {
+    flex: 0 0 auto;
+  }
+
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) .main-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-4);
+    overflow: hidden;
+  }
+
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) .quotes-page-section {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 0;
+    padding-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) .page-controls-sticky {
+    position: static;
+    flex: 0 0 auto;
+    margin-bottom: var(--space-3);
+  }
+
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) .quotes-data-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) .quotes-data-area > .quotes-list-scroll,
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) .quotes-data-area > .quotes-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) .pagination-container {
+    flex: 0 0 auto;
+    margin-top: 0;
+    padding: var(--space-3) 0 0;
+  }
+
+  body:is([data-app-page="quotes"], [data-app-page="clients"], [data-app-page="leads"], [data-app-page="projects"], [data-app-page="invoices"]):has(.quotes-page-section) .pagination-container:empty {
+    display: none;
+  }
+}
+
+/* Leads collapses to a single column below 960px and needs the page to scroll again */
+@media (min-width: 769px) and (max-width: 960px) {
+  body[data-app-page="leads"]:has(.quotes-page-section) {
+    height: auto;
+    overflow: auto;
+  }
+
+  body[data-app-page="leads"]:has(.quotes-page-section) .container,
+  body[data-app-page="leads"]:has(.quotes-page-section) .main-content,
+  body[data-app-page="leads"]:has(.quotes-page-section) .quotes-page-section {
+    height: auto;
+    overflow: visible;
+    display: block;
+  }
+}
+
 body[data-app-page="projects"] .quotes-list-scroll .quotes-table thead th,
+body[data-app-page="invoices"] .quotes-list-scroll .quotes-table thead th,
 body[data-app-page="quotes"] .quotes-list-scroll .quotes-table thead th,
-body[data-app-page="clients"] .quotes-list-scroll .quotes-table thead th,
-body[data-app-page="invoices"] .quotes-list-scroll .quotes-table thead th {
+body[data-app-page="clients"] .quotes-list-scroll .quotes-table thead th {
   position: sticky;
   top: 0;
   z-index: 2;
@@ -521,6 +610,96 @@ body[data-app-page="invoices"] .quotes-list-scroll .quotes-table thead th {
   .invoice-plan-panel {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  body[data-app-page="projects"] .projects-table,
+  body[data-app-page="invoices"] .invoices-table,
+  body[data-app-page="projects"] .projects-table > thead,
+  body[data-app-page="projects"] .projects-table > tbody,
+  body[data-app-page="invoices"] .invoices-table > thead,
+  body[data-app-page="invoices"] .invoices-table > tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  body[data-app-page="projects"] .projects-table > thead > tr,
+  body[data-app-page="projects"] .projects-table > tbody > tr.quote-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    width: 100%;
+  }
+
+  body[data-app-page="projects"] .projects-table.is-groups > thead > tr,
+  body[data-app-page="projects"] .projects-table > tbody > tr.client-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: center;
+    width: 100%;
+  }
+
+  body[data-app-page="invoices"] .invoices-table > thead > tr,
+  body[data-app-page="invoices"] .invoices-table > tbody > tr.invoice-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto auto;
+    align-items: center;
+    width: 100%;
+  }
+
+  body[data-app-page="projects"] .projects-table th,
+  body[data-app-page="projects"] .projects-table td,
+  body[data-app-page="invoices"] .invoices-table th,
+  body[data-app-page="invoices"] .invoices-table td {
+    width: auto !important;
+    min-width: 0;
+    max-width: none;
+    overflow: visible;
+    text-overflow: unset;
+  }
+
+  body[data-app-page="projects"] .projects-table .crm-project-name,
+  body[data-app-page="invoices"] .invoices-table .invoice-number {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  body[data-app-page="projects"] .projects-table tr.client-projects-row,
+  body[data-app-page="invoices"] .invoices-table tr.invoice-plan-row {
+    display: block;
+    width: 100%;
+  }
+
+  body[data-app-page="projects"] .projects-table tr.client-projects-row > td,
+  body[data-app-page="invoices"] .invoices-table tr.invoice-plan-row > td {
+    display: block;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  body[data-app-page="projects"] .projects-table tr.client-projects-row > td:empty {
+    display: none;
+  }
+
+  .client-projects-table {
+    display: table;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .invoice-plan-table {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .invoice-plan-table th,
+  .invoice-plan-table td {
+    white-space: normal;
+  }
+
+  .crm-status-select {
+    max-width: 8.5rem;
   }
 
   .quotes-skeleton--list .skeleton-row {

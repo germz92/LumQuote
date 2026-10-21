@@ -71,6 +71,8 @@
   /* Layout */
   --app-max-width: 1400px;
   --app-topbar-height: 56px;
+  --app-sidebar-width: 232px;
+  --app-sidebar-collapsed-width: 64px;
   --transition-fast: 150ms ease;
   --transition-base: 200ms ease;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);

@@ -1,6 +1,15 @@
 /**
  * Shared app shell — nav, page header, profile menu, logout (Phase 1)
  */
+const APP_NAV_ICONS = {
+    projects: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+    quotes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>',
+    leads: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    invoices: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    clients: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
+};
+
 const APP_NAV = [
     { id: 'projects', label: 'Projects', href: '/projects' },
     { id: 'quotes', label: 'Quotes', href: '/quotes' },
@@ -10,10 +19,27 @@ const APP_NAV = [
     { id: 'calendar', label: 'Calendar', href: '/calendar' }
 ];
 
+const SIDEBAR_COLLAPSED_KEY = 'lumquote_sidebar_collapsed';
+
+// Apply the saved state before the shell mounts so the layout does not jump.
+// The sidebar starts collapsed unless the user has explicitly expanded it.
+(function applySavedSidebarState() {
+    let collapsed = true;
+    try {
+        collapsed = localStorage.getItem(SIDEBAR_COLLAPSED_KEY) !== '0';
+    } catch (error) {
+        // localStorage can be unavailable; fall back to the collapsed default.
+    }
+    if (collapsed) {
+        document.documentElement.classList.add('app-sidebar-collapsed');
+    }
+})();
+
 const AppShell = {
     currentUser: null,
     profileMenuOpen: false,
     mobileNavOpen: false,
+    sidebarCollapsed: false,
 
     init() {
         const body = document.body;
@@ -24,13 +50,15 @@ const AppShell = {
         const subtitle = body.dataset.appSubtitle || '';
         const showBack = body.dataset.appShowBack === 'true';
 
+        this.sidebarCollapsed = document.documentElement.classList.contains('app-sidebar-collapsed');
         this.mount(page, { title, subtitle, showBack });
         this.initProfileMenu();
         this.initMobileNav();
+        this.initSidebar();
         this.refreshUserProfile();
         this.refreshUnseenLeads(page === 'leads');
-        this.updateLayoutOffsets();
         body.classList.add('app-has-shell');
+        this.updateLayoutOffsets();
     },
 
     async refreshUnseenLeads(markSeen) {
@@ -62,14 +90,12 @@ const AppShell = {
 
     updateLayoutOffsets() {
         const topbar = document.querySelector('.app-topbar');
-        const topbarInner = document.querySelector('.app-topbar-inner');
-        const topbarHeight = topbar?.offsetHeight || topbarInner?.offsetHeight;
-        if (topbarHeight) {
-            document.documentElement.style.setProperty('--app-topbar-height', `${topbarHeight}px`);
-            const shellBody = document.querySelector('.app-shell-body');
-            if (shellBody) {
-                shellBody.style.paddingTop = `${topbarHeight}px`;
-            }
+        // The slim top bar only exists on mobile; on desktop it is display:none and measures 0.
+        const topbarHeight = topbar ? topbar.offsetHeight : 0;
+        document.documentElement.style.setProperty('--app-topbar-height', `${topbarHeight}px`);
+        const shellBody = document.querySelector('.app-shell-body');
+        if (shellBody) {
+            shellBody.style.paddingTop = `${topbarHeight}px`;
         }
 
         const pageControls = document.querySelector('.page-controls-sticky') || document.querySelector('.quotes-sticky-chrome');
@@ -105,12 +131,11 @@ const AppShell = {
 
         const navHtml = APP_NAV.map((item) => {
             const active = item.id === activePage ? ' is-active' : '';
-            return `<a href="${item.href}" class="app-nav-link${active}" data-nav="${item.id}">${item.label}</a>`;
-        }).join('');
-
-        const drawerNavHtml = APP_NAV.map((item) => {
-            const active = item.id === activePage ? ' is-active' : '';
-            return `<a href="${item.href}" class="app-mobile-nav-link${active}" data-nav="${item.id}">${item.label}</a>`;
+            const icon = APP_NAV_ICONS[item.id] || '';
+            return `<a href="${item.href}" class="app-nav-link${active}" data-nav="${item.id}" title="${item.label}"${active ? ' aria-current="page"' : ''}>
+                <span class="app-nav-link-icon">${icon}</span>
+                <span class="app-nav-link-label">${item.label}</span>
+            </a>`;
         }).join('');
 
         const backBtn = options.showBack
@@ -129,70 +154,93 @@ const AppShell = {
         <div class="app-shell">
             <header class="app-topbar">
                 <div class="app-topbar-inner">
+                    <button
+                        type="button"
+                        class="app-nav-toggle"
+                        id="appNavToggle"
+                        aria-label="Open menu"
+                        aria-expanded="false"
+                        aria-controls="appSidebar"
+                    >
+                        <span class="app-nav-toggle-bars" aria-hidden="true">
+                            <span></span><span></span><span></span>
+                        </span>
+                    </button>
                     <div class="app-brand">
                         <img src="/assets/logo.png" alt="Lumetry Media" class="app-brand-logo" onclick="window.location.href='/quotes'">
                     </div>
-                    <nav class="app-nav app-nav--desktop" aria-label="Main">${navHtml}</nav>
-                    <div class="app-shell-util">
-                        <button
-                            type="button"
-                            class="app-nav-toggle"
-                            id="appNavToggle"
-                            aria-label="Open menu"
-                            aria-expanded="false"
-                            aria-controls="appMobileNav"
-                        >
-                            <span class="app-nav-toggle-bars" aria-hidden="true">
-                                <span></span><span></span><span></span>
-                            </span>
-                        </button>
-                        <div class="app-profile-menu" id="appProfileMenu">
-                            <button
-                                type="button"
-                                class="app-profile-trigger"
-                                id="appProfileTrigger"
-                                aria-haspopup="menu"
-                                aria-expanded="false"
-                                aria-controls="appProfileDropdown"
-                                aria-label="Account menu"
-                            >
-                                <span class="app-profile-avatar" id="appProfileAvatar" aria-hidden="true"></span>
-                            </button>
-                            <div
-                                class="app-profile-dropdown"
-                                id="appProfileDropdown"
-                                role="menu"
-                                hidden
-                            >
-                                <div class="app-profile-dropdown-header">
-                                    <span class="app-profile-avatar app-profile-avatar--lg" id="appProfileDropdownAvatar" aria-hidden="true"></span>
-                                    <div class="app-profile-dropdown-meta">
-                                        <div class="app-profile-dropdown-name" id="appProfileDropdownName"></div>
-                                        <div class="app-profile-dropdown-email" id="appProfileDropdownEmail"></div>
-                                    </div>
-                                </div>
-                                <a href="/reports" class="app-profile-dropdown-item" role="menuitem" data-profile-admin-only hidden>Reports</a>
-                                <a href="/admin" class="app-profile-dropdown-item" role="menuitem" data-profile-admin-only hidden>Admin</a>
-                                <label class="app-profile-dropdown-item app-profile-dropdown-item--action" role="menuitem">
-                                    <span>Update photo</span>
-                                    <input type="file" id="appProfilePhotoInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
-                                </label>
-                                <button type="button" class="app-profile-dropdown-item app-profile-dropdown-item--action" id="appProfileRemovePhoto" role="menuitem" hidden>Remove photo</button>
-                                <div class="app-profile-dropdown-divider" role="separator"></div>
-                                <button type="button" class="app-profile-dropdown-item app-profile-dropdown-item--danger" role="menuitem" onclick="logout()">Log out</button>
-                            </div>
-                        </div>
-                    </div>
+                    <button type="button" class="app-topbar-account" id="appTopbarAccount" aria-label="Open menu">
+                        <span class="app-profile-avatar" id="appTopbarAvatar" aria-hidden="true"></span>
+                    </button>
                 </div>
             </header>
-            <div class="app-mobile-nav-backdrop" id="appMobileNavBackdrop" aria-hidden="true"></div>
-            <nav class="app-mobile-nav" id="appMobileNav" aria-label="Mobile main" aria-hidden="true">
-                <div class="app-mobile-nav-header">
-                    <span class="app-mobile-nav-title">Menu</span>
-                    <button type="button" class="app-mobile-nav-close" id="appMobileNavClose" aria-label="Close menu">&times;</button>
+            <div class="app-sidebar-backdrop" id="appMobileNavBackdrop" aria-hidden="true"></div>
+            <aside class="app-sidebar" id="appSidebar" aria-label="Main">
+                <div class="app-sidebar-top">
+                    <a href="/quotes" class="app-sidebar-brand" aria-label="Lumetry Media">
+                        <img src="/assets/logo.png" alt="" class="app-sidebar-brand-full">
+                        <img src="/assets/lumquote_transparent_favicon.png" alt="" class="app-sidebar-brand-mark">
+                    </a>
+                    <button type="button" class="app-sidebar-close" id="appMobileNavClose" aria-label="Close menu">&times;</button>
                 </div>
-                <div class="app-mobile-nav-links">${drawerNavHtml}</div>
-            </nav>
+                <nav class="app-sidebar-nav" aria-label="Main">${navHtml}</nav>
+                <button
+                    type="button"
+                    class="app-sidebar-collapse"
+                    id="appSidebarCollapse"
+                    aria-expanded="${this.sidebarCollapsed ? 'false' : 'true'}"
+                    aria-label="${this.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}"
+                    title="${this.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}"
+                >
+                    <span class="app-nav-link-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                    </span>
+                    <span class="app-nav-link-label">Collapse</span>
+                </button>
+                <div class="app-profile-menu app-sidebar-account" id="appProfileMenu">
+                    <div
+                        class="app-profile-dropdown"
+                        id="appProfileDropdown"
+                        role="menu"
+                        hidden
+                    >
+                        <div class="app-profile-dropdown-header">
+                            <span class="app-profile-avatar app-profile-avatar--lg" id="appProfileDropdownAvatar" aria-hidden="true"></span>
+                            <div class="app-profile-dropdown-meta">
+                                <div class="app-profile-dropdown-name" id="appProfileDropdownName"></div>
+                                <div class="app-profile-dropdown-email" id="appProfileDropdownEmail"></div>
+                            </div>
+                        </div>
+                        <a href="/reports" class="app-profile-dropdown-item" role="menuitem" data-profile-admin-only hidden>Reports</a>
+                        <a href="/admin" class="app-profile-dropdown-item" role="menuitem" data-profile-admin-only hidden>Admin</a>
+                        <label class="app-profile-dropdown-item app-profile-dropdown-item--action" role="menuitem">
+                            <span>Update photo</span>
+                            <input type="file" id="appProfilePhotoInput" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+                        </label>
+                        <button type="button" class="app-profile-dropdown-item app-profile-dropdown-item--action" id="appProfileRemovePhoto" role="menuitem" hidden>Remove photo</button>
+                        <div class="app-profile-dropdown-divider" role="separator"></div>
+                        <button type="button" class="app-profile-dropdown-item app-profile-dropdown-item--danger" role="menuitem" onclick="logout()">Log out</button>
+                    </div>
+                    <button
+                        type="button"
+                        class="app-profile-trigger"
+                        id="appProfileTrigger"
+                        aria-haspopup="menu"
+                        aria-expanded="false"
+                        aria-controls="appProfileDropdown"
+                        aria-label="Account menu"
+                    >
+                        <span class="app-profile-avatar" id="appProfileAvatar" aria-hidden="true"></span>
+                        <span class="app-profile-trigger-meta">
+                            <span class="app-profile-trigger-name" id="appProfileTriggerName">Account</span>
+                            <span class="app-profile-trigger-hint">Account menu</span>
+                        </span>
+                        <span class="app-profile-trigger-chevron" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                        </span>
+                    </button>
+                </div>
+            </aside>
             <div class="app-shell-body">
                 <div class="app-shell-inner">
                     <div class="app-page-header">
@@ -277,12 +325,15 @@ const AppShell = {
 
         this.mountAvatar(document.getElementById('appProfileAvatar'), user);
         this.mountAvatar(document.getElementById('appProfileDropdownAvatar'), user);
+        this.mountAvatar(document.getElementById('appTopbarAvatar'), user);
 
         const nameEl = document.getElementById('appProfileDropdownName');
+        const triggerNameEl = document.getElementById('appProfileTriggerName');
         const emailEl = document.getElementById('appProfileDropdownEmail');
         const removeBtn = document.getElementById('appProfileRemovePhoto');
 
         if (nameEl) nameEl.textContent = user.name;
+        if (triggerNameEl) triggerNameEl.textContent = user.name;
         if (emailEl) {
             emailEl.textContent = user.email || '';
             emailEl.hidden = !user.email;
@@ -335,7 +386,6 @@ const AppShell = {
 
         trigger.addEventListener('click', (event) => {
             event.stopPropagation();
-            this.setMobileNavOpen(false);
             this.setProfileMenuOpen(!this.profileMenuOpen);
         });
 
@@ -374,9 +424,10 @@ const AppShell = {
 
     initMobileNav() {
         const toggle = document.getElementById('appNavToggle');
-        const drawer = document.getElementById('appMobileNav');
+        const drawer = document.getElementById('appSidebar');
         const backdrop = document.getElementById('appMobileNavBackdrop');
         const closeBtn = document.getElementById('appMobileNavClose');
+        const accountBtn = document.getElementById('appTopbarAccount');
         if (!toggle || !drawer || !backdrop) return;
 
         toggle.addEventListener('click', (event) => {
@@ -385,10 +436,17 @@ const AppShell = {
             this.setMobileNavOpen(!this.mobileNavOpen);
         });
 
+        // The mobile avatar opens the drawer and jumps to the account menu at its foot.
+        accountBtn?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.setMobileNavOpen(true);
+            this.setProfileMenuOpen(true);
+        });
+
         closeBtn?.addEventListener('click', () => this.setMobileNavOpen(false));
         backdrop.addEventListener('click', () => this.setMobileNavOpen(false));
 
-        drawer.querySelectorAll('a.app-mobile-nav-link').forEach((link) => {
+        drawer.querySelectorAll('a.app-nav-link').forEach((link) => {
             link.addEventListener('click', () => this.setMobileNavOpen(false));
         });
 
@@ -402,7 +460,7 @@ const AppShell = {
     setMobileNavOpen(open) {
         this.mobileNavOpen = open;
         const toggle = document.getElementById('appNavToggle');
-        const drawer = document.getElementById('appMobileNav');
+        const drawer = document.getElementById('appSidebar');
         const backdrop = document.getElementById('appMobileNavBackdrop');
         if (!toggle || !drawer || !backdrop) return;
 
@@ -411,13 +469,41 @@ const AppShell = {
         toggle.classList.toggle('is-open', open);
         drawer.classList.toggle('is-open', open);
         backdrop.classList.toggle('is-open', open);
-        drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
         backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
         document.body.classList.toggle('app-mobile-nav-open', open);
 
         if (open) {
             document.getElementById('appMobileNavClose')?.focus();
+        } else {
+            this.setProfileMenuOpen(false);
         }
+    },
+
+    initSidebar() {
+        const button = document.getElementById('appSidebarCollapse');
+        if (!button) return;
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.setSidebarCollapsed(!this.sidebarCollapsed);
+        });
+    },
+
+    setSidebarCollapsed(collapsed) {
+        this.sidebarCollapsed = collapsed;
+        document.documentElement.classList.toggle('app-sidebar-collapsed', collapsed);
+        try {
+            localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+        } catch (error) {
+            // Preference simply will not persist without storage.
+        }
+        const button = document.getElementById('appSidebarCollapse');
+        if (button) {
+            const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
+            button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            button.setAttribute('aria-label', label);
+            button.setAttribute('title', label);
+        }
+        this.setProfileMenuOpen(false);
     },
 
     setProfileMenuOpen(open) {
