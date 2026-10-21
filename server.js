@@ -2412,7 +2412,8 @@ function normalizeQuoteTemplateData(raw) {
 // ============================================
 // CRM (projects, clients, contracts, invoices)
 // ============================================
-require('./lib/crm-routes')(app, {
+const registerCrmRoutes = require('./lib/crm-routes');
+registerCrmRoutes(app, {
   requireAuth,
   requireApiAuth,
   SavedQuote,
@@ -2420,6 +2421,12 @@ require('./lib/crm-routes')(app, {
   getOrCreateUserRecord: (userName) => getOrCreateUserRecord(userName),
   generateQuoteHTML
 });
+setInterval(() => {
+  registerCrmRoutes.runPaymentReminders();
+}, 60 * 60 * 1000);
+setTimeout(() => {
+  registerCrmRoutes.runPaymentReminders();
+}, 20000);
 
 // User management endpoints
 app.get('/api/users', async (req, res) => {

@@ -1583,6 +1583,11 @@ class ProjectPage {
                         <label>Due Date</label>
                         <input type="date" id="invDueDate" value="${CRM.escapeHtml(inv.dueDate || '')}">
                     </div>
+                    <div class="form-group form-group--full invoice-reminder-block" id="invoiceReminderBlock" ${inv.paymentPlan?.enabled ? 'hidden' : ''}>
+                        <label>Payment reminder emails</label>
+                        <p class="crm-inline-note" style="margin:0 0 8px">These email the client about the due date above. They do not change when payment is due.</p>
+                        ${this.reminderEditorHtml(inv.reminders, 'invoice', null)}
+                    </div>
                     <div class="form-group form-group--full">
                         <label>Note at top of invoice</label>
                         <textarea id="invHeaderNote" rows="2" placeholder="Optional message shown above the line items">${CRM.escapeHtml(inv.headerNote || '')}</textarea>
@@ -1915,7 +1920,7 @@ class ProjectPage {
         );
     }
 
-    paidInstallmentHtml(inst) {
+    paidInstallmentHtml(inst, i) {
         const label = CRM.escapeHtml(inst.label || 'Payment');
         const remaining = this.installmentRemaining(inst);
         const stillDue = inst.status === 'partial'
@@ -1926,6 +1931,7 @@ class ProjectPage {
                 <strong>${label}</strong> — ${inst.percent}% (${CRM.money(inst.amount)})
                 ${this.paymentLinesHtml(inst)}
                 ${stillDue}
+                ${inst.status === 'partial' ? this.reminderEditorHtml(inst.reminders, 'installment', i) : ''}
             </div>`;
     }
 
@@ -1956,7 +1962,7 @@ class ProjectPage {
 
             html += plan.installments.map((inst, i) => (
                 inst.status === 'paid' || inst.status === 'partial'
-                    ? this.paidInstallmentHtml(inst)
+                    ? this.paidInstallmentHtml(inst, i)
                     : this.installmentRowHtml(inst, i, total)
             )).join('');
             html += `
@@ -2011,7 +2017,107 @@ class ProjectPage {
                         </select>
                     </span>` : ''}
                 <button type="button" class="crm-btn-sm danger" onclick="projectPage.removeInstallment(${i})" title="Remove">×</button>
+                ${this.reminderEditorHtml(inst.reminders, 'installment', i)}
             </div>`;
+    }
+
+    reminderList(raw) {
+        if (!Array.isArray(raw)) return [{ kind: 'due', daysBefore: 0, daysAfter: 0 }];
+        return raw.map((reminder) => {
+            const kind = reminder?.kind === 'overdue' ? 'overdue' : 'due';
+            const days = kind === 'overdue'
+                ? Math.max(1, Math.min(365, Math.round(Number(reminder?.daysAfter ?? reminder?.daysBefore) || 1)))
+                : Math.max(0, Math.min(365, Math.round(Number(reminder?.daysBefore) || 0)));
+            return kind === 'overdue'
+                ? { kind, daysBefore: 0, daysAfter: days }
+                : { kind: 'due', daysBefore: days, daysAfter: 0 };
+        });
+    }
+
+    reminderEditorHtml(raw, kind, index) {
+        const reminders = this.reminderList(raw);
+        const indexArg = index == null ? 'null' : index;
+        const rows = reminders.map((reminder, reminderIndex) => {
+            const overdue = reminder.kind === 'overdue';
+            const days = overdue ? reminder.daysAfter : reminder.daysBefore;
+            const overdueTip = 'Only sends if the invoice is still unpaid.';
+            return `
+            <span class="pp-reminder">
+                <select aria-label="Reminder email type" onchange="projectPage.updateReminderKind('${kind}', ${indexArg}, ${reminderIndex}, this.value)">
+                    <option value="due" ${overdue ? '' : 'selected'}>Payment due</option>
+                    <option value="overdue" ${overdue ? 'selected' : ''}>Overdue</option>
+                </select>
+                <input type="number" min="${overdue ? 1 : 0}" max="365" step="1" value="${days}" aria-label="${overdue ? 'Days after the due date to email the client' : 'Days before the due date to email the client'}"
+                    onchange="projectPage.updateReminder('${kind}', ${indexArg}, ${reminderIndex}, this.value)">
+                <span>${overdue ? 'days after the due date' : 'days before the due date'}</span>
+                ${overdue ? `<button type="button" class="pp-reminder-tip" title="${overdueTip}" aria-label="${overdueTip}">i</button>` : ''}
+                <button type="button" class="crm-btn-sm" onclick="projectPage.removeReminder('${kind}', ${indexArg}, ${reminderIndex})">Remove email</button>
+            </span>`;
+        }).join('');
+        return `<div class="pp-reminders">
+            ${rows}
+            <span class="pp-reminder-actions">
+                <button type="button" class="crm-btn-sm" onclick="projectPage.addReminder('${kind}', ${indexArg}, 'due')">Add payment due email</button>
+                <button type="button" class="crm-btn-sm" title="Only sends if the invoice is still unpaid." onclick="projectPage.addReminder('${kind}', ${indexArg}, 'overdue')">Add overdue email</button>
+            </span>
+        </div>`;
+    }
+
+    reminderTarget(kind, index) {
+        if (kind === 'invoice') {
+        if (!Array.isArray(this.editingInvoice.reminders)) this.editingInvoice.reminders = [{ kind: 'due', daysBefore: 0, daysAfter: 0 }];
+            return this.editingInvoice.reminders;
+        }
+        const inst = this.editingInvoice?.paymentPlan?.installments?.[index];
+        if (!inst) return null;
+        if (!Array.isArray(inst.reminders)) inst.reminders = [{ kind: 'due', daysBefore: 0, daysAfter: 0 }];
+        return inst.reminders;
+    }
+
+    updateReminder(kind, index, reminderIndex, value) {
+        const list = this.reminderTarget(kind, index);
+        if (!list || !list[reminderIndex]) return;
+        const overdue = list[reminderIndex].kind === 'overdue';
+        const days = Math.max(overdue ? 1 : 0, Math.min(365, Math.round(Number(value) || 0)));
+        if (overdue) list[reminderIndex].daysAfter = days;
+        else list[reminderIndex].daysBefore = days;
+    }
+
+    updateReminderKind(kind, index, reminderIndex, value) {
+        const list = this.reminderTarget(kind, index);
+        if (!list || !list[reminderIndex]) return;
+        const next = value === 'overdue' ? 'overdue' : 'due';
+        list[reminderIndex].kind = next;
+        if (next === 'overdue' && !(Number(list[reminderIndex].daysAfter) >= 1)) list[reminderIndex].daysAfter = 1;
+        if (next === 'due' && list[reminderIndex].daysBefore == null) list[reminderIndex].daysBefore = 0;
+        if (kind === 'invoice') this.renderInvoiceReminders();
+        else this.renderPaymentPlan();
+    }
+
+    addReminder(kind, index, emailKind) {
+        const list = this.reminderTarget(kind, index);
+        if (!list) return;
+        list.push(emailKind === 'overdue'
+            ? { kind: 'overdue', daysBefore: 0, daysAfter: 1 }
+            : { kind: 'due', daysBefore: 0, daysAfter: 0 });
+        if (kind === 'invoice') this.renderInvoiceReminders();
+        else this.renderPaymentPlan();
+    }
+
+    removeReminder(kind, index, reminderIndex) {
+        const list = this.reminderTarget(kind, index);
+        if (!list) return;
+        list.splice(reminderIndex, 1);
+        if (kind === 'invoice') this.renderInvoiceReminders();
+        else this.renderPaymentPlan();
+    }
+
+    renderInvoiceReminders() {
+        const block = document.getElementById('invoiceReminderBlock');
+        if (!block) return;
+        block.innerHTML = `<label>Payment reminder emails</label>
+            <p class="crm-inline-note" style="margin:0 0 8px">These email the client about the due date above. They do not change when payment is due.</p>
+            ${this.reminderEditorHtml(this.editingInvoice.reminders, 'invoice', null)}`;
     }
 
     togglePaymentPlan(enabled) {
@@ -2022,6 +2128,8 @@ class ProjectPage {
             return;
         }
         plan.enabled = enabled;
+        const reminderBlock = document.getElementById('invoiceReminderBlock');
+        if (reminderBlock) reminderBlock.hidden = !!enabled;
         if (enabled && plan.installments.length === 0) {
             this.applyPreset5050();
             return;
@@ -2034,8 +2142,8 @@ class ProjectPage {
         this.editingInvoice.paymentPlan = {
             enabled: true,
             installments: [
-                { label: 'Deposit', percent: 50, dueType: 'immediate', dueDate: null, anchor: 'project_start', offsetDays: 0 },
-                { label: 'Final Payment', percent: 50, dueType: 'relative', dueDate: null, anchor: 'project_start', offsetDays: 0 }
+                { label: 'Deposit', percent: 50, dueType: 'immediate', dueDate: null, anchor: 'project_start', offsetDays: 0, reminders: [{ daysBefore: 0 }] },
+                { label: 'Final Payment', percent: 50, dueType: 'relative', dueDate: null, anchor: 'project_start', offsetDays: 0, reminders: [{ daysBefore: 0 }] }
             ]
         };
         this.renderPaymentPlan();
@@ -2043,7 +2151,7 @@ class ProjectPage {
 
     addInstallment() {
         this.editingInvoice.paymentPlan.installments.push({
-            label: '', percent: 0, dueType: 'immediate', dueDate: null, anchor: 'project_start', offsetDays: 0, sourceIndex: null
+            label: '', percent: 0, dueType: 'immediate', dueDate: null, anchor: 'project_start', offsetDays: 0, sourceIndex: null, reminders: [{ daysBefore: 0 }]
         });
         this.renderPaymentPlan();
     }
@@ -2167,6 +2275,7 @@ class ProjectPage {
             footerNote: document.getElementById('invFooterNote').value,
             issueDate: document.getElementById('invIssueDate').value || null,
             dueDate: document.getElementById('invDueDate').value || null,
+            reminders: Array.isArray(this.editingInvoice.reminders) ? this.editingInvoice.reminders : [{ daysBefore: 0 }],
             from: party('invFrom'),
             to: party('invTo'),
             lineItems: this.editingInvoice.lineItems,
@@ -2182,7 +2291,8 @@ class ProjectPage {
                     dueType: inst.dueType,
                     dueDate: inst.dueDate || null,
                     anchor: inst.anchor,
-                    offsetDays: inst.offsetDays || 0
+                    offsetDays: inst.offsetDays || 0,
+                    reminders: Array.isArray(inst.reminders) ? inst.reminders : [{ daysBefore: 0 }]
                 };
                 if (Number.isInteger(inst.sourceIndex)) row.sourceIndex = inst.sourceIndex;
                 return row;

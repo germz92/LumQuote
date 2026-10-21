@@ -1963,6 +1963,48 @@ button.client-dropdown-item.is-active {
 .pp-relative { display: inline-flex; align-items: center; gap: 6px; }
 .pp-relative input { width: 60px; text-align: right; }
 
+.pp-reminders {
+  flex: 1 1 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.pp-reminder-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.pp-reminder {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.pp-reminder input { width: 64px; text-align: right; }
+.pp-reminder-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-style: italic;
+  line-height: 1;
+  cursor: help;
+}
+
+.invoice-reminder-block { margin-top: 8px; }
+.invoice-reminder-block[hidden] { display: none !important; }
+
 .pp-row-static { padding: 6px 0; font-size: var(--font-size-sm); }
 
 .crm-overview-grid {
