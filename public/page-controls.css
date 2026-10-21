@@ -438,15 +438,23 @@ body[data-app-page="clients"] .quotes-list-scroll .quotes-table thead th {
 
   .pc-toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     width: 100%;
     min-width: 0;
   }
 
+  /* Search gets the whole first row on every list page, so the typed text stays visible */
   .pc-toolbar .pc-search {
-    flex: 1 1 auto;
+    flex: 1 0 100%;
+    width: 100%;
     min-width: 0;
+  }
+
+  .pc-search input {
+    height: 44px;
+    font-size: 16px;
   }
 
   .pc-filters-toggle {
