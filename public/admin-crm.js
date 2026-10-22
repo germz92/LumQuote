@@ -58,9 +58,17 @@ function leadFormEmbedSnippet() {
 ${squarespaceEmbedScriptTag()}`;
 }
 
+/*
+ * The calculator sits in a Squarespace Code block, not an Embed block, so it
+ * has no 16:9 spacer. The Embed-block negative margin would pull the next
+ * section up over the card. Height still uses the same clamp so the page
+ * fits without scripts.
+ */
+const SQUARESPACE_CODE_IFRAME_STYLE = 'display:block;width:100%;height:clamp(760px,calc(4060px - 500vw),1280px);border:0;';
+
 function estimateEmbedSnippet() {
     const origin = leadFormPublicOrigin();
-    return `<iframe id="lumquote-estimate" src="${origin}/estimate" title="Photography estimate" style="${SQUARESPACE_IFRAME_STYLE}"></iframe>
+    return `<iframe id="lumquote-estimate" src="${origin}/estimate" title="Photography estimate" style="${SQUARESPACE_CODE_IFRAME_STYLE}"></iframe>
 ${squarespaceEmbedScriptTag()}`;
 }
 
@@ -80,7 +88,7 @@ async function copyEstimateEmbed() {
     const snippet = estimateEmbedSnippet();
     try {
         await navigator.clipboard.writeText(snippet);
-        showAlertModal('Estimate embed copied. In Squarespace, add an Embed block, choose Code snippet, and paste it.', 'success', null, true);
+        showAlertModal('Estimate embed copied. Paste it into the Squarespace Code block on the calculator page.', 'success', null, true);
     } catch (error) {
         const code = document.getElementById('estimateEmbed');
         if (code) {
