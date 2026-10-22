@@ -1,8 +1,12 @@
 /*
- * Runs on the Squarespace page (code block or footer code injection).
- * Squarespace Embed blocks pin iframes to a 16:9 box with position:absolute,
- * so on a phone the form draws on top of the blocks under it. This listens
- * for the form's height and puts that iframe back in normal flow.
+ * Runs on the Squarespace page, loaded from the Embed block snippet (or footer
+ * code injection on plans that have it). Squarespace Embed blocks pin iframes
+ * to a 16:9 box with position:absolute, so on a phone the form draws on top of
+ * the blocks under it. The snippet's inline style already handles that without
+ * JavaScript; this script tightens the frame to the form's exact height.
+ *
+ * Squarespace disables embedded scripts while you are logged in and editing,
+ * so the editor preview only ever shows the inline-style fallback.
  */
 (function () {
     if (window.__lumquoteSquarespaceEmbed) return;
@@ -40,6 +44,9 @@
         frame.style.setProperty('min-height', '0', 'important');
         frame.style.setProperty('max-height', 'none', 'important');
         frame.style.setProperty('display', 'block', 'important');
+        // The no-script embed style uses a negative bottom margin to cancel the
+        // wrapper's 16:9 padding. We zero that padding below, so drop the margin too.
+        frame.style.setProperty('margin', '0', 'important');
 
         var node = frame.parentElement;
         for (var i = 0; node && node !== document.body && i < 6; i++) {

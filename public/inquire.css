@@ -1,14 +1,23 @@
+/*
+ * Embedded in a fixed-height iframe on Squarespace, which cannot resize it.
+ * Keep the background transparent so any spare room below the form shows the
+ * host page instead of a tinted band, and keep the layout compact.
+ */
+html,
 body {
   margin: 0;
+  background: transparent;
+}
+
+body {
   font-family: var(--font-sans);
-  background: var(--color-bg);
   color: var(--color-text);
 }
 
 .inquire {
   max-width: 920px;
   margin: 0 auto;
-  padding: 32px 20px 48px;
+  padding: 8px 4px 16px;
 }
 
 .inquire-columns {
@@ -202,9 +211,15 @@ body {
   background: #f1f5f9;
 }
 
-@media (max-width: 720px) {
-  .inquire-columns,
+/* Breakpoints are iframe widths, not device widths. */
+@media (max-width: 759px) {
   #inquireServices {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 499px) {
+  .inquire-columns {
     grid-template-columns: 1fr;
   }
 }

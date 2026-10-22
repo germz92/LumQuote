@@ -1,7 +1,16 @@
+/*
+ * Embedded in a fixed-height iframe on Squarespace, which cannot resize it.
+ * Keep the background transparent so any spare room below the card shows the
+ * host page instead of a tinted band, and keep the layout compact.
+ */
+html,
 body {
   margin: 0;
+  background: transparent;
+}
+
+body {
   font-family: var(--font-sans);
-  background: var(--color-bg);
   color: var(--color-text);
 }
 
@@ -9,7 +18,7 @@ body {
   position: relative;
   max-width: 920px;
   margin: 0 auto;
-  padding: 24px 20px 32px;
+  padding: 8px 4px 16px;
 }
 
 .estimate-columns {
@@ -412,7 +421,8 @@ body {
   text-align: right;
 }
 
-@media (max-width: 720px) {
+/* Breakpoints are iframe widths, not device widths. */
+@media (max-width: 499px) {
   .estimate-columns,
   .estimate-source-list {
     grid-template-columns: 1fr;

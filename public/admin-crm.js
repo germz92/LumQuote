@@ -32,15 +32,35 @@ function squarespaceFooterSnippet() {
     return squarespaceEmbedScriptTag();
 }
 
+/*
+ * Inline style that works with no JavaScript at all (Squarespace turns embedded
+ * scripts off while you are logged in and editing, and some plans never run them).
+ *
+ * Squarespace's Embed block wraps the iframe in a 16:9 box: the wrapper gets
+ * padding-bottom:56.25% and the iframe is absolutely positioned inside it. On a
+ * phone that box is ~200px tall, so a tall form draws over whatever sits below it.
+ *
+ * - position:relative puts the iframe back in normal flow, so the wrapper grows
+ *   with it.
+ * - margin-bottom:-56.25% cancels the wrapper's padding exactly (both resolve
+ *   against the same width), so there is no blank band under the form.
+ * - height is a viewport-based clamp: the pages switch to one column below 500px
+ *   of iframe width and need ~1,180px; in two columns they need ~720px. Both
+ *   pages have transparent backgrounds, so spare height is invisible.
+ *
+ * When squarespace-embed.js does run it replaces this with the exact height.
+ */
+const SQUARESPACE_IFRAME_STYLE = 'display:block;position:relative;width:100%;height:clamp(760px,calc(4060px - 500vw),1280px);margin:0 0 -56.25%;border:0;';
+
 function leadFormEmbedSnippet() {
     const origin = leadFormPublicOrigin();
-    return `<iframe id="lumquote-inquire" src="${origin}/inquire" title="Contact Lumetry Media" style="width:100%;border:0;display:block;min-height:480px;"></iframe>
+    return `<iframe id="lumquote-inquire" src="${origin}/inquire" title="Contact Lumetry Media" style="${SQUARESPACE_IFRAME_STYLE}"></iframe>
 ${squarespaceEmbedScriptTag()}`;
 }
 
 function estimateEmbedSnippet() {
     const origin = leadFormPublicOrigin();
-    return `<iframe id="lumquote-estimate" src="${origin}/estimate" title="Photography estimate" style="width:100%;border:0;display:block;min-height:480px;"></iframe>
+    return `<iframe id="lumquote-estimate" src="${origin}/estimate" title="Photography estimate" style="${SQUARESPACE_IFRAME_STYLE}"></iframe>
 ${squarespaceEmbedScriptTag()}`;
 }
 
@@ -60,7 +80,7 @@ async function copyEstimateEmbed() {
     const snippet = estimateEmbedSnippet();
     try {
         await navigator.clipboard.writeText(snippet);
-        showAlertModal('Estimate embed copied. Paste it into a Squarespace code block.', 'success', null, true);
+        showAlertModal('Estimate embed copied. In Squarespace, add an Embed block, choose Code snippet, and paste it.', 'success', null, true);
     } catch (error) {
         const code = document.getElementById('estimateEmbed');
         if (code) {
@@ -76,7 +96,7 @@ async function copyLeadFormEmbed() {
     const snippet = leadFormEmbedSnippet();
     try {
         await navigator.clipboard.writeText(snippet);
-        showAlertModal('Embed code copied. Paste it into a Squarespace code block.', 'success', null, true);
+        showAlertModal('Embed code copied. In Squarespace, add an Embed block, choose Code snippet, and paste it.', 'success', null, true);
     } catch (error) {
         const code = document.getElementById('leadFormEmbed');
         if (code) {
