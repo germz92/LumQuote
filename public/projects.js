@@ -932,6 +932,7 @@ class ProjectsManager {
         } catch {
             showAlertModal('Could not load clients. You can still add a new one.', 'error');
         }
+        CRM.fillStateSelect(document.getElementById('newProjectState'), '');
         setTimeout(() => document.getElementById('newProjectName').focus(), 50);
     }
 
@@ -954,9 +955,10 @@ class ProjectsManager {
         const leadSource = window.LeadSources
             ? LeadSources.getLeadSourceFromForm()
             : (document.getElementById('leadSource')?.value || '').trim();
-        const location = document.getElementById('newProjectLocation').value.trim();
-        if (!location) {
-            showAlertModal('Enter a location.', 'error');
+        const city = document.getElementById('newProjectCity').value.trim();
+        const state = document.getElementById('newProjectState').value.trim();
+        if (!city || !state) {
+            showAlertModal('Enter a city and state.', 'error');
             return;
         }
 
@@ -966,7 +968,8 @@ class ProjectsManager {
             status: document.getElementById('newProjectStatus').value,
             startDate: document.getElementById('newProjectStart').value || null,
             endDate: document.getElementById('newProjectEnd').value || null,
-            location,
+            city,
+            state,
             leadSource: leadSource || null,
             lumdashProject: document.getElementById('newProjectGroup')?.value || null
         };

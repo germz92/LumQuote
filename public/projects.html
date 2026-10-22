@@ -299,9 +299,17 @@
                             <input type="email" id="newClientEmail" placeholder="client@company.com" autocomplete="off">
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label for="newProjectLocation">Location *</label>
-                        <input type="text" id="newProjectLocation" required placeholder="Event location">
+                    <div class="crm-form-grid">
+                        <div class="form-group">
+                            <label for="newProjectCity">City *</label>
+                            <input type="text" id="newProjectCity" placeholder="City" autocomplete="address-level2">
+                        </div>
+                        <div class="form-group">
+                            <label for="newProjectState">State *</label>
+                            <select id="newProjectState" autocomplete="address-level1">
+                                <option value="">Select state</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="crm-form-grid">
                         <div class="form-group">

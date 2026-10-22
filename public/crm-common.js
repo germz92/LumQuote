@@ -268,6 +268,56 @@ const CRM = {
             }
         }
         return this.copyToClipboard(plain);
+    },
+
+    US_STATES: [
+        ['AL', 'Alabama'], ['AK', 'Alaska'], ['AZ', 'Arizona'], ['AR', 'Arkansas'],
+        ['CA', 'California'], ['CO', 'Colorado'], ['CT', 'Connecticut'], ['DE', 'Delaware'],
+        ['DC', 'District of Columbia'], ['FL', 'Florida'], ['GA', 'Georgia'], ['HI', 'Hawaii'],
+        ['ID', 'Idaho'], ['IL', 'Illinois'], ['IN', 'Indiana'], ['IA', 'Iowa'],
+        ['KS', 'Kansas'], ['KY', 'Kentucky'], ['LA', 'Louisiana'], ['ME', 'Maine'],
+        ['MD', 'Maryland'], ['MA', 'Massachusetts'], ['MI', 'Michigan'], ['MN', 'Minnesota'],
+        ['MS', 'Mississippi'], ['MO', 'Missouri'], ['MT', 'Montana'], ['NE', 'Nebraska'],
+        ['NV', 'Nevada'], ['NH', 'New Hampshire'], ['NJ', 'New Jersey'], ['NM', 'New Mexico'],
+        ['NY', 'New York'], ['NC', 'North Carolina'], ['ND', 'North Dakota'], ['OH', 'Ohio'],
+        ['OK', 'Oklahoma'], ['OR', 'Oregon'], ['PA', 'Pennsylvania'], ['RI', 'Rhode Island'],
+        ['SC', 'South Carolina'], ['SD', 'South Dakota'], ['TN', 'Tennessee'], ['TX', 'Texas'],
+        ['UT', 'Utah'], ['VT', 'Vermont'], ['VA', 'Virginia'], ['WA', 'Washington'],
+        ['WV', 'West Virginia'], ['WI', 'Wisconsin'], ['WY', 'Wyoming']
+    ],
+
+    // Existing projects store one location string ("City, ST" or "Venue, City, ST").
+    splitLocation(location) {
+        const raw = String(location || '').trim();
+        if (!raw) return { city: '', state: '' };
+        const comma = raw.lastIndexOf(',');
+        const dash = raw.lastIndexOf(' - ');
+        const cut = Math.max(comma, dash);
+        if (cut < 0) return { city: raw, state: '' };
+        const sepLen = cut === dash && dash > comma ? 3 : 1;
+        return {
+            city: raw.slice(0, cut).trim(),
+            state: raw.slice(cut + sepLen).trim()
+        };
+    },
+
+    composeLocation(city, state) {
+        return [String(city || '').trim(), String(state || '').trim()].filter(Boolean).join(', ');
+    },
+
+    fillStateSelect(select, selected) {
+        if (!select) return;
+        const current = String(selected || '').trim();
+        const known = this.US_STATES.some(([code, name]) =>
+            code.toLowerCase() === current.toLowerCase() || name.toLowerCase() === current.toLowerCase()
+        );
+        const match = this.US_STATES.find(([code, name]) =>
+            code.toLowerCase() === current.toLowerCase() || name.toLowerCase() === current.toLowerCase()
+        );
+        select.innerHTML = '<option value="">Select state</option>'
+            + (current && !known ? `<option value="${this.escapeHtml(current)}">${this.escapeHtml(current)}</option>` : '')
+            + this.US_STATES.map(([code, name]) => `<option value="${code}">${name}</option>`).join('');
+        select.value = match ? match[0] : current;
     }
 };
 

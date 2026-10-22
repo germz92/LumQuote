@@ -64,9 +64,15 @@
                                         <label for="projEnd">End Date</label>
                                         <input type="date" id="projEnd">
                                     </div>
-                                    <div class="form-group form-group--full">
-                                        <label for="projLocation">Location</label>
-                                        <input type="text" id="projLocation" placeholder="Event location">
+                                    <div class="form-group">
+                                        <label for="projCity">City</label>
+                                        <input type="text" id="projCity" placeholder="City" autocomplete="address-level2">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="projState">State</label>
+                                        <select id="projState" autocomplete="address-level1">
+                                            <option value="">Select state</option>
+                                        </select>
                                     </div>
                                     <div class="form-group form-group--full">
                                         <label for="leadSource">Lead Source</label>

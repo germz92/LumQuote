@@ -117,7 +117,12 @@ function buildTransferPayloadFromProject(project, quotes = []) {
     }
 
     const locationSource = String(project.location || primaryQuote?.location || '').trim();
-    const { city, state, venue } = parseLocation(locationSource);
+    const parsed = parseLocation(locationSource);
+    const storedCity = String(project.city || '').trim();
+    const storedState = String(project.state || '').trim();
+    const city = storedCity || parsed.city;
+    const state = storedState || parsed.state;
+    const venue = storedCity || storedState ? '' : parsed.venue;
     const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
     const quoteWithClient = quotes.find((q) => q.clientName) || primaryQuote;
     const quoteWithCompany = quotes.find((q) => q.clientCompany) || primaryQuote;
@@ -135,7 +140,7 @@ function buildTransferPayloadFromProject(project, quotes = []) {
         client: clientName,
         company,
         companyName: company,
-        location: venue || locationSource || '',
+        location: venue || [city, state].filter(Boolean).join(', ') || locationSource || '',
         owner: userInfo.name || ''
     };
 }

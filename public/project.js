@@ -199,8 +199,12 @@ class ProjectPage {
         }
         document.getElementById('projStart').value = project.startDate || '';
         document.getElementById('projEnd').value = project.endDate || '';
-        const locationInput = document.getElementById('projLocation');
-        if (locationInput) locationInput.value = project.location || '';
+        const place = project.city || project.state
+            ? { city: project.city || '', state: project.state || '' }
+            : CRM.splitLocation(project.location);
+        const cityInput = document.getElementById('projCity');
+        if (cityInput) cityInput.value = place.city || '';
+        CRM.fillStateSelect(document.getElementById('projState'), place.state);
         document.getElementById('projNotes').value = project.notes || '';
         const quoteLeadSource = (this.data.quotes || []).find((q) => q.leadSource)?.leadSource || '';
         if (window.LeadSources) {
@@ -589,7 +593,8 @@ class ProjectPage {
                     startDate: document.getElementById('projStart').value || null,
                     endDate: document.getElementById('projEnd').value || null,
                     notes: document.getElementById('projNotes').value,
-                    location: document.getElementById('projLocation')?.value.trim() || null,
+                    city: document.getElementById('projCity')?.value.trim() || null,
+                    state: document.getElementById('projState')?.value.trim() || null,
                     leadSource: leadSource || null,
                     lumdashProject: document.getElementById('projLumdashEvent')?.value || null
                 }
