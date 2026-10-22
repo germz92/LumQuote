@@ -24,34 +24,24 @@ function leadFormPublicOrigin() {
     return origin;
 }
 
+function squarespaceEmbedScriptTag() {
+    return `<script src="${leadFormPublicOrigin()}/squarespace-embed.js"></script>`;
+}
+
+function squarespaceFooterSnippet() {
+    return squarespaceEmbedScriptTag();
+}
+
 function leadFormEmbedSnippet() {
     const origin = leadFormPublicOrigin();
-    return `<iframe id="lumquote-inquire" src="${origin}/inquire" title="Contact Lumetry Media" style="width:100%;height:1600px;border:0;display:block;"></iframe>
-<script>
-window.addEventListener('message', function (event) {
-  if (event.origin !== '${origin}') return;
-  var frame = document.getElementById('lumquote-inquire');
-  var data = event.data || {};
-  if (!frame || data.type !== 'lumquote-inquire-height') return;
-  var height = Number(data.height);
-  if (height > 400 && height < 5000) frame.style.height = height + 'px';
-});
-</script>`;
+    return `<iframe id="lumquote-inquire" src="${origin}/inquire" title="Contact Lumetry Media" style="width:100%;border:0;display:block;min-height:480px;"></iframe>
+${squarespaceEmbedScriptTag()}`;
 }
 
 function estimateEmbedSnippet() {
     const origin = leadFormPublicOrigin();
-    return `<iframe id="lumquote-estimate" src="${origin}/estimate" title="Photography estimate" style="width:100%;height:900px;border:0;display:block;"></iframe>
-<script>
-window.addEventListener('message', function (event) {
-  if (event.origin !== '${origin}') return;
-  var frame = document.getElementById('lumquote-estimate');
-  var data = event.data || {};
-  if (!frame || data.type !== 'lumquote-estimate-height') return;
-  var height = Number(data.height);
-  if (height > 300 && height < 3000) frame.style.height = height + 'px';
-});
-</script>`;
+    return `<iframe id="lumquote-estimate" src="${origin}/estimate" title="Photography estimate" style="width:100%;border:0;display:block;min-height:480px;"></iframe>
+${squarespaceEmbedScriptTag()}`;
 }
 
 function initLeadFormTab() {
@@ -62,6 +52,8 @@ function initLeadFormTab() {
     if (code) code.value = leadFormEmbedSnippet();
     const estimateCode = document.getElementById('estimateEmbed');
     if (estimateCode) estimateCode.value = estimateEmbedSnippet();
+    const footer = document.getElementById('squarespaceFooter');
+    if (footer) footer.value = squarespaceFooterSnippet();
 }
 
 async function copyEstimateEmbed() {
@@ -95,6 +87,22 @@ async function copyLeadFormEmbed() {
     }
 }
 window.copyLeadFormEmbed = copyLeadFormEmbed;
+
+async function copySquarespaceFooter() {
+    const snippet = squarespaceFooterSnippet();
+    try {
+        await navigator.clipboard.writeText(snippet);
+        showAlertModal('Footer script copied. In Squarespace, open Settings, Advanced, Code Injection, and paste it into Footer.', 'success', null, true);
+    } catch (error) {
+        const code = document.getElementById('squarespaceFooter');
+        if (code) {
+            code.focus();
+            code.select();
+        }
+        showAlertModal('Could not copy automatically. Select the footer script and copy it.', 'error');
+    }
+}
+window.copySquarespaceFooter = copySquarespaceFooter;
 initLeadFormTab();
 
 function leadFormServiceRow(value) {

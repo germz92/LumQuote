@@ -318,7 +318,12 @@
                             <h3>Put it on the website</h3>
                             <div class="form-group">
                                 <label for="leadFormEmbed">Squarespace embed</label>
-                                <textarea id="leadFormEmbed" rows="8" readonly></textarea>
+                                <textarea id="leadFormEmbed" rows="6" readonly></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="squarespaceFooter">Squarespace footer script</label>
+                                <textarea id="squarespaceFooter" rows="2" readonly></textarea>
+                                <small class="form-help">Paste this once under Settings, Advanced, Code Injection, Footer. Squarespace’s Embed block locks the form to a short 16:9 box, and on a phone that box is covered by the address and hours. This script gives the form its real height so those blocks sit underneath it.</small>
                             </div>
                             <div class="form-group">
                                 <label for="estimateEmbed">Estimate calculator embed</label>
@@ -327,6 +332,7 @@
                             <div class="form-designer-actions">
                                 <button type="button" class="secondary-button" onclick="copyLeadFormEmbed()">Copy form embed</button>
                                 <button type="button" class="secondary-button" onclick="copyEstimateEmbed()">Copy estimate embed</button>
+                                <button type="button" class="secondary-button" onclick="copySquarespaceFooter()">Copy footer script</button>
                                 <button type="submit" class="primary-button">Save form</button>
                             </div>
                         </div>

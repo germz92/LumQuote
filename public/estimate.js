@@ -167,6 +167,10 @@ bindSlider('estimatePhotographers');
 bindSlider('estimateVideographers');
 loadRates();
 window.addEventListener('load', scheduleEstimateHeight);
+window.addEventListener('message', (event) => {
+    const data = event.data || {};
+    if (data.type === 'lumquote-estimate-height-request') scheduleEstimateHeight();
+});
 window.addEventListener('resize', () => {
     sliderValue(document.getElementById('estimateDays'), document.getElementById('estimateDaysValue'));
     sliderValue(document.getElementById('estimatePhotographers'), document.getElementById('estimatePhotographersValue'));

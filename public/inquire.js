@@ -162,6 +162,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 window.addEventListener('load', scheduleInquireHeight);
 window.addEventListener('resize', scheduleInquireHeight);
+window.addEventListener('message', (event) => {
+    const data = event.data || {};
+    if (data.type === 'lumquote-inquire-height-request') scheduleInquireHeight();
+});
 
 document.getElementById('inquireForm').addEventListener('submit', async (event) => {
     event.preventDefault();
