@@ -432,41 +432,34 @@ body[data-app-page="leads"] .leads-table thead th {
   gap: 0 16px;
 }
 .form-designer-span-2 { grid-column: 1 / -1; }
-.form-designer-services-block {
-  padding: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
+.form-designer-services {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.form-designer-services-label {
-  margin-bottom: 8px;
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--color-text-secondary);
-}
-.form-designer-services { display: flex; flex-direction: column; gap: 8px; }
 .form-designer-add { margin-top: 10px; }
 .lead-form-service-row {
   display: flex;
   gap: 8px;
   align-items: center;
 }
-.lead-form-service-row input {
-  flex: 1;
-  background: var(--color-surface);
-}
+.lead-form-service-row input { flex: 1; }
 .lead-form-remove {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--color-border);
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border: 0;
   border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
+  background: transparent;
+  color: var(--color-text-muted);
   cursor: pointer;
-  font-size: 18px;
+  font-size: 22px;
   line-height: 1;
 }
-.lead-form-remove:hover { color: var(--color-danger); border-color: var(--color-danger); }
+.lead-form-remove:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
 .form-designer-side {
   position: sticky;
   top: calc(var(--app-topbar-height, 56px) + 16px);
