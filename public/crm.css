@@ -25,6 +25,52 @@
 .crm-chip--stale { background: #fff7ed; color: #c2410c; }
 .crm-chip--not_converted { background: #fef2f2; color: #b91c1c; }
 .crm-chip--archived { background: #f3f4f6; color: #6b7280; }
+.crm-chip--hot {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+.lead-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.lead-name-cell span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lead-hot-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  vertical-align: -3px;
+}
+.app-page-title .lead-hot-badge {
+  margin-left: 8px;
+  vertical-align: -2px;
+}
+.project-hero-meta .lead-hot-badge {
+  margin: 0;
+}
+.leads-table tr.is-hot td:first-child {
+  box-shadow: inset 3px 0 0 #e11d48;
+}
+.crm-context-menu {
+  padding: 4px 0;
+  min-width: 188px;
+}
+.crm-context-menu .context-menu-item {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+}
 
 /* Full-height page frame for the leads list lives in page-controls.css (shared list-page rules). */
 .lead-side-stack {

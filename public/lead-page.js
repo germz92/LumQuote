@@ -19,6 +19,7 @@ class LeadPage {
         }
         try {
             await Promise.all([this.loadMe(), this.loadUsers(), this.loadLead(id)]);
+            this.bindHotMenu();
             this.render();
         } catch (error) {
             showAlertModal(error.message || 'Failed to load this lead.', 'error');
@@ -69,7 +70,9 @@ class LeadPage {
         if (!lead) return;
         document.title = `${lead.name} - LumQuote`;
         const pageTitle = document.querySelector('.app-page-title');
-        if (pageTitle) pageTitle.textContent = lead.name;
+        if (pageTitle) {
+            pageTitle.innerHTML = `${CRM.escapeHtml(lead.name)}${lead.hot ? CRM.hotBadge() : ''}`;
+        }
 
         const submitted = CRM.formatDate(lead.createdAt) || '';
         document.getElementById('leadHeroMeta').innerHTML = `
@@ -191,6 +194,39 @@ class LeadPage {
         if (canSend) html += `<button type="button" class="primary-button" onclick="leadPage.sendQuote()">Send quote</button>`;
         html += `</div>`;
         panel.innerHTML = html;
+    }
+
+    bindHotMenu() {
+        const page = document.getElementById('leadPage');
+        if (!page || page.dataset.hotMenuBound) return;
+        page.dataset.hotMenuBound = 'true';
+        page.addEventListener('contextmenu', (event) => {
+            if (event.target.closest('button, select, a, input, label, textarea')) return;
+            if (!this.lead) return;
+            CRM.showContextMenu(event, [{
+                label: this.lead.hot ? 'Remove Hot Flag' : 'Mark Lead as Hot',
+                action: () => this.toggleHot(!this.lead.hot)
+            }]);
+        });
+    }
+
+    async toggleHot(hot) {
+        try {
+            const response = await fetch(`/api/leads/${encodeURIComponent(this.lead._id)}/hot`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hot })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to update hot flag');
+            this.lead = data.lead;
+            this.render();
+            showToast?.(hot ? 'Marked as hot' : 'Removed hot flag', 'success');
+        } catch (error) {
+            showAlertModal(error.message || 'Failed to update hot flag.', 'error');
+            this.render();
+        }
     }
 
     async changeStatus(status) {

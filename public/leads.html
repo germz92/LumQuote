@@ -45,6 +45,7 @@
                             <select id="statusFilter" class="pc-select" onchange="leadsManager.applyFilters()">
                                 <option value="">All Statuses</option>
                                 <option value="pending" selected>Pending</option>
+                                <option value="hot">Hot</option>
                                 <option value="unassigned">Unassigned</option>
                                 <option value="lead">Lead</option>
                                 <option value="assigned">Assigned</option>
@@ -95,6 +96,7 @@
                         <select id="assigneeCountFilter" class="pc-select" onchange="leadsManager.loadAssigneeCounts().then(() => leadsManager.renderAssignees())">
                             <option value="all">All</option>
                             <option value="pending" selected>Pending</option>
+                            <option value="hot">Hot</option>
                             <option value="lead">Lead</option>
                             <option value="assigned">Assigned</option>
                             <option value="quoted">Quoted</option>

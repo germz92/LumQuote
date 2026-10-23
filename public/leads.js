@@ -285,13 +285,19 @@ class LeadsManager {
                    ${menu}`;
             const rowClass = [
                 lead.assignedTo ? 'is-assigned' : '',
+                lead.hot ? 'is-hot' : '',
                 this.assignMode && this.selected.has(String(lead._id)) ? 'is-selected' : ''
             ].filter(Boolean).join(' ');
             const dragAttrs = this.isAdmin() && this.assignMode
                 ? `draggable="true" ondragstart="leadsManager.startDrag(event, '${id}')" ondragend="leadsManager.endDrag()"`
                 : '';
-            return `<tr class="${rowClass}" data-lead-id="${id}" ${dragAttrs} onclick="leadsManager.onRowClick(event, '${id}')" ondblclick="leadsManager.onRowDoubleClick(event, '${id}')">
-                <td>${CRM.escapeHtml(lead.name)}</td>
+            return `<tr class="${rowClass}" data-lead-id="${id}" ${dragAttrs} onclick="leadsManager.onRowClick(event, '${id}')" ondblclick="leadsManager.onRowDoubleClick(event, '${id}')" oncontextmenu="leadsManager.onRowContextMenu(event, '${id}')">
+                <td>
+                    <div class="lead-name-cell">
+                        <span>${CRM.escapeHtml(lead.name)}</span>
+                        ${lead.hot ? CRM.hotBadge() : ''}
+                    </div>
+                </td>
                 <td class="col-fold-sm">${CRM.escapeHtml(lead.email)}</td>
                 <td class="col-hide-sm col-fold-sm">${CRM.escapeHtml(lead.phone)}</td>
                 <td class="col-fold-sm">${CRM.escapeHtml((lead.services || []).join(', '))}</td>
@@ -480,6 +486,16 @@ class LeadsManager {
         this.openLead(id);
     }
 
+    onRowContextMenu(event, id) {
+        if (event.target.closest('button, select, a, input, label, textarea')) return;
+        const lead = this.leads.find((item) => String(item._id) === String(id));
+        if (!lead) return;
+        CRM.showContextMenu(event, [{
+            label: lead.hot ? 'Remove Hot Flag' : 'Mark Lead as Hot',
+            action: () => this.toggleHot(id, !lead.hot)
+        }]);
+    }
+
     onRowClick(event, id) {
         if (event.target.closest('button, select, a, input, label')) return;
         if (this.didDrag) {
@@ -612,6 +628,29 @@ class LeadsManager {
             this.renderAssignees();
         } catch (error) {
             showAlertModal(error.message || 'Failed to count assigned leads.', 'error');
+        }
+    }
+
+    async toggleHot(id, hot) {
+        const lead = this.leads.find((item) => String(item._id) === String(id));
+        try {
+            const response = await fetch(`/api/leads/${encodeURIComponent(id)}/hot`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hot })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to update hot flag');
+            if (lead && data.lead) Object.assign(lead, data.lead);
+            else if (lead) lead.hot = hot;
+            this.leads.sort((a, b) => Number(!!b.hot) - Number(!!a.hot));
+            this.render();
+            this.refreshAssigneeCounts();
+            showToast?.(hot ? 'Marked as hot' : 'Removed hot flag', 'success');
+        } catch (error) {
+            showAlertModal(error.message || 'Failed to update hot flag.', 'error');
+            this.render();
         }
     }
 

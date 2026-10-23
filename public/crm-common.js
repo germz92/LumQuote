@@ -318,6 +318,68 @@ const CRM = {
             + (current && !known ? `<option value="${this.escapeHtml(current)}">${this.escapeHtml(current)}</option>` : '')
             + this.US_STATES.map(([code, name]) => `<option value="${code}">${name}</option>`).join('');
         select.value = match ? match[0] : current;
+    },
+
+    hotBadge() {
+        return `<span class="lead-hot-badge" title="Hot lead" aria-label="Hot lead">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                <path fill="#f97316" d="M12.3 1.6c.3 2.7 1.4 4.6 2.6 6.2 1.4 1.9 2.6 3.4 2.6 5.7 0 4-3.1 7.2-7.5 7.2S2.5 17.5 2.5 13.5c0-2.6 1.3-4.7 3.1-6.6.3 1.9.9 3.3 2 4.2C7.7 7.3 9.5 4 12.3 1.6z"/>
+                <path fill="#fbbf24" d="M12 11c.2 1.5 1 2.4 1.7 3.4.6 1 .9 1.7.9 2.5 0 2-1.5 3.6-3.7 3.6s-3.7-1.6-3.7-3.6c0-1.1.5-2 1.3-2.9.2 1 .7 1.5 1.4 1.5.1-1.7 1.1-3.3 2.1-4.5z"/>
+            </svg>
+        </span>`;
+    },
+
+    hideContextMenu() {
+        document.getElementById('crm-context-menu')?.remove();
+        if (this._contextMenuClose) {
+            document.removeEventListener('click', this._contextMenuClose);
+            document.removeEventListener('contextmenu', this._contextMenuClose);
+            document.removeEventListener('keydown', this._contextMenuClose);
+            window.removeEventListener('scroll', this._contextMenuClose, true);
+            window.removeEventListener('resize', this._contextMenuClose);
+            this._contextMenuClose = null;
+        }
+    },
+
+    showContextMenu(event, items) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.hideContextMenu();
+        const menu = document.createElement('div');
+        menu.id = 'crm-context-menu';
+        menu.className = 'context-menu crm-context-menu';
+        menu.setAttribute('role', 'menu');
+        menu.innerHTML = items.map((item, index) =>
+            `<button type="button" class="context-menu-item" role="menuitem" data-index="${index}">${this.escapeHtml(item.label)}</button>`
+        ).join('');
+        document.body.appendChild(menu);
+        const pad = 8;
+        const left = Math.min(event.clientX, window.innerWidth - menu.offsetWidth - pad);
+        const top = Math.min(event.clientY, window.innerHeight - menu.offsetHeight - pad);
+        menu.style.position = 'fixed';
+        menu.style.left = `${Math.max(pad, left)}px`;
+        menu.style.top = `${Math.max(pad, top)}px`;
+        menu.style.zIndex = '2400';
+        menu.addEventListener('click', (clickEvent) => {
+            const button = clickEvent.target.closest('[data-index]');
+            if (!button) return;
+            const item = items[Number(button.dataset.index)];
+            this.hideContextMenu();
+            item?.action?.();
+        });
+        const close = (closeEvent) => {
+            if (closeEvent.type === 'keydown' && closeEvent.key !== 'Escape') return;
+            if (closeEvent.type === 'click' && menu.contains(closeEvent.target)) return;
+            this.hideContextMenu();
+        };
+        this._contextMenuClose = close;
+        setTimeout(() => {
+            document.addEventListener('click', close);
+            document.addEventListener('contextmenu', close);
+            document.addEventListener('keydown', close);
+            window.addEventListener('scroll', close, true);
+            window.addEventListener('resize', close);
+        }, 0);
     }
 };
 
