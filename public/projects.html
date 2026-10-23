@@ -156,10 +156,10 @@
                                     <th class="sortable col-fold-sm" onclick="projectsManager.sortByColumn('client')">
                                         Client <span class="sort-indicator" data-sort="client"></span>
                                     </th>
-                                    <th class="sortable col-fold-sm" onclick="projectsManager.sortByColumn('dates')">
+                                    <th class="sortable col-fold-sm col-dates" onclick="projectsManager.sortByColumn('dates')">
                                         Dates <span class="sort-indicator" data-sort="dates"></span>
                                     </th>
-                                    <th class="sortable" onclick="projectsManager.sortByColumn('status')">
+                                    <th class="sortable col-status" onclick="projectsManager.sortByColumn('status')">
                                         Status <span class="sort-indicator" data-sort="status"></span>
                                     </th>
                                     <th class="sortable col-fold-sm" onclick="projectsManager.sortByColumn('contract')">
@@ -168,10 +168,13 @@
                                     <th class="sortable col-fold-sm" onclick="projectsManager.sortByColumn('invoices')">
                                         Invoices <span class="sort-indicator" data-sort="invoices"></span>
                                     </th>
-                                    <th class="sortable col-hide-sm col-fold-sm" onclick="projectsManager.sortByColumn('owner')">
+                                    <th class="sortable col-hide-sm col-fold-sm col-owner" onclick="projectsManager.sortByColumn('owner')">
                                         Owner <span class="sort-indicator" data-sort="owner"></span>
                                     </th>
-                                    <th class="sortable col-hide-sm col-fold-sm" onclick="projectsManager.sortByColumn('created')">
+                                    <th class="sortable col-hide-sm col-fold-sm col-activity" onclick="projectsManager.sortByColumn('activity')">
+                                        Last Activity <span class="sort-indicator" data-sort="activity"></span>
+                                    </th>
+                                    <th class="sortable col-hide-sm col-fold-sm col-created" onclick="projectsManager.sortByColumn('created')">
                                         Created <span class="sort-indicator" data-sort="created"></span>
                                     </th>
                                     <th></th>

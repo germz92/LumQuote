@@ -150,7 +150,7 @@ class ProjectsManager {
             if (dateFrom) params.append('dateFrom', dateFrom);
             if (dateTo) params.append('dateTo', dateTo);
             if (this.when && this.when !== 'all') params.append('when', this.when);
-            const sortable = ['name', 'client', 'dates', 'status', 'contract', 'invoices', 'owner', 'created'];
+            const sortable = ['name', 'client', 'dates', 'status', 'contract', 'invoices', 'owner', 'activity', 'created'];
             if (sortable.includes(this.sortColumn)) {
                 params.append('sortBy', this.sortColumn);
                 params.append('sortDir', this.sortDirection === 'desc' ? 'desc' : 'asc');
@@ -348,6 +348,24 @@ class ProjectsManager {
         this.renderGroups();
     }
 
+    activityLabel(project) {
+        const title = String(project.lastActivity || '').trim();
+        const when = project.lastActivityAt ? CRM.formatDate(project.lastActivityAt) : '';
+        if (title && when) return CRM.escapeHtml(`${title} · ${when}`);
+        return CRM.escapeHtml(title || when);
+    }
+
+    activityCell(project) {
+        const title = String(project.lastActivity || '').trim();
+        const when = project.lastActivityAt ? CRM.formatDate(project.lastActivityAt) : '';
+        if (!title && !when) return '<span class="crm-inline-note">—</span>';
+        const full = [title, when].filter(Boolean).join(' · ');
+        return `<div class="project-activity-cell" title="${CRM.escapeHtml(full)}">
+            ${title ? `<span>${CRM.escapeHtml(title)}</span>` : ''}
+            ${when ? `<span class="crm-inline-note">${CRM.escapeHtml(when)}</span>` : ''}
+        </div>`;
+    }
+
     renderRow(project) {
         const client = project.client;
         const clientTitle = client
@@ -394,6 +412,7 @@ class ProjectsManager {
             CRM.CONTRACT_STATUS_LABELS[project.contractStatus] || project.contractStatus || 'None'
         );
         const ownerMeta = project.createdBy?.name ? CRM.escapeHtml(project.createdBy.name) : '';
+        const activityMeta = this.activityLabel(project);
         const createdMeta = project.createdAt ? CRM.escapeHtml(CRM.formatDate(project.createdAt)) : '';
         const metaHtml = CRM.listRowMeta([
             clientMeta,
@@ -401,6 +420,7 @@ class ProjectsManager {
             contractMeta,
             invoiceMeta,
             ownerMeta,
+            activityMeta,
             createdMeta
         ]);
 
@@ -449,14 +469,15 @@ class ProjectsManager {
                     </div>
                 </td>
                 <td class="col-fold-sm" title="${CRM.escapeHtml(clientTitle)}">${clientLabel}</td>
-                <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</td>
-                <td onclick="event.stopPropagation()">${statusCell}</td>
+                <td class="col-fold-sm col-dates">${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</td>
+                <td class="col-status" onclick="event.stopPropagation()">${statusCell}</td>
                 <td class="col-fold-sm">${CRM.contractStatusChip(project.contractStatus)}</td>
                 <td class="col-fold-sm">${invoiceCell}</td>
-                <td class="col-hide-sm col-fold-sm">${project.createdBy?.name
+                <td class="col-hide-sm col-fold-sm col-owner">${project.createdBy?.name
                     ? CRM.escapeHtml(project.createdBy.name)
                     : '<span class="crm-inline-note">—</span>'}</td>
-                <td class="col-hide-sm col-fold-sm">${project.createdAt
+                <td class="col-hide-sm col-fold-sm col-activity">${this.activityCell(project)}</td>
+                <td class="col-hide-sm col-fold-sm col-created">${project.createdAt
                     ? CRM.escapeHtml(CRM.formatDate(project.createdAt))
                     : '<span class="crm-inline-note">—</span>'}</td>
                 <td class="actions-cell" onclick="event.stopPropagation()">${menu}</td>

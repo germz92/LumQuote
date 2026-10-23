@@ -2469,6 +2469,19 @@ button.client-dropdown-item.is-active {
   min-width: 0;
 }
 
+.project-activity-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.3;
+  white-space: normal;
+}
+.project-activity-cell span:first-child {
+  overflow: visible;
+  white-space: normal;
+}
+
 .list-row-meta {
   display: none;
   font-size: var(--font-size-xs);
@@ -2719,23 +2732,20 @@ button.client-dropdown-item.is-active {
   }
 
   .projects-table:not(.is-groups) th:nth-child(1),
-  .projects-table:not(.is-groups) td:nth-child(1) { width: 18%; }
+  .projects-table:not(.is-groups) td:nth-child(1) { width: 17%; }
   .projects-table:not(.is-groups) th:nth-child(2),
-  .projects-table:not(.is-groups) td:nth-child(2) { width: 14%; }
-  .projects-table:not(.is-groups) th:nth-child(3),
-  .projects-table:not(.is-groups) td:nth-child(3) { width: 13%; }
-  .projects-table:not(.is-groups) th:nth-child(4),
-  .projects-table:not(.is-groups) td:nth-child(4) { width: 12%; }
+  .projects-table:not(.is-groups) td:nth-child(2) { width: 9%; }
   .projects-table:not(.is-groups) th:nth-child(5),
-  .projects-table:not(.is-groups) td:nth-child(5) { width: 10%; }
+  .projects-table:not(.is-groups) td:nth-child(5) { width: 7%; }
   .projects-table:not(.is-groups) th:nth-child(6),
-  .projects-table:not(.is-groups) td:nth-child(6) { width: 13%; }
-  .projects-table:not(.is-groups) th:nth-child(7),
-  .projects-table:not(.is-groups) td:nth-child(7) { width: 8%; }
-  .projects-table:not(.is-groups) th:nth-child(8),
-  .projects-table:not(.is-groups) td:nth-child(8) { width: 8%; }
-  .projects-table:not(.is-groups) th:nth-child(9),
-  .projects-table:not(.is-groups) td:nth-child(9) { width: 4%; }
+  .projects-table:not(.is-groups) td:nth-child(6) { width: 9%; }
+  .projects-table:not(.is-groups) th:nth-child(10),
+  .projects-table:not(.is-groups) td:nth-child(10) { width: 4%; }
+  .projects-table:not(.is-groups) .col-dates { width: 15%; min-width: 12.5rem; }
+  .projects-table:not(.is-groups) .col-status { width: 10%; min-width: 9.25rem; }
+  .projects-table:not(.is-groups) .col-owner { width: 10%; min-width: 8.5rem; }
+  .projects-table:not(.is-groups) .col-activity { width: 11%; white-space: normal; }
+  .projects-table:not(.is-groups) .col-created { width: 8%; min-width: 6.5rem; }
 
   .projects-table .quote-title-cell,
   .projects-table th,
@@ -2744,6 +2754,21 @@ button.client-dropdown-item.is-active {
     max-width: none;
     overflow: hidden;
     vertical-align: middle;
+  }
+
+  .projects-table .col-dates,
+  .projects-table .col-status,
+  .projects-table .col-owner,
+  .projects-table .col-created,
+  .projects-table .col-activity,
+  .projects-table .actions-cell {
+    overflow: visible;
+  }
+
+  .projects-table .crm-status-select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .projects-table .crm-project-name-wrap {
