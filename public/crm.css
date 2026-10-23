@@ -48,6 +48,7 @@
   justify-content: center;
   line-height: 0;
   vertical-align: -3px;
+  color: #e11d48;
 }
 .app-page-title .lead-hot-badge {
   margin-left: 8px;
@@ -58,6 +59,10 @@
 }
 .leads-table tr.is-hot td:first-child {
   box-shadow: inset 3px 0 0 #e11d48;
+}
+.leads-table .col-phone {
+  white-space: nowrap;
+  width: 9.5rem;
 }
 .crm-context-menu {
   padding: 4px 0;
@@ -165,7 +170,9 @@ body[data-app-page="leads"] .leads-table thead th {
   gap: 10px;
   margin-bottom: 6px;
 }
-.lead-assign-board-head h3 { margin: 0; font-size: 15px; }
+.lead-assign-title {
+  flex: 0 0 auto;
+}
 .lead-assign-board-head .pc-select { max-width: 150px; }
 .lead-assign-hint {
   margin: 0 0 10px;

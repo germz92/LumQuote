@@ -224,7 +224,6 @@ class LeadsManager {
         const hint = document.getElementById('leadAssignHint');
         const assignBtn = document.getElementById('assignModeBtn');
         if (assignBtn) {
-            assignBtn.hidden = !this.isAdmin();
             assignBtn.classList.toggle('is-active', this.assignMode);
             assignBtn.setAttribute('aria-pressed', this.assignMode ? 'true' : 'false');
         }
@@ -232,7 +231,7 @@ class LeadsManager {
             hint.style.display = this.isAdmin() ? '' : 'none';
             const count = this.assignMode ? this.selected.size : 0;
             hint.textContent = !this.assignMode
-                ? 'Turn on Assign mode to select leads and drag them onto a name.'
+                ? 'Click Assign to select leads and drag them onto a name.'
                 : (count
                     ? `${count} selected. Drag the rows onto a name.`
                     : 'Click a lead to select it. Shift-click selects a range, Ctrl-click adds or removes. Drag the rows onto a name. Double-click opens a lead.');
@@ -299,7 +298,7 @@ class LeadsManager {
                     </div>
                 </td>
                 <td class="col-fold-sm">${CRM.escapeHtml(lead.email)}</td>
-                <td class="col-hide-sm col-fold-sm">${CRM.escapeHtml(lead.phone)}</td>
+                <td class="col-hide-sm col-fold-sm col-phone">${CRM.escapeHtml(lead.phone)}</td>
                 <td class="col-fold-sm">${CRM.escapeHtml((lead.services || []).join(', '))}</td>
                 <td>${CRM.escapeHtml(CRM.formatDate(lead.createdAt) || '')}</td>
                 <td onclick="event.stopPropagation()">${this.statusSelect(lead)}</td>

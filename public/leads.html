@@ -33,9 +33,6 @@
                                 </svg>
                                 <span class="pc-filters-toggle-label">Filters</span>
                             </button>
-                            <div class="pc-actions">
-                                <button type="button" class="pc-btn" id="assignModeBtn" hidden aria-pressed="false" onclick="leadsManager.toggleAssignMode()">Assign mode</button>
-                            </div>
                             <button type="button" class="btn btn-primary btn-md pc-primary-cta" onclick="leadsManager.openCreateModal()" title="New Lead">
                                 <span class="pc-cta-full">+ New Lead</span>
                                 <span class="pc-cta-short" aria-hidden="true">+</span>
@@ -73,7 +70,7 @@
                                 <tr>
                                     <th class="sortable" onclick="leadsManager.sortByColumn('name')">Name <span class="sort-indicator" data-sort="name"></span></th>
                                     <th class="sortable col-fold-sm" onclick="leadsManager.sortByColumn('email')">Email <span class="sort-indicator" data-sort="email"></span></th>
-                                    <th class="sortable col-hide-sm col-fold-sm" onclick="leadsManager.sortByColumn('phone')">Phone <span class="sort-indicator" data-sort="phone"></span></th>
+                                    <th class="sortable col-hide-sm col-fold-sm col-phone" onclick="leadsManager.sortByColumn('phone')">Phone <span class="sort-indicator" data-sort="phone"></span></th>
                                     <th class="col-fold-sm">Services</th>
                                     <th class="sortable" onclick="leadsManager.sortByColumn('created')">Submitted <span class="sort-indicator" data-sort="created"></span></th>
                                     <th class="sortable" onclick="leadsManager.sortByColumn('status')">Status <span class="sort-indicator" data-sort="status"></span></th>
@@ -92,7 +89,7 @@
                 </div>
                 <aside class="lead-assign-board" aria-label="Assign leads">
                     <div class="lead-assign-board-head">
-                        <h3>Assign</h3>
+                        <button type="button" class="pc-btn lead-assign-title" id="assignModeBtn" aria-pressed="false" onclick="leadsManager.toggleAssignMode()">Assign</button>
                         <select id="assigneeCountFilter" class="pc-select" onchange="leadsManager.loadAssigneeCounts().then(() => leadsManager.renderAssignees())">
                             <option value="all">All</option>
                             <option value="pending" selected>Pending</option>
@@ -106,7 +103,7 @@
                             <option value="archived">Archived</option>
                         </select>
                     </div>
-                    <p class="lead-assign-hint" id="leadAssignHint">Turn on Assign mode to select leads and drag them onto a name.</p>
+                    <p class="lead-assign-hint" id="leadAssignHint">Click Assign to select leads and drag them onto a name.</p>
                     <div class="lead-assign-columns">
                         <span class="lead-assign-name-head">
                             Name

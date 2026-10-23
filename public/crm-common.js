@@ -322,9 +322,8 @@ const CRM = {
 
     hotBadge() {
         return `<span class="lead-hot-badge" title="Hot lead" aria-label="Hot lead">
-            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path fill="#f97316" d="M12.3 1.6c.3 2.7 1.4 4.6 2.6 6.2 1.4 1.9 2.6 3.4 2.6 5.7 0 4-3.1 7.2-7.5 7.2S2.5 17.5 2.5 13.5c0-2.6 1.3-4.7 3.1-6.6.3 1.9.9 3.3 2 4.2C7.7 7.3 9.5 4 12.3 1.6z"/>
-                <path fill="#fbbf24" d="M12 11c.2 1.5 1 2.4 1.7 3.4.6 1 .9 1.7.9 2.5 0 2-1.5 3.6-3.7 3.6s-3.7-1.6-3.7-3.6c0-1.1.5-2 1.3-2.9.2 1 .7 1.5 1.4 1.5.1-1.7 1.1-3.3 2.1-4.5z"/>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
             </svg>
         </span>`;
     },
