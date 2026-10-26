@@ -61,6 +61,7 @@
                             <option value="booked">Booked</option>
                             <option value="contract_signed">Contract Signed</option>
                             <option value="invoiced">Invoiced</option>
+                            <option value="partial">Partial</option>
                             <option value="paid">Paid</option>
                             <option value="complete">Complete</option>
                         </select>
@@ -111,36 +112,36 @@
                 </div>
 
                 <div class="invoice-metrics project-metrics" id="projectMetrics">
-                    <article class="invoice-metric invoice-metric--quoted">
+                    <button type="button" class="invoice-metric invoice-metric--quoted invoice-metric--link" id="metricQuotedCard" onclick="projectsManager.openMetric('quoted')" title="Show quoted projects">
                         <div class="invoice-metric__body">
                             <div class="invoice-metric__label">Quoted</div>
                             <div class="invoice-metric__value invoice-metric__value--quoted" id="metricQuoted">—</div>
                         </div>
-                    </article>
-                    <article class="invoice-metric invoice-metric--signed">
+                    </button>
+                    <button type="button" class="invoice-metric invoice-metric--signed invoice-metric--link" id="metricSignedCard" onclick="projectsManager.openMetric('contract_signed')" title="Show contract-signed projects">
                         <div class="invoice-metric__body">
                             <div class="invoice-metric__label">Contract signed</div>
                             <div class="invoice-metric__value invoice-metric__value--signed" id="metricSigned">—</div>
                         </div>
-                    </article>
-                    <article class="invoice-metric invoice-metric--invoiced">
+                    </button>
+                    <button type="button" class="invoice-metric invoice-metric--invoiced invoice-metric--link" id="metricInvoicedCard" onclick="projectsManager.openMetric('invoiced')" title="Show invoiced projects with no payment yet">
                         <div class="invoice-metric__body">
                             <div class="invoice-metric__label">Invoiced</div>
                             <div class="invoice-metric__value invoice-metric__value--invoiced" id="metricInvoiced">—</div>
                         </div>
-                    </article>
-                    <article class="invoice-metric invoice-metric--partial">
+                    </button>
+                    <button type="button" class="invoice-metric invoice-metric--partial invoice-metric--link" id="metricPartialCard" onclick="projectsManager.openMetric('partial')" title="Show invoiced projects with a partial payment">
                         <div class="invoice-metric__body">
                             <div class="invoice-metric__label">Partial</div>
                             <div class="invoice-metric__value invoice-metric__value--partial" id="metricPartial">—</div>
                         </div>
-                    </article>
-                    <article class="invoice-metric invoice-metric--paid">
+                    </button>
+                    <button type="button" class="invoice-metric invoice-metric--paid invoice-metric--link" id="metricPaidCard" onclick="projectsManager.openMetric('paid')" title="Show paid projects">
                         <div class="invoice-metric__body">
                             <div class="invoice-metric__label">Paid</div>
                             <div class="invoice-metric__value invoice-metric__value--paid" id="metricPaid">—</div>
                         </div>
-                    </article>
+                    </button>
                 </div>
 
                 <div id="projectsDataArea" class="quotes-data-area">

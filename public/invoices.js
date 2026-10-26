@@ -91,6 +91,29 @@ class InvoicesManager {
         this.applyFilters();
     }
 
+    openMetric(kind) {
+        const status = document.getElementById('statusFilter');
+        if (!status) return;
+        const next = kind === 'collected' ? 'collected' : 'unpaid';
+        const already = status.value === next && this.when === 'all';
+        if (already) {
+            status.value = '';
+        } else {
+            status.value = next;
+            this.when = 'all';
+            localStorage.setItem('invoicesWhen', 'all');
+            this.syncWhenToggle();
+        }
+        this.applyFilters();
+        document.getElementById('invoicesDataArea')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    syncMetricCards() {
+        const status = document.getElementById('statusFilter')?.value || '';
+        document.getElementById('metricCollectedCard')?.classList.toggle('is-active', status === 'collected');
+        document.getElementById('metricOpenCard')?.classList.toggle('is-active', status === 'unpaid');
+    }
+
     updateClearButton() {
         const hasFilters = document.getElementById('searchInvoices')?.value ||
             document.getElementById('statusFilter')?.value;
@@ -101,6 +124,7 @@ class InvoicesManager {
         if (window.PageControls) {
             PageControls.syncFilterIndicator('#invoicesPageControls', drawerActive);
         }
+        this.syncMetricCards();
     }
 
     async loadInvoices() {
@@ -226,6 +250,9 @@ class InvoicesManager {
         if (status === 'overdue') {
             h3.textContent = 'No overdue invoices';
             p.textContent = 'Invoices with a balance and a due date before today will show here.';
+        } else if (status === 'collected') {
+            h3.textContent = 'No collections this month';
+            p.textContent = 'Invoices with a payment recorded this month will show here.';
         } else if (status === 'unpaid') {
             h3.textContent = 'No unpaid invoices';
             p.textContent = 'Draft and sent invoices that still have a balance will show here.';
@@ -311,7 +338,7 @@ class InvoicesManager {
         }).join('');
         return `
             <tr class="invoice-plan-row">
-                <td colspan="11">
+                <td colspan="10">
                     <div class="invoice-plan-panel" onclick="event.stopPropagation()">
                         <div class="invoice-plan-panel-label">Payment schedule</div>
                         <table class="invoice-plan-table">
@@ -338,10 +365,6 @@ class InvoicesManager {
         const dueDate = CRM.effectiveDueDate(inv);
         const due = dueDate
             ? `<span class="${CRM.isInvoiceOverdue(inv) ? 'invoice-due--overdue' : ''}">${CRM.escapeHtml(CRM.formatDate(dueDate))}</span>`
-            : '<span class="crm-inline-note">—</span>';
-
-        const projectCell = projectId
-            ? `<a class="invoice-project-link" href="/projects/${CRM.escapeHtml(projectId)}" onclick="event.stopPropagation()">${CRM.escapeHtml(inv.project.name || 'Project')}</a>`
             : '<span class="crm-inline-note">—</span>';
 
         const caret = hasPlan
@@ -380,6 +403,16 @@ class InvoicesManager {
             ownerMeta,
             createdMeta
         ]);
+        const projectName = (inv.project?.name || '').trim();
+        const subtitle = (inv.subtitle || '').trim();
+        const subtitleIsProject = !!(subtitle && projectName && subtitle.toLowerCase() === projectName.toLowerCase());
+        let underInvoice = '';
+        if (subtitle && !subtitleIsProject) {
+            underInvoice += `<br><span class="crm-inline-note">${CRM.escapeHtml(subtitle)}</span>`;
+        }
+        if (projectId) {
+            underInvoice += `<a class="invoice-project-link" href="/projects/${CRM.escapeHtml(projectId)}" onclick="event.stopPropagation()">${CRM.escapeHtml(projectName || 'Project')}</a>`;
+        }
 
         const main = `
             <tr class="invoice-row ${isOpen ? 'is-open' : ''} ${hasPlan ? 'has-plan' : ''}"
@@ -389,22 +422,21 @@ class InvoicesManager {
                     <div class="list-row-primary">
                         <div>
                             <strong class="invoice-number">${CRM.escapeHtml(inv.invoiceNumber || '')}</strong>
-                            ${inv.subtitle ? `<br><span class="crm-inline-note">${CRM.escapeHtml(inv.subtitle)}</span>` : ''}
+                            ${underInvoice}
                         </div>
                         ${metaHtml}
                     </div>
                 </td>
                 <td>${CRM.invoiceStatusChip(inv)}</td>
                 <td class="col-fold-sm">${this.clientLabel(inv.client)}</td>
-                <td class="col-fold-sm">${projectCell}</td>
                 <td class="col-fold-sm">${due}</td>
                 <td class="num"><span class="crm-cell-amount">${CRM.money(inv.total)}</span></td>
                 <td class="num col-fold-sm">${CRM.money(inv.amountPaid)}</td>
-                <td class="col-fold-sm">${this.planSummary(inv)}</td>
-                <td class="col-hide-sm col-fold-sm">${inv.createdBy?.name
+                <td class="col-plan col-fold-sm">${this.planSummary(inv)}</td>
+                <td class="col-owner col-hide-sm col-fold-sm">${inv.createdBy?.name
                     ? CRM.escapeHtml(inv.createdBy.name)
                     : '<span class="crm-inline-note">—</span>'}</td>
-                <td class="col-hide-sm col-fold-sm">${inv.createdAt
+                <td class="col-created col-hide-sm col-fold-sm">${inv.createdAt
                     ? CRM.escapeHtml(CRM.formatDate(inv.createdAt))
                     : '<span class="crm-inline-note">—</span>'}</td>
             </tr>`;

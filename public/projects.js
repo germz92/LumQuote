@@ -102,6 +102,29 @@ class ProjectsManager {
         this.applyFilters();
     }
 
+    openMetric(status) {
+        const select = document.getElementById('statusFilter');
+        if (!select) return;
+        if (this.listView === 'groups') this.setListView('projects');
+        select.value = select.value === status ? '' : status;
+        this.applyFilters();
+        document.getElementById('projectsDataArea')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    syncMetricCards() {
+        const status = document.getElementById('statusFilter')?.value || '';
+        const cards = {
+            quoted: 'metricQuotedCard',
+            contract_signed: 'metricSignedCard',
+            invoiced: 'metricInvoicedCard',
+            partial: 'metricPartialCard',
+            paid: 'metricPaidCard'
+        };
+        Object.entries(cards).forEach(([key, id]) => {
+            document.getElementById(id)?.classList.toggle('is-active', status === key);
+        });
+    }
+
     dateRange() {
         const from = document.getElementById('dateFrom')?.value || '';
         const to = document.getElementById('dateTo')?.value || '';
@@ -121,6 +144,7 @@ class ProjectsManager {
         if (window.PageControls) {
             PageControls.syncFilterIndicator('#projectsPageControls', drawerActive);
         }
+        this.syncMetricCards();
     }
 
     toggleArchiveView() {
@@ -173,7 +197,7 @@ class ProjectsManager {
 
     renderStatusMetrics(summary) {
         const strip = document.getElementById('projectMetrics');
-        if (strip) strip.hidden = !!this.showingArchived;
+        if (strip) strip.hidden = !!this.showingArchived || this.listView === 'groups';
         const stats = summary || {};
         const fields = [
             ['metricQuoted', stats.quoted],
@@ -223,14 +247,46 @@ class ProjectsManager {
         if (this.projects.length === 0) {
             tbody.innerHTML = '';
             empty.style.display = 'block';
-            if (empty.querySelector('h3')) empty.querySelector('h3').textContent = 'No projects yet';
-            if (empty.querySelector('p')) empty.querySelector('p').textContent = 'Create a project or save a quote — every quote automatically belongs to a project.';
+            this.updateEmptyCopy();
         } else {
             empty.style.display = 'none';
             tbody.innerHTML = this.projects.map((project) => this.renderRow(project)).join('');
         }
         this.renderPagination();
         this.updateSortIndicators();
+    }
+
+    updateEmptyCopy() {
+        const empty = document.getElementById('projectsEmpty');
+        if (!empty) return;
+        const status = document.getElementById('statusFilter')?.value || '';
+        const search = document.getElementById('searchProjects')?.value || '';
+        const h3 = empty.querySelector('h3');
+        const p = empty.querySelector('p');
+        if (!h3 || !p) return;
+        const labels = {
+            quoted: ['No quoted projects', 'Projects still in quoted status will show here.'],
+            contract_signed: ['No contract-signed projects', 'Projects with a signed contract will show here.'],
+            invoiced: ['No invoiced projects', 'Invoiced projects that have not received a payment will show here.'],
+            partial: ['No partial projects', 'Invoiced projects with a partial payment will show here.'],
+            paid: ['No paid projects', 'Projects marked paid will show here.']
+        };
+        if (labels[status]) {
+            h3.textContent = labels[status][0];
+            p.textContent = labels[status][1];
+        } else if (search || status) {
+            h3.textContent = 'No matching projects';
+            p.textContent = 'Try adjusting your search or filters.';
+        } else if (this.when === 'past') {
+            h3.textContent = 'No past projects';
+            p.textContent = 'Projects that ended before today will show here.';
+        } else if (this.when === 'upcoming') {
+            h3.textContent = 'No upcoming projects';
+            p.textContent = 'Projects ending today or later will show here. Switch to All to see everything.';
+        } else {
+            h3.textContent = 'No projects yet';
+            p.textContent = 'Create a project or save a quote — every quote automatically belongs to a project.';
+        }
     }
 
     async loadGroups() {
@@ -246,6 +302,8 @@ class ProjectsManager {
         document.getElementById('viewGroupsBtn')?.classList.toggle('is-active', view === 'groups');
         const groupsBar = document.getElementById('groupsViewBar');
         if (groupsBar) groupsBar.style.display = view === 'groups' ? '' : 'none';
+        const strip = document.getElementById('projectMetrics');
+        if (strip) strip.hidden = view === 'groups' || !!this.showingArchived;
         const search = document.getElementById('searchProjects');
         if (search) search.placeholder = view === 'groups' ? 'Search project groups...' : 'Search projects...';
         if (view === 'groups') {

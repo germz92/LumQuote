@@ -280,9 +280,16 @@ body[data-app-page="invoices"] .quotes-list-scroll {
 
 body[data-app-page="projects"] .quotes-list-scroll,
 body[data-app-page="invoices"] .quotes-list-scroll {
-  overflow-x: hidden;
   overflow-y: auto;
   max-height: max(360px, calc(100vh - 360px));
+}
+
+body[data-app-page="projects"] .quotes-list-scroll {
+  overflow-x: hidden;
+}
+
+body[data-app-page="invoices"] .quotes-list-scroll {
+  overflow-x: auto;
 }
 
 body[data-app-page="quotes"] .quotes-data-area > .quotes-grid {

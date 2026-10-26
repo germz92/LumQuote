@@ -46,6 +46,7 @@
                         <select id="statusFilter" class="pc-select" onchange="invoicesManager.applyFilters()">
                             <option value="">All Statuses</option>
                             <option value="unpaid">Unpaid</option>
+                            <option value="collected">Collected this month</option>
                             <option value="overdue">Overdue</option>
                             <option value="draft">Draft</option>
                             <option value="sent">Sent</option>
@@ -69,20 +70,28 @@
                 </div>
 
                 <div class="invoice-metrics" id="invoiceMetrics">
-                    <article class="invoice-metric invoice-metric--collected">
+                    <button type="button"
+                            class="invoice-metric invoice-metric--collected invoice-metric--link"
+                            id="metricCollectedCard"
+                            onclick="invoicesManager.openMetric('collected')"
+                            title="Show invoices with payments this month">
                         <div class="invoice-metric__body">
                             <div class="invoice-metric__label">Collected</div>
                             <div class="invoice-metric__value invoice-metric__value--collected" id="metricCollected">—</div>
                             <div class="invoice-metric__note" id="metricCollectedNote">This month</div>
                         </div>
-                    </article>
-                    <article class="invoice-metric invoice-metric--open">
+                    </button>
+                    <button type="button"
+                            class="invoice-metric invoice-metric--open invoice-metric--link"
+                            id="metricOpenCard"
+                            onclick="invoicesManager.openMetric('open')"
+                            title="Show invoices that still have a balance">
                         <div class="invoice-metric__body">
                             <div class="invoice-metric__label">Open invoices</div>
                             <div class="invoice-metric__value invoice-metric__value--open" id="metricOpen">—</div>
                             <div class="invoice-metric__note">Still due</div>
                         </div>
-                    </article>
+                    </button>
                     <article class="invoice-metric invoice-metric--revenue">
                         <div class="invoice-metric__body">
                             <div class="invoice-metric__label">Revenue</div>
@@ -108,7 +117,6 @@
                                         Status <span class="sort-indicator" data-sort="status"></span>
                                     </th>
                                     <th class="col-fold-sm">Client</th>
-                                    <th class="col-fold-sm">Project</th>
                                     <th class="sortable col-fold-sm" onclick="invoicesManager.sortByColumn('dueDate')">
                                         Due <span class="sort-indicator" data-sort="dueDate"></span>
                                     </th>
@@ -118,11 +126,11 @@
                                     <th class="sortable col-fold-sm" onclick="invoicesManager.sortByColumn('amountPaid')">
                                         Paid <span class="sort-indicator" data-sort="amountPaid"></span>
                                     </th>
-                                    <th class="col-fold-sm">Plan</th>
-                                    <th class="sortable col-hide-sm col-fold-sm" onclick="invoicesManager.sortByColumn('owner')">
+                                    <th class="col-plan col-fold-sm">Plan</th>
+                                    <th class="col-owner sortable col-hide-sm col-fold-sm" onclick="invoicesManager.sortByColumn('owner')">
                                         Owner <span class="sort-indicator" data-sort="owner"></span>
                                     </th>
-                                    <th class="sortable col-hide-sm col-fold-sm" onclick="invoicesManager.sortByColumn('createdAt')">
+                                    <th class="col-created sortable col-hide-sm col-fold-sm" onclick="invoicesManager.sortByColumn('createdAt')">
                                         Created <span class="sort-indicator" data-sort="createdAt"></span>
                                     </th>
                                 </tr>

@@ -895,6 +895,29 @@ body[data-app-page="leads"] .leads-table thead th {
   box-shadow: var(--shadow-sm);
   min-width: 0;
 }
+.invoice-metric--link {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+.invoice-metric--link:hover {
+  background: var(--color-bg);
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-md);
+}
+.invoice-metric--link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.invoice-metric--link.is-active {
+  background: var(--color-bg);
+  box-shadow: var(--shadow-focus);
+}
 .invoice-metric--collected { border-left-color: var(--color-warning); }
 .invoice-metric--open { border-left-color: var(--color-primary); }
 .invoice-metric--revenue { border-left-color: var(--color-success); }
@@ -3142,23 +3165,34 @@ button.client-dropdown-item.is-active {
 
 .invoice-plan-table tbody tr:last-child td { border-bottom: none; }
 
-.invoice-plan-col-payment { width: 22%; color: var(--color-text); font-weight: var(--font-weight-medium); }
-.invoice-plan-col-due { width: 46%; }
-.invoice-plan-col-amount { width: 16%; }
-.invoice-plan-col-status { width: 16%; }
+.invoice-plan-col-payment { width: 28%; color: var(--color-text); font-weight: var(--font-weight-medium); }
+.invoice-plan-col-due { width: 28%; }
+.invoice-plan-col-amount { width: 22%; }
+.invoice-plan-col-status { width: 22%; }
 
 .invoice-plan-table .num,
-.invoice-plan-col-amount {
+.invoice-plan-col-amount,
+.invoice-plan-table th.invoice-plan-col-amount {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.invoice-plan-col-status { text-align: right; }
+.invoice-plan-table th.invoice-plan-col-status,
+.invoice-plan-table td.invoice-plan-col-status {
+  text-align: left;
+  white-space: nowrap;
+}
 
 .invoices-table {
   width: 100%;
   table-layout: fixed;
+}
+
+@media (min-width: 761px) {
+  .invoices-table {
+    min-width: 64rem;
+  }
 }
 
 .invoices-table th,
@@ -3171,7 +3205,7 @@ button.client-dropdown-item.is-active {
 
 .invoices-table th:nth-child(1),
 .invoices-table td.invoice-caret {
-  width: 3%;
+  width: 2.25rem;
   padding-left: 10px;
   padding-right: 4px;
   white-space: nowrap;
@@ -3179,25 +3213,24 @@ button.client-dropdown-item.is-active {
 }
 
 .invoices-table th:nth-child(2),
-.invoices-table td:nth-child(2) { width: 14%; }
+.invoices-table td:nth-child(2) {
+  width: 16%;
+  white-space: normal;
+  overflow: hidden;
+}
 .invoices-table th:nth-child(3),
-.invoices-table td:nth-child(3) { width: 9%; white-space: nowrap; }
+.invoices-table td:nth-child(3) { width: 8%; white-space: nowrap; }
 .invoices-table th:nth-child(4),
 .invoices-table td:nth-child(4) { width: 13%; }
 .invoices-table th:nth-child(5),
-.invoices-table td:nth-child(5) { width: 15%; }
+.invoices-table td:nth-child(5) { width: 8%; white-space: nowrap; }
 .invoices-table th:nth-child(6),
 .invoices-table td:nth-child(6) { width: 8%; white-space: nowrap; }
 .invoices-table th:nth-child(7),
-.invoices-table td:nth-child(7) { width: 8%; white-space: nowrap; }
-.invoices-table th:nth-child(8),
-.invoices-table td:nth-child(8) { width: 8%; white-space: nowrap; }
-.invoices-table th:nth-child(9),
-.invoices-table td:nth-child(9) { width: 10%; }
-.invoices-table th:nth-child(10),
-.invoices-table td:nth-child(10) { width: 6%; }
-.invoices-table th:nth-child(11),
-.invoices-table td:nth-child(11) { width: 6%; white-space: nowrap; }
+.invoices-table td:nth-child(7) { width: 7%; white-space: nowrap; }
+.invoices-table .col-plan { width: 13rem; }
+.invoices-table .col-owner { width: 8.5rem; }
+.invoices-table .col-created { width: 7.25rem; }
 
 /* ---------- Clients page ---------- */
 
