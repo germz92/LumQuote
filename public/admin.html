@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="crm.css">
     <link rel="icon" href="/assets/lumquote_transparent_favicon.png" type="image/png">
 </head>
-<body data-app-page="admin" data-app-title="Admin" data-app-subtitle="Services, contracts, company, and the website form" data-app-show-back="true">
+<body data-app-page="admin" data-app-title="Admin" data-app-subtitle="Services, contracts, company, and website forms" data-app-show-back="true">
     <div class="container">
         <main class="main-content">
             <div class="admin-layout">
@@ -22,7 +22,7 @@
                 <button class="crm-tab" data-tab="company" onclick="showAdminTab('company')">Company Settings</button>
                 <button class="crm-tab" data-tab="payments" onclick="showAdminTab('payments')">Payments</button>
                 <button class="crm-tab" data-tab="users" onclick="showAdminTab('users')">Users</button>
-                <button class="crm-tab" data-tab="website" onclick="showAdminTab('website')">Website Form</button>
+                <button class="crm-tab" data-tab="website" onclick="showAdminTab('website')">Forms</button>
             </div>
 
             <div class="admin-section crm-panel is-active" id="admin-panel-services">
@@ -125,6 +125,29 @@
                     <div id="gcal-status" class="gcal-status">Checking Google Calendar…</div>
                     <div id="gcal-actions" class="gcal-actions"></div>
                 </div>
+
+                <div class="admin-card form-designer-publish">
+                    <h3>Website embeds</h3>
+                    <p class="form-help">Company-wide Squarespace snippets. Contact and custom forms have their own embed on Admin → Forms.</p>
+                    <div class="form-embed-list">
+                        <div class="form-embed-item">
+                            <div class="form-embed-meta">
+                                <strong>Estimate calculator</strong>
+                                <span>Code block on the calculator page</span>
+                            </div>
+                            <button type="button" class="secondary-button" onclick="copyEstimateEmbed()">Copy</button>
+                            <textarea id="estimateEmbed" class="form-embed-code" rows="4" readonly></textarea>
+                        </div>
+                        <div class="form-embed-item">
+                            <div class="form-embed-meta">
+                                <strong>Footer script</strong>
+                                <span>Optional. Only if your plan has Code Injection.</span>
+                            </div>
+                            <button type="button" class="secondary-button" onclick="copySquarespaceFooter()">Copy</button>
+                            <textarea id="squarespaceFooter" class="form-embed-code" rows="2" readonly></textarea>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div class="admin-section crm-panel" id="admin-panel-payments">
@@ -194,20 +217,50 @@
             </div>
 
             <div class="admin-section crm-panel" id="admin-panel-website">
-                <h2>Website Form</h2>
-                <p class="subtitle">Change the words visitors see on the contact form</p>
-
-                <form id="leadFormEditor" class="form-designer" onsubmit="saveLeadForm(event)">
+                <div id="formsListView">
                     <div class="form-designer-toolbar">
-                        <p class="form-designer-lead">Name, email, phone, message, and how they heard about you always stay on the form. You can change the labels, services, thank-you copy, and the embed for Squarespace.</p>
+                        <div>
+                            <h2>Forms</h2>
+                            <p class="subtitle">Pick a form to edit. Each card is a preview of what visitors see.</p>
+                        </div>
+                        <button type="button" class="primary-button" onclick="formsManager.openCreate()">+ New form</button>
+                    </div>
+                    <div id="formsList" class="forms-list"></div>
+                </div>
+
+                <form id="leadFormEditor" class="form-designer" hidden onsubmit="formsManager.save(event)">
+                    <div class="form-designer-toolbar">
+                        <div>
+                            <button type="button" class="forms-back" onclick="formsManager.showList()">← All forms</button>
+                            <h2 id="lf-editor-title">Edit form</h2>
+                            <p class="form-designer-lead">Change the words visitors see, add extra questions, then copy the embed for Squarespace.</p>
+                        </div>
                         <div class="form-designer-toolbar-actions">
-                            <a class="secondary-button form-designer-open" id="leadFormUrl" href="/inquire" target="_blank" rel="noopener noreferrer">Open form</a>
+                            <a class="secondary-button form-designer-open" id="leadFormUrl" href="/inquire" target="_blank" rel="noopener noreferrer">Open live form</a>
                             <button type="submit" class="primary-button">Save form</button>
                         </div>
                     </div>
 
                     <div class="form-designer-workspace">
                     <div class="form-designer-main">
+                        <section class="admin-card form-designer-section">
+                            <div class="form-designer-section-head">
+                                <h3>Form</h3>
+                                <p>Internal name and the public URL slug used in the embed.</p>
+                            </div>
+                            <div class="form-designer-grid">
+                                <div class="form-group">
+                                    <label for="lf-form-name">Form name</label>
+                                    <input type="text" id="lf-form-name" maxlength="80" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-form-slug">URL slug</label>
+                                    <input type="text" id="lf-form-slug" maxlength="60" required>
+                                    <small class="form-help" id="lf-form-url-hint"></small>
+                                </div>
+                            </div>
+                        </section>
+
                         <section class="admin-card form-designer-section">
                             <div class="form-designer-section-head">
                                 <h3>Visitor copy</h3>
@@ -235,25 +288,41 @@
 
                         <section class="admin-card form-designer-section">
                             <div class="form-designer-section-head">
-                                <h3>Field labels</h3>
-                                <p>These sit above the fields. The fields themselves stay the same.</p>
+                                <h3>Core fields</h3>
+                                <p>These stay on every form. Edit the label and the placeholder inside the field.</p>
                             </div>
                             <div class="form-designer-grid">
                                 <div class="form-group">
-                                    <label for="lf-name">Name</label>
+                                    <label for="lf-name">Name label</label>
                                     <input type="text" id="lf-name" maxlength="80" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="lf-email">Email</label>
+                                    <label for="lf-name-ph">Name placeholder</label>
+                                    <input type="text" id="lf-name-ph" maxlength="120" placeholder="Jane Smith">
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-email">Email label</label>
                                     <input type="text" id="lf-email" maxlength="80" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="lf-phone">Phone</label>
+                                    <label for="lf-email-ph">Email placeholder</label>
+                                    <input type="text" id="lf-email-ph" maxlength="120" placeholder="name@email.com">
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-phone">Phone label</label>
                                     <input type="text" id="lf-phone" maxlength="80" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="lf-message">Message</label>
+                                    <label for="lf-phone-ph">Phone placeholder</label>
+                                    <input type="text" id="lf-phone-ph" maxlength="80" placeholder="(555) 123-4567">
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-message">Message label</label>
                                     <input type="text" id="lf-message" maxlength="80" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="lf-message-ph">Message placeholder</label>
+                                    <input type="text" id="lf-message-ph" maxlength="200" placeholder="Tell us about your event">
                                 </div>
                                 <div class="form-group">
                                     <label for="lf-hear">How did you hear about us</label>
@@ -264,6 +333,15 @@
                                     <input type="text" id="lf-submit" maxlength="40" required>
                                 </div>
                             </div>
+                        </section>
+
+                        <section class="admin-card form-designer-section">
+                            <div class="form-designer-section-head">
+                                <h3>Extra fields</h3>
+                                <p>Optional questions added after the core fields. Text, long text, dropdown, checkbox, or date.</p>
+                            </div>
+                            <div id="lf-extra-fields" class="form-extra-list"></div>
+                            <button type="button" class="secondary-button form-designer-add" onclick="formsManager.addExtraField()">Add field</button>
                         </section>
 
                         <section class="admin-card form-designer-section">
@@ -284,7 +362,7 @@
                             <div class="form-group form-designer-span-2">
                                 <label for="lf-services">Services on the form</label>
                                 <div id="lf-services" class="form-designer-services"></div>
-                                <button type="button" class="secondary-button form-designer-add" onclick="addLeadFormService()">Add service</button>
+                                <button type="button" class="secondary-button form-designer-add" onclick="formsManager.addService()">Add service</button>
                             </div>
                         </section>
 
@@ -295,7 +373,7 @@
                             </div>
                             <div class="form-group">
                                 <label class="checkbox-label">
-                                    <input type="checkbox" id="lf-confirm-enabled" onchange="toggleLeadConfirmEmail()">
+                                    <input type="checkbox" id="lf-confirm-enabled" onchange="formsManager.toggleConfirmEmail()">
                                     <span class="checkbox-text">Email a confirmation to the visitor</span>
                                 </label>
                             </div>
@@ -325,15 +403,15 @@
                                 <div class="form-preview-card">
                                     <div class="form-preview-field">
                                         <span id="lf-preview-name"></span>
-                                        <span class="form-preview-input"></span>
+                                        <span class="form-preview-input" id="lf-preview-name-ph"></span>
                                     </div>
                                     <div class="form-preview-field">
                                         <span id="lf-preview-email"></span>
-                                        <span class="form-preview-input"></span>
+                                        <span class="form-preview-input" id="lf-preview-email-ph"></span>
                                     </div>
                                     <div class="form-preview-field">
                                         <span id="lf-preview-phone"></span>
-                                        <span class="form-preview-input"></span>
+                                        <span class="form-preview-input" id="lf-preview-phone-ph"></span>
                                     </div>
                                     <div class="form-preview-field">
                                         <span id="lf-preview-hear"></span>
@@ -341,8 +419,9 @@
                                     </div>
                                     <div class="form-preview-field">
                                         <span id="lf-preview-message"></span>
-                                        <span class="form-preview-input form-preview-input--area"></span>
+                                        <span class="form-preview-input form-preview-input--area" id="lf-preview-message-ph"></span>
                                     </div>
+                                    <div id="lf-preview-extras"></div>
                                     <div class="form-preview-services-box">
                                         <p class="form-preview-legend" id="lf-preview-services-legend"></p>
                                         <p class="form-preview-hint" id="lf-preview-services-hint"></p>
@@ -360,27 +439,11 @@
                             <div class="form-embed-list">
                                 <div class="form-embed-item">
                                     <div class="form-embed-meta">
-                                        <strong>Contact form</strong>
+                                        <strong id="lf-embed-title">Contact form</strong>
                                         <span>Embed block → Code snippet</span>
                                     </div>
-                                    <button type="button" class="secondary-button" onclick="copyLeadFormEmbed()">Copy</button>
+                                    <button type="button" class="secondary-button" onclick="formsManager.copyEmbed()">Copy</button>
                                     <textarea id="leadFormEmbed" class="form-embed-code" rows="4" readonly></textarea>
-                                </div>
-                                <div class="form-embed-item">
-                                    <div class="form-embed-meta">
-                                        <strong>Estimate calculator</strong>
-                                        <span>Code block on the calculator page</span>
-                                    </div>
-                                    <button type="button" class="secondary-button" onclick="copyEstimateEmbed()">Copy</button>
-                                    <textarea id="estimateEmbed" class="form-embed-code" rows="4" readonly></textarea>
-                                </div>
-                                <div class="form-embed-item">
-                                    <div class="form-embed-meta">
-                                        <strong>Footer script</strong>
-                                        <span>Optional. Only if your plan has Code Injection.</span>
-                                    </div>
-                                    <button type="button" class="secondary-button" onclick="copySquarespaceFooter()">Copy</button>
-                                    <textarea id="squarespaceFooter" class="form-embed-code" rows="2" readonly></textarea>
                                 </div>
                             </div>
                         </div>
@@ -488,5 +551,6 @@
     <script src="contract-editor.js"></script>
     <script src="admin.js"></script>
     <script src="admin-crm.js"></script>
+    <script src="admin-forms.js"></script>
 </body>
 </html> 

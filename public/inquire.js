@@ -3,7 +3,79 @@ function setText(id, value) {
     if (el && value != null) el.textContent = value;
 }
 
+function inquireFormSlug() {
+    const parts = window.location.pathname.split('/').filter(Boolean);
+    return parts[0] === 'inquire' && parts[1] ? parts[1] : '';
+}
+
+function setPlaceholder(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.placeholder = value || '';
+}
+
+function extraFieldControl(field) {
+    const wrap = document.createElement('div');
+    wrap.className = field.type === 'checkbox' ? 'form-group inquire-extra-check' : 'form-group';
+    const requiredMark = field.required ? ' *' : '';
+    if (field.type === 'checkbox') {
+        const label = document.createElement('label');
+        label.className = 'inquire-check';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.dataset.extraId = field.id;
+        if (field.required) input.required = true;
+        label.append(input, document.createTextNode(` ${field.label}${requiredMark}`));
+        wrap.appendChild(label);
+        return wrap;
+    }
+    const label = document.createElement('label');
+    label.textContent = `${field.label}${requiredMark}`;
+    wrap.appendChild(label);
+    let input;
+    if (field.type === 'textarea') {
+        input = document.createElement('textarea');
+        input.rows = 4;
+        input.maxLength = 4000;
+    } else if (field.type === 'select') {
+        input = document.createElement('select');
+        const blank = document.createElement('option');
+        blank.value = '';
+        blank.textContent = field.placeholder || 'Select one';
+        input.appendChild(blank);
+        (field.options || []).forEach((option) => {
+            const item = document.createElement('option');
+            item.value = option;
+            item.textContent = option;
+            input.appendChild(item);
+        });
+    } else if (field.type === 'date') {
+        input = document.createElement('input');
+        input.type = 'date';
+    } else {
+        input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 400;
+    }
+    input.dataset.extraId = field.id;
+    if (field.placeholder && field.type !== 'select') input.placeholder = field.placeholder;
+    if (field.required) input.required = true;
+    wrap.appendChild(input);
+    return wrap;
+}
+
+function collectExtraFields(formEl) {
+    const extras = {};
+    formEl.querySelectorAll('[data-extra-id]').forEach((input) => {
+        extras[input.dataset.extraId] = input.type === 'checkbox' ? input.checked : input.value;
+    });
+    return extras;
+}
+
+let currentInquiryForm = null;
+
 function applyInquiryForm(form) {
+    currentInquiryForm = form;
+    if (form.heading) document.title = form.heading;
     setText('inquireHeading', form.heading);
     const intro = document.getElementById('inquireIntro');
     if (intro) {
@@ -14,6 +86,10 @@ function applyInquiryForm(form) {
     setText('inquireEmailLabel', `${form.emailLabel} *`);
     setText('inquirePhoneLabel', `${form.phoneLabel} *`);
     setText('inquireMessageLabel', `${form.messageLabel} *`);
+    setPlaceholder('name', form.namePlaceholder);
+    setPlaceholder('email', form.emailPlaceholder);
+    setPlaceholder('phone', form.phonePlaceholder);
+    setPlaceholder('message', form.messagePlaceholder);
     setText('inquireServicesLegend', `${form.servicesLegend} *`);
     const hint = document.getElementById('inquireServicesHint');
     if (hint) {
@@ -28,6 +104,10 @@ function applyInquiryForm(form) {
     if (success) {
         success.textContent = form.successMessage || '';
         success.hidden = !form.successMessage;
+    }
+    const extras = document.getElementById('inquireExtras');
+    if (extras) {
+        extras.replaceChildren(...(Array.isArray(form.extraFields) ? form.extraFields : []).map(extraFieldControl));
     }
     scheduleInquireHeight();
     const services = document.getElementById('inquireServices');
@@ -45,10 +125,23 @@ function applyInquiryForm(form) {
     }
 }
 
-fetch('/api/public/lead-form')
-    .then((response) => response.ok ? response.json() : null)
+function showMissingForm() {
+    const form = document.getElementById('inquireForm');
+    const heading = document.getElementById('inquireHeading');
+    const intro = document.getElementById('inquireIntro');
+    if (form) form.hidden = true;
+    if (heading) heading.hidden = true;
+    if (intro) intro.hidden = true;
+    const missing = document.getElementById('inquireMissing');
+    if (missing) missing.hidden = false;
+    scheduleInquireHeight();
+}
+
+const slugQuery = inquireFormSlug();
+fetch(`/api/public/lead-form${slugQuery ? `?slug=${encodeURIComponent(slugQuery)}` : ''}`)
+    .then((response) => response.ok ? response.json() : Promise.reject(response.status))
     .then((form) => { if (form) applyInquiryForm(form); })
-    .catch(() => {});
+    .catch(() => showMissingForm());
 
 function enhanceLeadSourceSelect() {
     const select = document.getElementById('leadSource');
@@ -202,6 +295,8 @@ document.getElementById('inquireForm').addEventListener('submit', async (event) 
                 message: form.message.value.trim(),
                 services,
                 leadSource,
+                formSlug: currentInquiryForm?.slug || slugQuery,
+                extraFields: collectExtraFields(form),
                 companyWebsite: form.companyWebsite.value
             })
         });
@@ -215,6 +310,6 @@ document.getElementById('inquireForm').addEventListener('submit', async (event) 
         errorEl.textContent = error.message || 'Could not submit the form.';
         errorEl.hidden = false;
         submit.disabled = false;
-        submit.textContent = 'Send';
+        submit.textContent = currentInquiryForm?.submitLabel || 'Send';
     }
 });

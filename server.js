@@ -288,6 +288,7 @@ app.use((req, res, next) => {
       req.path.startsWith('/login.') ||
       req.path.startsWith('/assets/') ||
       req.path === '/inquire' ||              // public website lead form
+      req.path.startsWith('/inquire/') ||     // additional public website forms
       req.path === '/estimate' ||             // public photography estimate calculator
       req.path.startsWith('/sign/') ||        // public contract signing (token-protected)
       req.path.startsWith('/invoice/') ||     // public invoice view (token-protected)
@@ -2004,9 +2005,11 @@ async function initializeCrm() {
     const {
       runCrmMigration,
       advanceProjectsFromBookedQuotes,
-      seedContractTemplates
+      seedContractTemplates,
+      seedInquiryForms
     } = require('./lib/crm-models');
     await seedContractTemplates();
+    await seedInquiryForms();
     await runCrmMigration(SavedQuote);
     await advanceProjectsFromBookedQuotes(SavedQuote);
   } catch (error) {

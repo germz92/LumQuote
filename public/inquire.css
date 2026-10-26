@@ -98,6 +98,14 @@ body {
   width: auto;
 }
 
+#inquireExtras {
+  margin-top: 4px;
+}
+
+.inquire-extra-check {
+  margin-top: 2px;
+}
+
 .field-hint {
   margin: 0 0 8px;
   color: var(--color-text-secondary);

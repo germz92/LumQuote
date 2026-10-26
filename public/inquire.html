@@ -70,9 +70,15 @@
                     </fieldset>
                 </div>
             </div>
+            <div id="inquireExtras"></div>
             <p id="inquireError" class="inquire-error" role="alert" hidden></p>
             <button type="submit" class="inquire-submit" id="inquireSubmit">Send</button>
         </form>
+
+        <div id="inquireMissing" class="inquire-card inquire-success" hidden>
+            <h2>This form is not available.</h2>
+            <p>The form you opened was removed or the link is incorrect.</p>
+        </div>
 
         <div id="inquireSuccess" class="inquire-card inquire-success" hidden>
             <h2 id="inquireSuccessTitle">Thanks, we received it.</h2>

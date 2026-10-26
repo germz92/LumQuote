@@ -13,7 +13,7 @@
     window.__lumquoteSquarespaceEmbed = true;
 
     var FRAMES = [
-        { type: 'lumquote-inquire-height', path: /\/inquire(?:[?#]|$)/, min: 400, max: 5000 },
+        { type: 'lumquote-inquire-height', path: /\/inquire(?:\/[A-Za-z0-9-]+)?(?:[?#]|$)/, min: 400, max: 5000 },
         { type: 'lumquote-estimate-height', path: /\/estimate(?:[?#]|$)/, min: 300, max: 3000 }
     ];
 

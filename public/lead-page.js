@@ -117,6 +117,12 @@ class LeadPage {
                 <div class="form-group"><label>Submitted</label><p>${CRM.escapeHtml(submitted)}</p></div>
                 <div class="form-group form-group--full"><label>Services</label><p>${CRM.escapeHtml((lead.services || []).join(', ') || '—')}</p></div>
                 <div class="form-group form-group--full"><label>How they heard about us</label><p>${CRM.escapeHtml(lead.leadSource || '—')}</p></div>
+                ${lead.formName ? `<div class="form-group form-group--full"><label>Form</label><p>${CRM.escapeHtml(lead.formName)}</p></div>` : ''}
+                ${(lead.extraFields || []).map((field) => {
+                    const raw = field.value || '';
+                    const pretty = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? (CRM.formatDate(raw) || raw) : raw;
+                    return `<div class="form-group form-group--full"><label>${CRM.escapeHtml(field.label || 'Field')}</label><p>${CRM.escapeHtml(pretty || '—')}</p></div>`;
+                }).join('')}
                 <div class="form-group form-group--full"><label>Message</label><p class="lead-message">${CRM.escapeHtml(lead.message || '—')}</p></div>
                 ${this.estimateBlock(lead)}
                 ${assign}
