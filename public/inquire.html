@@ -55,7 +55,8 @@
                 <div>
                     <div class="form-group">
                         <label for="message" id="inquireMessageLabel">Message *</label>
-                        <textarea id="message" name="message" required maxlength="4000" rows="5"></textarea>
+                        <textarea id="message" name="message" required maxlength="4000" rows="5" aria-describedby="inquireMessageLimit"></textarea>
+                        <p id="inquireMessageLimit" class="field-hint inquire-limit" hidden></p>
                     </div>
                     <fieldset class="form-group inquire-services">
                         <legend id="inquireServicesLegend">Which services are you interested in? *</legend>

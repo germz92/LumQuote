@@ -112,6 +112,14 @@ body {
   font-size: 13px;
 }
 
+.inquire-limit {
+  margin: 6px 0 0;
+}
+
+.inquire-limit.is-warning {
+  color: #b91c1c;
+}
+
 .inquire-submit {
   width: 100%;
   margin-top: 8px;

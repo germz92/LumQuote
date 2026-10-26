@@ -249,8 +249,32 @@ function scheduleInquireHeight() {
     requestAnimationFrame(() => requestAnimationFrame(publishInquireHeight));
 }
 
+const MESSAGE_MAX = 4000;
+const MESSAGE_WARN_AT = 3800;
+
+function syncMessageLimit() {
+    const input = document.getElementById('message');
+    const hint = document.getElementById('inquireMessageLimit');
+    if (!input || !hint) return;
+    const used = input.value.length;
+    const left = MESSAGE_MAX - used;
+    if (used < MESSAGE_WARN_AT) {
+        hint.hidden = true;
+        hint.classList.remove('is-warning');
+        return;
+    }
+    hint.hidden = false;
+    hint.classList.toggle('is-warning', left <= 0);
+    hint.textContent = left <= 0
+        ? 'Message is at the 4,000 character limit. Shorten it to add more.'
+        : `${left.toLocaleString()} characters left (4,000 max).`;
+    scheduleInquireHeight();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     enhanceLeadSourceSelect();
+    document.getElementById('message')?.addEventListener('input', syncMessageLimit);
+    syncMessageLimit();
     scheduleInquireHeight();
 });
 window.addEventListener('load', scheduleInquireHeight);
@@ -276,6 +300,11 @@ document.getElementById('inquireForm').addEventListener('submit', async (event) 
     const sourceError = window.LeadSources ? LeadSources.validateLeadSourceForm() : null;
     if (sourceError) {
         errorEl.textContent = sourceError;
+        errorEl.hidden = false;
+        return;
+    }
+    if (form.message.value.length > MESSAGE_MAX) {
+        errorEl.textContent = 'Message must be 4,000 characters or fewer.';
         errorEl.hidden = false;
         return;
     }
