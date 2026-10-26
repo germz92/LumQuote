@@ -8,6 +8,8 @@ class QuoteCalculator {
         this.currentClientName = null;
         this.currentClientCompany = null;
         this.currentLocation = null;
+        this.currentCity = null;
+        this.currentState = null;
         this.currentLeadSource = null;
         this.currentBooked = false;
         this.currentArchived = false;
@@ -103,6 +105,11 @@ class QuoteCalculator {
                 this.currentClientCompany = draftData.currentClientCompany || null;
                 this.currentQuoteTitle = draftData.currentQuoteTitle || "Conference Services Quote";
                 this.currentLocation = draftData.currentLocation || null;
+                this.setCurrentPlace({
+                    city: draftData.currentCity,
+                    state: draftData.currentState,
+                    location: draftData.currentLocation
+                });
                 this.currentLeadSource = draftData.currentLeadSource || null;
                 this.currentBooked = draftData.currentBooked || false;
                 this.currentArchived = draftData.currentArchived || false;
@@ -177,6 +184,8 @@ class QuoteCalculator {
                 currentClientCompany: this.currentClientCompany,
                 currentQuoteTitle: this.currentQuoteTitle,
                 currentLocation: this.currentLocation,
+                currentCity: this.currentCity,
+                currentState: this.currentState,
                 currentLeadSource: this.currentLeadSource,
                 currentBooked: this.currentBooked,
                 currentArchived: this.currentArchived,
@@ -227,6 +236,8 @@ class QuoteCalculator {
         this.leadServices = [];
         this.currentQuoteTitle = 'Conference Services Quote';
         this.currentLocation = null;
+        this.currentCity = null;
+        this.currentState = null;
         this.currentLeadSource = null;
         this.perEventDiscountEnabled = false;
         
@@ -1610,7 +1621,7 @@ class QuoteCalculator {
         document.getElementById('saveQuoteTitle').value = titleForSave;
         document.getElementById('clientName').value = this.currentClientName || '';
         document.getElementById('clientCompany').value = this.currentClientCompany || '';
-        document.getElementById('eventLocation').value = this.currentLocation || '';
+        this.fillEventPlaceFields();
         if (window.LeadSources) {
             LeadSources.setLeadSourceFormValue(this.currentLeadSource || '');
         } else {
@@ -1717,8 +1728,12 @@ class QuoteCalculator {
                 if (project.client.company) this.currentClientCompany = project.client.company;
                 this.updateClientDisplay();
             }
-            if (project.location) {
-                this.currentLocation = project.location;
+            if (project.city || project.state || project.location) {
+                this.setCurrentPlace({
+                    city: project.city,
+                    state: project.state,
+                    location: project.location
+                });
                 this.updateLocationDisplay();
             }
             if (project.leadSource) {
@@ -1774,7 +1789,7 @@ class QuoteCalculator {
     }
 
     // Resolves the project select value; creates a new project when "__new__" is chosen.
-    async resolveSelectedProjectId(quoteTitle, clientName, clientCompany) {
+    async resolveSelectedProjectId(quoteTitle, clientName, clientCompany, place = null) {
         const select = document.getElementById('saveQuoteProject');
         if (!select) return this.currentProjectId ?? null;
         const value = select.value;
@@ -1784,6 +1799,7 @@ class QuoteCalculator {
         const leadSource = window.LeadSources
             ? LeadSources.getLeadSourceFromForm()
             : (document.getElementById('leadSource')?.value || '').trim();
+        const nextPlace = place || this.placePayload();
         const response = await fetch('/api/projects', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1791,7 +1807,8 @@ class QuoteCalculator {
                 name: quoteTitle,
                 status: 'quoted',
                 client: clientName ? { name: clientName, company: clientCompany || '' } : undefined,
-                location: this.currentLocation || null,
+                city: nextPlace.city || null,
+                state: nextPlace.state || null,
                 leadSource: leadSource || null
             })
         });
@@ -1951,7 +1968,7 @@ class QuoteCalculator {
                         newName: newTitle,
                         clientName: this.currentClientName || null,
                         clientCompany: this.currentClientCompany || null,
-                        location: this.currentLocation || null
+                        ...this.placePayload()
                     })
                 });
 
@@ -1996,7 +2013,7 @@ class QuoteCalculator {
         const title = document.getElementById('saveQuoteTitle').value.trim();
         const clientName = document.getElementById('clientName').value.trim();
         const clientCompany = document.getElementById('clientCompany').value.trim();
-        const location = document.getElementById('eventLocation').value.trim();
+        const place = this.readEventPlace();
         const leadSource = window.LeadSources
             ? LeadSources.getLeadSourceFromForm()
             : document.getElementById('leadSource').value.trim();
@@ -2015,8 +2032,8 @@ class QuoteCalculator {
             return;
         }
         
-        if (!location) {
-            showAlertModal('Please enter an event location.', 'error');
+        if (!place.city || !place.state) {
+            showAlertModal('Enter a city and state.', 'error');
             return;
         }
         
@@ -2040,10 +2057,10 @@ class QuoteCalculator {
         const isRenaming = oldQuoteName && oldQuoteName !== title;
 
         try {
-            const projectId = await this.resolveSelectedProjectId(title, clientName, clientCompany);
+            const projectId = await this.resolveSelectedProjectId(title, clientName, clientCompany, place);
 
             if (oldQuoteName && oldQuoteName === title) {
-                await this.overwriteQuote(title, quoteData, clientName, clientCompany, location, leadSource, projectId);
+                await this.overwriteQuote(title, quoteData, clientName, clientCompany, place, leadSource, projectId);
                 return;
             }
 
@@ -2057,7 +2074,9 @@ class QuoteCalculator {
                     quoteData,
                     clientName: clientName || null,
                     clientCompany: clientCompany || null,
-                    location: location || null,
+                    city: place.city || null,
+                    state: place.state || null,
+                    location: place.location || null,
                     leadSource: leadSource || null,
                     projectId: projectId,
                     leadId: this.currentLeadId || undefined,
@@ -2076,7 +2095,7 @@ class QuoteCalculator {
                     'Cancel'
                 );
                 if (overwrite) {
-                    await this.overwriteQuote(title, quoteData, clientName, clientCompany, location, leadSource, projectId);
+                    await this.overwriteQuote(title, quoteData, clientName, clientCompany, place, leadSource, projectId);
                     // If we're renaming, delete the old quote after successful overwrite
                     if (isRenaming) {
                         await this.deleteOldQuote(oldQuoteName);
@@ -2092,7 +2111,7 @@ class QuoteCalculator {
                 this.currentQuoteName = title;
                 this.currentClientName = clientName || null;
                 this.currentClientCompany = clientCompany || null;
-                this.currentLocation = location || null;
+                this.setCurrentPlace(place);
                 this.currentLeadSource = leadSource || null;
                 this.currentProjectId = projectId || null;
                 this.currentQuoteTitle = title; // Update the main page title
@@ -2247,7 +2266,7 @@ class QuoteCalculator {
                     quoteData,
                     clientName: this.currentClientName || null,
                     clientCompany: this.currentClientCompany || null,
-                    location: this.currentLocation || null,
+                    ...this.placePayload(),
                     leadSource: this.currentLeadSource || null,
                     // undefined is dropped by JSON.stringify → server leaves project link untouched
                     projectId: this.currentProjectId || undefined,
@@ -2270,7 +2289,7 @@ class QuoteCalculator {
                         quoteData,
                         clientName: this.currentClientName || null,
                         clientCompany: this.currentClientCompany || null,
-                        location: this.currentLocation || null,
+                        ...this.placePayload(),
                         leadSource: this.currentLeadSource || null,
                         projectId: this.currentProjectId || undefined,
                         leadId: this.currentLeadId || undefined
@@ -2292,7 +2311,7 @@ class QuoteCalculator {
                             quoteData,
                             clientName: this.currentClientName || null,
                             clientCompany: this.currentClientCompany || null,
-                            location: this.currentLocation || null,
+                            ...this.placePayload(),
                             leadSource: this.currentLeadSource || null,
                             projectId: this.currentProjectId || undefined,
                             leadId: this.currentLeadId || undefined
@@ -2620,14 +2639,18 @@ class QuoteCalculator {
         }
     }
 
-    async overwriteQuote(name, quoteData, clientName, clientCompany, location, leadSource, projectId = undefined) {
+    async overwriteQuote(name, quoteData, clientName, clientCompany, place, leadSource, projectId = undefined) {
         try {
+            const nextPlace = (place && typeof place === 'object')
+                ? place
+                : { location: place || null };
+            this.setCurrentPlace(nextPlace);
             const payload = { 
                 name, 
                 quoteData,
                 clientName: clientName || null,
                 clientCompany: clientCompany || null,
-                location: location || null,
+                ...this.placePayload(),
                 leadSource: leadSource || null
             };
             if (projectId !== undefined) {
@@ -2651,7 +2674,6 @@ class QuoteCalculator {
                 this.currentQuoteName = name;
                 this.currentClientName = clientName || null;
                 this.currentClientCompany = clientCompany || null;
-                this.currentLocation = location || null;
                 this.currentLeadSource = leadSource || null;
                 if (projectId !== undefined) {
                     this.currentProjectId = projectId || null;
@@ -2777,6 +2799,8 @@ class QuoteCalculator {
             this.currentClientName = null;
             this.currentClientCompany = null;
             this.currentLocation = null;
+            this.currentCity = null;
+            this.currentState = null;
             this.currentLeadSource = null;
             this.currentBooked = false;
             this.currentArchived = false;
@@ -2882,11 +2906,50 @@ class QuoteCalculator {
         }
     }
 
+    readEventPlace() {
+        const city = document.getElementById('eventCity')?.value.trim() || '';
+        const state = document.getElementById('eventState')?.value.trim() || '';
+        return {
+            city,
+            state,
+            location: window.CRM ? CRM.composeLocation(city, state) : [city, state].filter(Boolean).join(', ')
+        };
+    }
+
+    setCurrentPlace({ city = '', state = '', location = '' } = {}) {
+        const parsed = (city || state)
+            ? { city: String(city || '').trim(), state: String(state || '').trim() }
+            : (window.CRM ? CRM.splitLocation(location) : { city: String(location || '').trim(), state: '' });
+        this.currentCity = parsed.city || null;
+        this.currentState = parsed.state || null;
+        this.currentLocation = (window.CRM
+            ? CRM.composeLocation(this.currentCity, this.currentState)
+            : [this.currentCity, this.currentState].filter(Boolean).join(', ')) || location || null;
+    }
+
+    fillEventPlaceFields() {
+        const cityEl = document.getElementById('eventCity');
+        const stateEl = document.getElementById('eventState');
+        if (cityEl) cityEl.value = this.currentCity || '';
+        if (window.CRM) CRM.fillStateSelect(stateEl, this.currentState || '');
+        else if (stateEl) stateEl.value = this.currentState || '';
+    }
+
+    placePayload() {
+        return {
+            city: this.currentCity || null,
+            state: this.currentState || null,
+            location: this.currentLocation || null
+        };
+    }
+
     clearCurrentQuote() {
         this.currentQuoteName = null;
         this.currentClientName = null;
         this.currentClientCompany = null;
         this.currentLocation = null;
+        this.currentCity = null;
+        this.currentState = null;
         this.currentBooked = false;
         this.currentArchived = false;
         this.currentCreatedBy = null;
@@ -2926,7 +2989,11 @@ class QuoteCalculator {
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
             this.currentClientCompany = quote.clientCompany || null;
-            this.currentLocation = quote.location || null;
+            this.setCurrentPlace({
+                city: quote.city,
+                state: quote.state,
+                location: quote.location
+            });
             this.currentLeadSource = quote.leadSource || null;
             this.currentBooked = quote.booked || false;
             this.currentArchived = quote.archived || false;
@@ -3389,7 +3456,11 @@ class QuoteCalculator {
             this.currentQuoteName = quote.name;
             this.currentClientName = quote.clientName || null;
             this.currentClientCompany = quote.clientCompany || null;
-            this.currentLocation = quote.location || null;
+            this.setCurrentPlace({
+                city: quote.city,
+                state: quote.state,
+                location: quote.location
+            });
             this.currentLeadSource = quote.leadSource || null;
             this.currentBooked = quote.booked || false;
             this.currentArchived = quote.archived || false;
@@ -5277,7 +5348,7 @@ async function saveAsCopy() {
     const title = document.getElementById('saveQuoteTitle').value.trim();
     const clientName = document.getElementById('clientName').value.trim();
     const clientCompany = document.getElementById('clientCompany').value.trim();
-    const location = document.getElementById('eventLocation').value.trim();
+    const place = calculator.readEventPlace();
     const leadSource = window.LeadSources
         ? LeadSources.getLeadSourceFromForm()
         : document.getElementById('leadSource').value.trim();
@@ -5297,8 +5368,8 @@ async function saveAsCopy() {
         return;
     }
     
-    if (!location) {
-        showAlertModal('Please enter an event location.', 'error');
+    if (!place.city || !place.state) {
+        showAlertModal('Enter a city and state.', 'error');
         return;
     }
     
@@ -5320,7 +5391,7 @@ async function saveAsCopy() {
     };
 
     try {
-        const projectId = await calculator.resolveSelectedProjectId(copyTitle, clientName, clientCompany);
+        const projectId = await calculator.resolveSelectedProjectId(copyTitle, clientName, clientCompany, place);
 
         const response = await fetch('/api/save-quote', {
             method: 'POST',
@@ -5332,7 +5403,9 @@ async function saveAsCopy() {
                 quoteData,
                 clientName: clientName || null,
                 clientCompany: clientCompany || null,
-                location: location || null,
+                city: place.city || null,
+                state: place.state || null,
+                location: place.location || null,
                 leadSource: leadSource || null,
                 projectId: projectId
             })
@@ -5356,7 +5429,9 @@ async function saveAsCopy() {
                         quoteData,
                         clientName: clientName || null,
                         clientCompany: clientCompany || null,
-                        location: location || null,
+                        city: place.city || null,
+                        state: place.state || null,
+                        location: place.location || null,
                         leadSource: leadSource || null,
                         projectId: projectId
                     })
@@ -5368,6 +5443,7 @@ async function saveAsCopy() {
                     calculator.currentQuoteName = uniqueTitle;
                     calculator.currentClientName = clientName || null;
                     calculator.currentClientCompany = clientCompany || null;
+                    calculator.setCurrentPlace(place);
                     calculator.currentLeadSource = leadSource || null;
                     calculator.currentQuoteTitle = uniqueTitle;
                     calculator.currentProjectId = projectId || null;
@@ -5391,6 +5467,7 @@ async function saveAsCopy() {
             calculator.currentQuoteName = copyTitle;
             calculator.currentClientName = clientName || null;
             calculator.currentClientCompany = clientCompany || null;
+            calculator.setCurrentPlace(place);
             calculator.currentLeadSource = leadSource || null;
             calculator.currentQuoteTitle = copyTitle;
             calculator.currentProjectId = projectId || null;

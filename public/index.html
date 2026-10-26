@@ -295,9 +295,17 @@
                         <label for="clientCompany">Company Name *</label>
                         <input type="text" id="clientCompany" placeholder="Enter company name" required>
                     </div>
-                    <div class="form-group">
-                        <label for="eventLocation">Event Location *</label>
-                        <input type="text" id="eventLocation" placeholder="Enter event location" required>
+                    <div class="place-fields">
+                        <div class="form-group">
+                            <label for="eventCity">City *</label>
+                            <input type="text" id="eventCity" placeholder="City" autocomplete="address-level2" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="eventState">State *</label>
+                            <select id="eventState" autocomplete="address-level1" required>
+                                <option value="">Select state</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="leadSource">Lead Source *</label>
@@ -470,6 +478,7 @@
     <script src="modals.js"></script>
     <script src="shell.js"></script>
     <script src="lead-sources.js"></script>
+    <script src="crm-common.js"></script>
     <script src="lumdash-integration.js"></script>
     <script src="script.js"></script>
 </body>

@@ -46,6 +46,21 @@ class ClientsManager {
         this.render();
     }
 
+    portalButton({ scope, clientId, company, label, portal }) {
+        const exists = !!portal?.exists;
+        const on = !!portal?.enabled;
+        const state = !exists ? '' : (on ? 'is-on' : 'is-off');
+        const title = !exists ? 'No portal yet' : (on ? 'Portal created and on' : 'Portal created but off');
+        const mark = exists ? '<span class="portal-indicator" aria-hidden="true"></span>' : '';
+        const args = [
+            `scope: '${CRM.escapeJs(scope)}'`,
+            clientId ? `clientId: '${CRM.escapeJs(clientId)}'` : '',
+            company ? `company: '${CRM.escapeJs(company)}'` : '',
+            `label: '${CRM.escapeJs(label)}'`
+        ].filter(Boolean).join(', ');
+        return `<button type="button" class="crm-btn-sm portal-btn ${state}" title="${CRM.escapeHtml(title)}" onclick="event.stopPropagation(); PortalShare.open({ ${args} })">Portal${mark}</button>`;
+    }
+
     sortHeader(label, column, extraClass = '') {
         const arrow = this.sortColumn === column
             ? (this.sortDirection === 'asc' ? ' ▲' : ' ▼')
@@ -263,7 +278,7 @@ class ClientsManager {
                     <td>
                         <div class="list-row-primary">
                             <strong>${CRM.escapeHtml(client.name)}</strong>
-                            <button type="button" class="crm-btn-sm" onclick="event.stopPropagation(); PortalShare.open({ scope: 'person', clientId: '${CRM.escapeJs(id)}', label: '${CRM.escapeJs(client.name)}' })">Portal</button>
+                            ${this.portalButton({ scope: 'person', clientId: id, label: client.name, portal: client.personPortal })}
                             ${metaHtml}
                         </div>
                     </td>
@@ -322,7 +337,12 @@ class ClientsManager {
                     <td>
                         <div class="list-row-primary">
                             <strong class="${unnamed ? 'crm-inline-note' : ''}">${CRM.escapeHtml(group.name)}</strong>
-                            ${unnamed ? '' : `<button type="button" class="crm-btn-sm" onclick="event.stopPropagation(); PortalShare.open({ scope: 'company', company: '${CRM.escapeJs(group.name)}', label: '${CRM.escapeJs(group.name)}' })">Portal</button>`}
+                            ${unnamed ? '' : this.portalButton({
+                                scope: 'company',
+                                company: group.name,
+                                label: group.name,
+                                portal: group.clients.find((c) => c.companyPortal?.exists)?.companyPortal
+                            })}
                             ${metaHtml}
                         </div>
                     </td>

@@ -1609,6 +1609,21 @@ body {
     margin-bottom: 20px;
 }
 
+.place-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.place-fields .form-group {
+    margin-bottom: 16px;
+}
+@media (max-width: 520px) {
+    .place-fields {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+}
+
 .form-group {
     margin-bottom: 16px;
 }

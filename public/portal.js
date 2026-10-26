@@ -79,16 +79,38 @@ class ClientPortalPage {
         }
     }
 
+    invoiceAmounts(inv) {
+        const total = Math.max(0, Number(inv.total) || 0);
+        const paid = Math.min(total, Math.max(0, Number(inv.amountPaid) || 0));
+        const remaining = Math.max(0, Math.round((total - paid) * 100) / 100);
+        const paidOff = inv.status === 'paid' || (total > 0 && remaining <= 0);
+        const pct = paidOff ? 100 : (total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0);
+        return { total, paid, remaining, pct, paidOff };
+    }
+
     invoiceLabel(inv) {
-        const paid = Number(inv.amountPaid) || 0;
-        const total = Number(inv.total) || 0;
-        if (inv.status === 'paid' || (total > 0 && paid >= total)) return 'Paid';
+        const { paid, paidOff } = this.invoiceAmounts(inv);
+        if (paidOff) return 'Paid';
         if (paid > 0) return 'Partial';
         const due = String(inv.dueDate || '');
         const today = new Date();
         const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         if (due && due < ymd) return 'Overdue';
         return 'Unpaid';
+    }
+
+    invoiceProgress(inv) {
+        const { total, paid, remaining, pct, paidOff } = this.invoiceAmounts(inv);
+        const label = this.invoiceLabel(inv);
+        const statusLine = paidOff
+            ? `${label} · ${CRM.money(total)}`
+            : `${label} · ${CRM.money(remaining)} remaining`;
+        return `
+            <span class="portal-meta">${this.escape(statusLine)}</span>
+            <div class="invoice-progress" title="${this.escape(`${CRM.money(paid)} of ${CRM.money(total)} paid`)}">
+                <div class="invoice-progress-bar"><span style="width:${pct}%"></span></div>
+                <span class="invoice-progress-label">${this.escape(`${CRM.money(paid)} of ${CRM.money(total)} paid`)}</span>
+            </div>`;
     }
 
     todayYmd() {
@@ -223,10 +245,10 @@ class ClientPortalPage {
             : '<p class="crm-inline-note">No contract shared yet.</p>';
         const invoices = (project.invoices || []).length
             ? project.invoices.map((inv) => `
-                <div class="portal-doc">
+                <div class="portal-doc portal-doc--invoice">
                     <div>
                         <strong>${this.escape(inv.invoiceNumber)}</strong>
-                        <span class="portal-meta">${this.escape(this.invoiceLabel(inv))} · ${CRM.money(inv.total)}</span>
+                        ${this.invoiceProgress(inv)}
                     </div>
                     ${inv.url ? `<a class="crm-btn-sm" href="${this.escape(inv.url)}" target="_blank" rel="noopener">View</a>` : ''}
                 </div>`).join('')

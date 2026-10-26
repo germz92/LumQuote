@@ -881,6 +881,8 @@ class ProjectPage {
             const project = this.data?.project;
             if (project) {
                 if (!quoteData.location && project.location) quoteData.location = project.location;
+                if (!quoteData.city && project.city) quoteData.city = project.city;
+                if (!quoteData.state && project.state) quoteData.state = project.state;
                 if (!quoteData.leadSource && project.leadSource) quoteData.leadSource = project.leadSource;
             }
             sessionStorage.setItem('loadQuoteData', JSON.stringify(quoteData));

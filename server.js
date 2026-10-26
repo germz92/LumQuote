@@ -2375,6 +2375,8 @@ const savedQuoteSchema = new mongoose.Schema({
   clientName: { type: String, default: null },
   clientCompany: { type: String, default: null },
   location: { type: String, default: null },
+  city: { type: String, default: null },
+  state: { type: String, default: null },
   leadSource: { type: String, default: null },
   archived: { type: Boolean, default: false },
   booked: { type: Boolean, default: false },
@@ -2529,14 +2531,15 @@ async function getOrCreateUserRecord(userName) {
 // Save quote endpoint (auto-assigns createdBy from logged-in user)
 app.post('/api/save-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, clientCompany, location, leadSource, booked, projectId, leadId, replaceQuoteName } = req.body;
+    const { name, quoteData, clientName, clientCompany, location, city, state, leadSource, booked, projectId, leadId, replaceQuoteName } = req.body;
     const user = req.user;
     
     if (!name || !quoteData) {
       return res.status(400).json({ error: 'Name and quote data are required' });
     }
 
-    const { prepareLeadAttach, commitLeadLink, markLeadConverted } = require('./lib/crm-models');
+    const { prepareLeadAttach, commitLeadLink, markLeadConverted, composePlace } = require('./lib/crm-models');
+    const place = composePlace({ city, state, location });
     let leadToLink = null;
     if (leadId) {
       try {
@@ -2577,7 +2580,9 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
       quoteData,
       clientName: clientName || null,
       clientCompany: clientCompany || null,
-      location: location || null,
+      location: place.location,
+      city: place.city,
+      state: place.state,
       leadSource: leadSource || null,
       booked: booked || false,
       project: projectId || null,
@@ -2612,7 +2617,7 @@ app.post('/api/save-quote', requireApiAuth, async (req, res) => {
 // Overwrite existing quote (with access control)
 app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
   try {
-    const { name, quoteData, clientName, clientCompany, location, leadSource, booked, projectId, leadId } = req.body;
+    const { name, quoteData, clientName, clientCompany, location, city, state, leadSource, booked, projectId, leadId } = req.body;
     const user = req.user;
     
     if (!name || !quoteData) {
@@ -2632,7 +2637,8 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
       return res.status(403).json({ error: 'You do not have permission to edit this quote' });
     }
 
-    const { prepareLeadAttach, commitLeadLink, markLeadConverted } = require('./lib/crm-models');
+    const { prepareLeadAttach, commitLeadLink, markLeadConverted, composePlace } = require('./lib/crm-models');
+    const place = composePlace({ city, state, location });
     let leadToLink = null;
     if (leadId) {
       try {
@@ -2655,7 +2661,9 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
       quoteData,
       clientName: clientName || null,
       clientCompany: clientCompany || null,
-      location: location || null,
+      location: place.location,
+      city: place.city,
+      state: place.state,
       leadSource: leadSource || null
       // Don't update createdBy - keep original owner
     };
@@ -2699,7 +2707,48 @@ app.post('/api/overwrite-quote', requireApiAuth, async (req, res) => {
 // Get all saved quotes endpoint
 // Helper function to check if user can access a quote
 // Returns: false (no access), 'read' (read-only), 'full' (full access), or true (owner/admin)
-async function canAccessQuote(user, quote, returnAccessLevel = false) {
+function shareUserId(entry) {
+  if (!entry?.user) return '';
+  return String(entry.user._id || entry.user);
+}
+
+async function inheritProjectAccess(user, quote, returnAccessLevel, cache) {
+  const projectId = quote.project && (quote.project._id || quote.project);
+  if (!projectId) return false;
+  const key = String(projectId);
+  if (cache && cache.has(key)) {
+    const cached = cache.get(key);
+    return cached ? (returnAccessLevel ? cached : true) : false;
+  }
+  const { canAccessProject, loadProjectForAccess } = require('./lib/crm-access');
+  const project = await loadProjectForAccess(projectId);
+  const projectAccess = project ? await canAccessProject(user, project, true) : false;
+  if (cache) cache.set(key, projectAccess);
+  return projectAccess ? (returnAccessLevel ? projectAccess : true) : false;
+}
+
+async function shareLinkedProject(quote, userId, accessLevel) {
+  const projectId = quote.project && (quote.project._id || quote.project);
+  if (!projectId) return false;
+  const { Project } = require('./lib/crm-models');
+  const project = await Project.findById(projectId);
+  if (!project) return false;
+  const existing = (project.sharedWith || []).find((entry) => shareUserId(entry) === String(userId));
+  if (existing) {
+    existing.accessLevel = accessLevel || existing.accessLevel || 'read';
+  } else {
+    project.sharedWith = project.sharedWith || [];
+    project.sharedWith.push({
+      user: userId,
+      accessLevel: accessLevel || 'read',
+      sharedAt: new Date()
+    });
+  }
+  await project.save();
+  return true;
+}
+
+async function canAccessQuote(user, quote, returnAccessLevel = false, projectAccessCache = null) {
   // Admins can access all quotes
   if (user.role === 'admin') return returnAccessLevel ? 'full' : true;
   
@@ -2720,8 +2769,7 @@ async function canAccessQuote(user, quote, returnAccessLevel = false) {
     
     if (lumQuoteUser) {
       const shareEntry = quote.sharedWith.find(s => 
-        s.user && (s.user.toString() === lumQuoteUser._id.toString() || 
-                   s.user._id?.toString() === lumQuoteUser._id.toString())
+        shareUserId(s) === lumQuoteUser._id.toString()
       );
       
       if (shareEntry) {
@@ -2729,6 +2777,9 @@ async function canAccessQuote(user, quote, returnAccessLevel = false) {
       }
     }
   }
+
+  const inherited = await inheritProjectAccess(user, quote, returnAccessLevel, projectAccessCache);
+  if (inherited) return inherited;
   
   return false;
 }
@@ -2816,6 +2867,12 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
       // Quotes shared with user
       if (lumQuoteUser) {
         orConditions.push({ 'sharedWith.user': lumQuoteUser._id });
+      }
+
+      const { getAccessibleProjectIds } = require('./lib/crm-access');
+      const projectIds = await getAccessibleProjectIds(user);
+      if (projectIds.length) {
+        orConditions.push({ project: { $in: projectIds } });
       }
       
       if (orConditions.length === 0) {
@@ -2930,6 +2987,8 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
       clientName: 1,
       clientCompany: 1,
       location: 1,
+      city: 1,
+      state: 1,
       leadSource: 1,
       archived: 1,
       booked: 1,
@@ -2949,9 +3008,10 @@ app.get('/api/saved-quotes', requireApiAuth, async (req, res) => {
     .limit(limit);
     
     // Add access level info for each quote
+    const projectAccessCache = new Map();
     const quotesWithAccess = await Promise.all(quotes.map(async (quote) => {
       const quoteObj = quote.toObject();
-      const accessLevel = await canAccessQuote(user, quote, true);
+      const accessLevel = await canAccessQuote(user, quote, true, projectAccessCache);
       quoteObj.accessLevel = accessLevel;
       quoteObj.isOwner = quote.createdBy && (quote.createdBy.name === user.name || quote.createdBy.name === user.fullName);
       return quoteObj;
@@ -3078,7 +3138,7 @@ app.get('/api/load-quote/:name', requireApiAuth, async (req, res) => {
 app.put('/api/update-quote-metadata/:name', requireApiAuth, async (req, res) => {
   try {
     const { name } = req.params;
-    const { newName, clientName, clientCompany, location, createdBy, booked } = req.body;
+    const { newName, clientName, clientCompany, location, city, state, createdBy, booked } = req.body;
     const user = req.user;
     
     if (!newName) {
@@ -3114,8 +3174,12 @@ app.put('/api/update-quote-metadata/:name', requireApiAuth, async (req, res) => 
     if (clientCompany !== undefined) {
       updateFields.clientCompany = clientCompany || null;
     }
-    if (location !== undefined) {
-      updateFields.location = location || null;
+    if (city !== undefined || state !== undefined || location !== undefined) {
+      const { composePlace } = require('./lib/crm-models');
+      const place = composePlace({ city, state, location });
+      updateFields.location = place.location;
+      updateFields.city = place.city;
+      updateFields.state = place.state;
     }
     if (createdBy !== undefined) {
       updateFields.createdBy = createdBy || null;
@@ -4030,16 +4094,14 @@ app.post('/api/quotes/:name/share', requireApiAuth, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Check if already shared with this user
-    const existingShare = quote.sharedWith?.find(s => s.user?.toString() === userId);
+    const existingShare = quote.sharedWith?.find((s) => shareUserId(s) === String(userId));
     if (existingShare) {
-      // Update access level if already shared
       existingShare.accessLevel = accessLevel || 'read';
       await quote.save();
+      await shareLinkedProject(quote, userId, accessLevel || 'read');
       return res.json({ success: true, message: 'Access level updated' });
     }
     
-    // Add to shared list
     quote.sharedWith = quote.sharedWith || [];
     quote.sharedWith.push({
       user: userId,
@@ -4048,8 +4110,14 @@ app.post('/api/quotes/:name/share', requireApiAuth, async (req, res) => {
     });
     
     await quote.save();
+    const linkedProject = await shareLinkedProject(quote, userId, accessLevel || 'read');
     
-    res.json({ success: true, message: `Quote shared with ${targetUser.name}` });
+    res.json({
+      success: true,
+      message: linkedProject
+        ? `Quote and project shared with ${targetUser.name}`
+        : `Quote shared with ${targetUser.name}`
+    });
   } catch (error) {
     console.error('Error sharing quote:', error);
     res.status(500).json({ error: 'Failed to share quote' });
@@ -4075,7 +4143,7 @@ app.delete('/api/quotes/:name/share/:userId', requireApiAuth, async (req, res) =
     }
     
     // Remove from shared list
-    quote.sharedWith = (quote.sharedWith || []).filter(s => s.user?.toString() !== userId);
+    quote.sharedWith = (quote.sharedWith || []).filter((s) => shareUserId(s) !== String(userId));
     await quote.save();
     
     res.json({ success: true, message: 'Share access removed' });

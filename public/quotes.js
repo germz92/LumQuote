@@ -664,7 +664,7 @@ class QuotesManager {
                 <td class="total-cell">${this.formatCurrency(total)}</td>
                 <td class="actions-cell" onclick="event.stopPropagation()">
                     <div class="actions-cell-inner">
-                    ${quote.isOwner || quote.accessLevel === 'full' ? `
+                    ${quote.isOwner || this.isCurrentUserAdmin() ? `
                         <button class="table-action-btn share" onclick="quotesManager.openShareModal('${this.escapeJs(quote.name)}')" title="Share">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="18" cy="5" r="3"></circle>
@@ -786,7 +786,7 @@ class QuotesManager {
                             Edit
                         </button>
                     ` : ''}
-                    ${quote.isOwner || quote.accessLevel === 'full' ? `
+                    ${quote.isOwner || this.isCurrentUserAdmin() ? `
                         <button class="quote-action-btn share" onclick="quotesManager.openShareModal('${this.escapeJs(quote.name)}')" title="Share Quote">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
                                 <circle cx="18" cy="5" r="3"></circle>
@@ -1425,7 +1425,11 @@ class QuotesManager {
         document.getElementById('editQuoteName').value = quote.name;
         document.getElementById('editQuoteClient').value = quote.clientName || '';
         document.getElementById('editQuoteCompany').value = quote.clientCompany || '';
-        document.getElementById('editQuoteLocation').value = quote.location || '';
+        const place = quote.city || quote.state
+            ? { city: quote.city || '', state: quote.state || '' }
+            : CRM.splitLocation(quote.location);
+        document.getElementById('editQuoteCity').value = place.city || '';
+        CRM.fillStateSelect(document.getElementById('editQuoteState'), place.state);
 
         // Show modal
         document.getElementById('editQuoteModal').style.display = 'flex';
@@ -1444,6 +1448,10 @@ class QuotesManager {
         
         if (!quote) {
             showAlertModal('Quote not found', 'error');
+            return;
+        }
+        if (!(quote.isOwner || this.isCurrentUserAdmin())) {
+            showAlertModal('Only the owner can manage sharing.', 'error');
             return;
         }
         
@@ -1477,7 +1485,7 @@ class QuotesManager {
     
     async loadShareableUsers() {
         try {
-            const response = await fetch('/api/shareable-users');
+            const response = await fetch('/api/shareable-users', { credentials: 'include' });
             if (!response.ok) throw new Error('Failed to load users');
             
             this.shareableUsers = await response.json();
@@ -1532,7 +1540,7 @@ class QuotesManager {
         }
         
         dropdown.innerHTML = filteredUsers.map(user => `
-            <div class="share-user-item" onclick="quotesManager.selectShareUser('${user._id}', '${this.escapeHtml(user.name)}')">
+            <div class="share-user-item" onclick="quotesManager.selectShareUser('${user._id}', '${this.escapeJs(user.name)}')">
                 <span class="share-user-name">${this.escapeHtml(user.name)}</span>
                 ${user.email ? `<span class="share-user-email">${this.escapeHtml(user.email)}</span>` : ''}
             </div>
@@ -1558,6 +1566,7 @@ class QuotesManager {
         try {
             const response = await fetch(`/api/quotes/${encodeURIComponent(this.sharingQuoteName)}/share`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId, accessLevel })
             });
@@ -1592,7 +1601,7 @@ class QuotesManager {
         const container = document.getElementById('sharedUsersList');
         
         try {
-            const response = await fetch(`/api/quotes/${encodeURIComponent(quoteName)}/shared-with`);
+            const response = await fetch(`/api/quotes/${encodeURIComponent(quoteName)}/shared-with`, { credentials: 'include' });
             
             if (!response.ok) {
                 throw new Error('Failed to load shared users');
@@ -1640,7 +1649,8 @@ class QuotesManager {
         
         try {
             const response = await fetch(`/api/quotes/${encodeURIComponent(this.sharingQuoteName)}/share/${userId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                credentials: 'include'
             });
             
             const result = await response.json();
@@ -1672,7 +1682,9 @@ class QuotesManager {
         const newName = document.getElementById('editQuoteName').value.trim();
         const clientName = document.getElementById('editQuoteClient').value.trim();
         const clientCompany = document.getElementById('editQuoteCompany').value.trim();
-        const location = document.getElementById('editQuoteLocation').value.trim();
+        const city = document.getElementById('editQuoteCity').value.trim();
+        const state = document.getElementById('editQuoteState').value.trim();
+        const location = CRM.composeLocation(city, state);
 
         if (!newName) {
             showAlertModal('Please enter a quote name.', 'error');
@@ -1691,6 +1703,8 @@ class QuotesManager {
                     newName,
                     clientName: clientName || null,
                     clientCompany: clientCompany || null,
+                    city: city || null,
+                    state: state || null,
                     location: location || null
                 })
             });

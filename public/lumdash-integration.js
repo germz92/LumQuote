@@ -285,7 +285,10 @@ async function transferToLumDash(quote) {
     }
     // Legacy: build payload from quote shape if somehow still called
     const { startDate, endDate } = getQuoteDateRange(quote.quoteData?.days || []);
-    const { city, state, venue } = parseLocation(quote.location);
+    const parsed = parseLocation(quote.location);
+    const city = String(quote.city || '').trim() || parsed.city;
+    const state = String(quote.state || '').trim() || parsed.state;
+    const venue = quote.city || quote.state ? '' : parsed.venue;
     const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
     const clientName = String(quote.clientName || '').trim();
     const company = String(quote.clientCompany || '').trim();
@@ -300,7 +303,7 @@ async function transferToLumDash(quote) {
         client: clientName,
         company,
         companyName: company,
-        location: venue || quote.location || '',
+        location: venue || [city, state].filter(Boolean).join(', ') || quote.location || '',
         owner: userInfo.name || quote.createdBy?.name || ''
     });
 }
