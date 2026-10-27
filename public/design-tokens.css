@@ -76,4 +76,80 @@
   --transition-fast: 150ms ease;
   --transition-base: 200ms ease;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Scrollbars */
+  --scrollbar-size: 10px;
+  --scrollbar-track: var(--color-bg);
+  --scrollbar-thumb: var(--color-border-strong);
+  --scrollbar-thumb-hover: var(--color-text-muted);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-primary: #635bff;
+  --color-primary-hover: #818cf8;
+  --color-primary-muted: rgba(99, 91, 255, 0.18);
+  --color-primary-ring: rgba(99, 91, 255, 0.4);
+
+  --color-bg: #0b1220;
+  --color-surface: #111827;
+  --color-surface-elevated: #1a2436;
+  --color-border: #243044;
+  --color-border-strong: #3d4f66;
+  --color-text: #e8eef5;
+  --color-text-secondary: #b6c2d1;
+  --color-text-muted: #8b9aaf;
+  --color-text-inverse: #ffffff;
+
+  --color-success: #2dd4bf;
+  --color-success-bg: #0a2f28;
+  --color-warning: #fbbf24;
+  --color-warning-bg: #2a1f0a;
+  --color-danger: #fb7185;
+  --color-danger-bg: #2d1218;
+  --color-info: #60a5fa;
+  --color-info-bg: #0f2240;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-focus: 0 0 0 3px var(--color-primary-ring);
+
+  --scrollbar-track: var(--color-surface);
+  --scrollbar-thumb: var(--color-border-strong);
+  --scrollbar-thumb-hover: var(--color-text-muted);
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
 }

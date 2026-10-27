@@ -247,15 +247,19 @@ class LeadsManager {
             empty.style.display = '';
             const title = empty.querySelector('h3');
             const copy = empty.querySelector('p');
+            const action = empty.querySelector('.crm-empty__actions');
             if (!this.isAdmin()) {
                 if (title) title.textContent = 'No leads assigned to you';
                 if (copy) copy.textContent = 'Leads an admin assigns to you will show up here.';
+                if (action) action.hidden = true;
             } else if (this.assigneeId) {
                 if (title) title.textContent = 'No leads for this person';
                 if (copy) copy.textContent = 'Try another count filter, or drag leads here from the full list.';
+                if (action) action.hidden = true;
             } else {
                 if (title) title.textContent = 'No leads yet';
                 if (copy) copy.textContent = 'Inquiries from the website form will show up here.';
+                if (action) action.hidden = false;
             }
             return;
         }

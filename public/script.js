@@ -1585,15 +1585,15 @@ class QuoteCalculator {
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #fee2e2;
-            color: #991b1b;
+            background: var(--color-danger-bg);
+            color: var(--color-danger);
             padding: 16px 24px;
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             z-index: 1000;
             max-width: 500px;
             animation: slideIn 0.3s ease-out;
-            border-left: 4px solid #dc2626;
+            border-left: 4px solid var(--color-danger);
             line-height: 1.5;
         `;
 
@@ -2033,7 +2033,9 @@ class QuoteCalculator {
         }
         
         if (!place.city || !place.state) {
-            showAlertModal('Enter a city and state.', 'error');
+            showAlertModal(place.international
+                ? 'Enter a city and region or country.'
+                : 'Enter a city and state.', 'error');
             return;
         }
         
@@ -2616,25 +2618,25 @@ class QuoteCalculator {
                 statusIcon.innerHTML = '⟳';
                 statusIcon.style.animation = 'spin 1s linear infinite';
                 statusText.textContent = 'Saving...';
-                statusText.style.color = '#64748b';
+                statusText.style.color = 'var(--color-text-muted)';
                 break;
             case 'saved':
                 statusIcon.innerHTML = '✓';
                 statusIcon.style.animation = 'none';
                 statusText.textContent = 'All changes saved';
-                statusText.style.color = '#10b981';
+                statusText.style.color = 'var(--color-success)';
                 break;
             case 'unsaved':
                 statusIcon.innerHTML = '●';
                 statusIcon.style.animation = 'none';
                 statusText.textContent = 'Unsaved changes';
-                statusText.style.color = '#f59e0b';
+                statusText.style.color = 'var(--color-warning)';
                 break;
             case 'error':
                 statusIcon.innerHTML = '⚠';
                 statusIcon.style.animation = 'none';
                 statusText.textContent = 'Save failed';
-                statusText.style.color = '#dc2626';
+                statusText.style.color = 'var(--color-danger)';
                 break;
         }
     }
@@ -2906,13 +2908,27 @@ class QuoteCalculator {
         }
     }
 
+    eventPlaceFields() {
+        return window.CRM?.bindPlaceFields({
+            international: 'eventInternational',
+            city: 'eventCity',
+            state: 'eventState',
+            region: 'eventRegion',
+            stateLabel: 'eventStateLabel',
+            required: true
+        });
+    }
+
     readEventPlace() {
+        if (window.CRM) {
+            return CRM.readPlaceFields(this.eventPlaceFields());
+        }
         const city = document.getElementById('eventCity')?.value.trim() || '';
         const state = document.getElementById('eventState')?.value.trim() || '';
         return {
             city,
             state,
-            location: window.CRM ? CRM.composeLocation(city, state) : [city, state].filter(Boolean).join(', ')
+            location: [city, state].filter(Boolean).join(', ')
         };
     }
 
@@ -2928,11 +2944,14 @@ class QuoteCalculator {
     }
 
     fillEventPlaceFields() {
+        if (window.CRM) {
+            CRM.writePlaceFields(this.eventPlaceFields(), this.currentCity, this.currentState);
+            return;
+        }
         const cityEl = document.getElementById('eventCity');
         const stateEl = document.getElementById('eventState');
         if (cityEl) cityEl.value = this.currentCity || '';
-        if (window.CRM) CRM.fillStateSelect(stateEl, this.currentState || '');
-        else if (stateEl) stateEl.value = this.currentState || '';
+        if (stateEl) stateEl.value = this.currentState || '';
     }
 
     placePayload() {
@@ -5369,7 +5388,9 @@ async function saveAsCopy() {
     }
     
     if (!place.city || !place.state) {
-        showAlertModal('Enter a city and state.', 'error');
+        showAlertModal(place.international
+            ? 'Enter a city and region or country.'
+            : 'Enter a city and state.', 'error');
         return;
     }
     

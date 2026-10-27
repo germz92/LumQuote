@@ -271,10 +271,11 @@ class ProjectsManager {
             partial: ['No partial projects', 'Invoiced projects with a partial payment will show here.'],
             paid: ['No paid projects', 'Projects marked paid will show here.']
         };
+        const filtered = !!(search || status);
         if (labels[status]) {
             h3.textContent = labels[status][0];
             p.textContent = labels[status][1];
-        } else if (search || status) {
+        } else if (filtered) {
             h3.textContent = 'No matching projects';
             p.textContent = 'Try adjusting your search or filters.';
         } else if (this.when === 'past') {
@@ -287,6 +288,8 @@ class ProjectsManager {
             h3.textContent = 'No projects yet';
             p.textContent = 'Create a project or save a quote — every quote automatically belongs to a project.';
         }
+        const action = empty.querySelector('.crm-empty__actions');
+        if (action) action.hidden = filtered || !!this.showingArchived;
     }
 
     async loadGroups() {
@@ -383,7 +386,7 @@ class ProjectsManager {
                     </td>
                     <td class="col-fold-sm">${CRM.escapeHtml(project.clientName || '—')}</td>
                     <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDateRange(project.startDate, project.endDate))}</td>
-                    <td>${CRM.projectStatusChip(project.status)}</td>
+                    <td>${CRM.projectStatusChip(project)}</td>
                 </tr>`).join('');
             return mainRow + `
                 <tr class="client-projects-row">
@@ -1011,7 +1014,14 @@ class ProjectsManager {
         } catch {
             showAlertModal('Could not load clients. You can still add a new one.', 'error');
         }
-        CRM.fillStateSelect(document.getElementById('newProjectState'), '');
+        CRM.writePlaceFields(CRM.bindPlaceFields({
+            international: 'newProjectInternational',
+            city: 'newProjectCity',
+            state: 'newProjectState',
+            region: 'newProjectRegion',
+            stateLabel: 'newProjectStateLabel',
+            required: true
+        }), '', '');
         setTimeout(() => document.getElementById('newProjectName').focus(), 50);
     }
 
@@ -1034,10 +1044,20 @@ class ProjectsManager {
         const leadSource = window.LeadSources
             ? LeadSources.getLeadSourceFromForm()
             : (document.getElementById('leadSource')?.value || '').trim();
-        const city = document.getElementById('newProjectCity').value.trim();
-        const state = document.getElementById('newProjectState').value.trim();
+        const place = CRM.readPlaceFields(CRM.bindPlaceFields({
+            international: 'newProjectInternational',
+            city: 'newProjectCity',
+            state: 'newProjectState',
+            region: 'newProjectRegion',
+            stateLabel: 'newProjectStateLabel',
+            required: true
+        }));
+        const city = place.city;
+        const state = place.state;
         if (!city || !state) {
-            showAlertModal('Enter a city and state.', 'error');
+            showAlertModal(place.international
+                ? 'Enter a city and region or country.'
+                : 'Enter a city and state.', 'error');
             return;
         }
 

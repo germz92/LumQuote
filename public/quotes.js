@@ -559,6 +559,23 @@ class QuotesManager {
         tableBody.innerHTML = quotes.map(quote => this.createQuoteRow(quote)).join('');
     }
 
+    quoteProjectId(quote) {
+        const project = quote?.project;
+        if (!project) return '';
+        if (typeof project === 'object') return String(project._id || project.id || '');
+        return String(project);
+    }
+
+    projectFolderIconHtml(quote) {
+        const id = this.quoteProjectId(quote);
+        if (!id) return '';
+        return `<a class="quote-project-icon" href="/projects/${this.escapeHtml(id)}" title="In a project" aria-label="Open project" onclick="event.stopPropagation()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+        </a>`;
+    }
+
     createQuoteRow(quote) {
         const total = quote.quoteData?.total || 0;
         const days = quote.quoteData?.days || [];
@@ -650,7 +667,10 @@ class QuotesManager {
                             ${isArchived ? '<span class="status-badge status-badge--archived">Archived</span>' : ''}
                             ${isSharedWithMe ? `<span class="shared-badge-small ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${this.getSharedAccessBadgeLabel(quote.accessLevel)}</span>` : ''}
                             ${hasShares && quote.isOwner ? `<span class="sharing-badge-small" title="Shared with ${quote.sharedWith.length} user(s)">👥</span>` : ''}
-                            <strong>${this.escapeHtml(quoteTitle)}</strong>
+                            <span class="quote-title-line">
+                                ${this.projectFolderIconHtml(quote)}
+                                <strong>${this.escapeHtml(quoteTitle)}</strong>
+                            </span>
                         </div>
                         ${metaHtml}
                     </div>
@@ -707,7 +727,10 @@ class QuotesManager {
             <div class="quote-card ${isArchived ? 'archived' : ''} ${isSharedWithMe ? 'shared-quote' : ''}" data-quote-name="${this.escapeHtml(quote.name)}">
                 <div class="quote-card-header">
                     <div class="quote-card-header-main">
-                        <h3 class="quote-card-title" title="${this.escapeHtml(quoteTitle)}">${this.escapeHtml(quoteTitle)}</h3>
+                        <div class="quote-title-line">
+                            ${this.projectFolderIconHtml(quote)}
+                            <h3 class="quote-card-title" title="${this.escapeHtml(quoteTitle)}">${this.escapeHtml(quoteTitle)}</h3>
+                        </div>
                         <div class="quote-card-badges">
                             ${isArchived ? '<span class="archived-badge">Archived</span>' : ''}
                             ${isSharedWithMe ? `<span class="shared-badge ${quote.accessLevel === 'read' ? 'read-only' : 'full-access'}">${this.getSharedAccessBadgeLabel(quote.accessLevel)}</span>` : ''}
@@ -1428,8 +1451,13 @@ class QuotesManager {
         const place = quote.city || quote.state
             ? { city: quote.city || '', state: quote.state || '' }
             : CRM.splitLocation(quote.location);
-        document.getElementById('editQuoteCity').value = place.city || '';
-        CRM.fillStateSelect(document.getElementById('editQuoteState'), place.state);
+        CRM.writePlaceFields(CRM.bindPlaceFields({
+            international: 'editQuoteInternational',
+            city: 'editQuoteCity',
+            state: 'editQuoteState',
+            region: 'editQuoteRegion',
+            stateLabel: 'editQuoteStateLabel'
+        }), place.city, place.state);
 
         // Show modal
         document.getElementById('editQuoteModal').style.display = 'flex';
@@ -1682,9 +1710,16 @@ class QuotesManager {
         const newName = document.getElementById('editQuoteName').value.trim();
         const clientName = document.getElementById('editQuoteClient').value.trim();
         const clientCompany = document.getElementById('editQuoteCompany').value.trim();
-        const city = document.getElementById('editQuoteCity').value.trim();
-        const state = document.getElementById('editQuoteState').value.trim();
-        const location = CRM.composeLocation(city, state);
+        const place = CRM.readPlaceFields(CRM.bindPlaceFields({
+            international: 'editQuoteInternational',
+            city: 'editQuoteCity',
+            state: 'editQuoteState',
+            region: 'editQuoteRegion',
+            stateLabel: 'editQuoteStateLabel'
+        }));
+        const city = place.city;
+        const state = place.state;
+        const location = place.location;
 
         if (!newName) {
             showAlertModal('Please enter a quote name.', 'error');

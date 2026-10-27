@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project - LumQuote</title>
+    <script>
+    try {
+      if (localStorage.getItem('lumquote_theme') !== 'light') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) {}
+    </script>
     <link rel="stylesheet" href="/design-tokens.css">
     <link rel="stylesheet" href="/components.css">
     <link rel="stylesheet" href="/styles.css">
@@ -69,11 +76,16 @@
                                         <input type="text" id="projCity" placeholder="City" autocomplete="address-level2">
                                     </div>
                                     <div class="form-group">
-                                        <label for="projState">State</label>
+                                        <label for="projState" id="projStateLabel">State</label>
                                         <select id="projState" autocomplete="address-level1">
                                             <option value="">Select state</option>
                                         </select>
+                                        <input type="text" id="projRegion" hidden placeholder="Province, region, or country" maxlength="80" autocomplete="address-level1">
                                     </div>
+                                    <label class="place-international form-group--full">
+                                        <input type="checkbox" id="projInternational">
+                                        International
+                                    </label>
                                     <div class="form-group form-group--full">
                                         <label for="leadSource">Lead Source</label>
                                         <select id="leadSource" onchange="handleLeadSourceChange()">

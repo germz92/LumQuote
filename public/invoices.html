@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoices - LumQuote</title>
+    <script>
+    try {
+      if (localStorage.getItem('lumquote_theme') !== 'light') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) {}
+    </script>
     <link rel="stylesheet" href="design-tokens.css">
     <link rel="stylesheet" href="components.css">
     <link rel="stylesheet" href="styles.css">
@@ -120,10 +127,10 @@
                                     <th class="sortable col-fold-sm" onclick="invoicesManager.sortByColumn('dueDate')">
                                         Due <span class="sort-indicator" data-sort="dueDate"></span>
                                     </th>
-                                    <th class="sortable" onclick="invoicesManager.sortByColumn('total')">
+                                    <th class="sortable num" onclick="invoicesManager.sortByColumn('total')">
                                         Total <span class="sort-indicator" data-sort="total"></span>
                                     </th>
-                                    <th class="sortable col-fold-sm" onclick="invoicesManager.sortByColumn('amountPaid')">
+                                    <th class="sortable num col-fold-sm" onclick="invoicesManager.sortByColumn('amountPaid')">
                                         Paid <span class="sort-indicator" data-sort="amountPaid"></span>
                                     </th>
                                     <th class="col-plan col-fold-sm">Plan</th>

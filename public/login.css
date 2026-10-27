@@ -17,6 +17,16 @@ body.login-page {
     linear-gradient(180deg, #f0efff 0%, var(--color-bg) 45%);
 }
 
+html[data-theme="dark"] body.login-page {
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99, 91, 255, 0.28), transparent),
+    linear-gradient(180deg, #16122e 0%, var(--color-bg) 45%);
+}
+
+html[data-theme="dark"] .login-logo {
+  filter: invert(1) hue-rotate(180deg);
+}
+
 .login-container {
   max-width: 420px;
   margin: 0 auto;

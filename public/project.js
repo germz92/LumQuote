@@ -202,9 +202,13 @@ class ProjectPage {
         const place = project.city || project.state
             ? { city: project.city || '', state: project.state || '' }
             : CRM.splitLocation(project.location);
-        const cityInput = document.getElementById('projCity');
-        if (cityInput) cityInput.value = place.city || '';
-        CRM.fillStateSelect(document.getElementById('projState'), place.state);
+        CRM.writePlaceFields(CRM.bindPlaceFields({
+            international: 'projInternational',
+            city: 'projCity',
+            state: 'projState',
+            region: 'projRegion',
+            stateLabel: 'projStateLabel'
+        }), place.city, place.state);
         document.getElementById('projNotes').value = project.notes || '';
         const quoteLeadSource = (this.data.quotes || []).find((q) => q.leadSource)?.leadSource || '';
         if (window.LeadSources) {
@@ -584,6 +588,13 @@ class ProjectPage {
         const leadSource = window.LeadSources
             ? LeadSources.getLeadSourceFromForm()
             : (document.getElementById('leadSource')?.value || '').trim();
+        const place = CRM.readPlaceFields(CRM.bindPlaceFields({
+            international: 'projInternational',
+            city: 'projCity',
+            state: 'projState',
+            region: 'projRegion',
+            stateLabel: 'projStateLabel'
+        }));
         try {
             await CRM.api(`/api/projects/${this.projectId}`, {
                 method: 'PUT',
@@ -593,8 +604,8 @@ class ProjectPage {
                     startDate: document.getElementById('projStart').value || null,
                     endDate: document.getElementById('projEnd').value || null,
                     notes: document.getElementById('projNotes').value,
-                    city: document.getElementById('projCity')?.value.trim() || null,
-                    state: document.getElementById('projState')?.value.trim() || null,
+                    city: place.city || null,
+                    state: place.state || null,
                     leadSource: leadSource || null,
                     lumdashProject: document.getElementById('projLumdashEvent')?.value || null
                 }
@@ -2038,7 +2049,7 @@ class ProjectPage {
                 <div class="crm-actions-row" style="margin-top:10px">
                     <button type="button" class="crm-btn-sm" onclick="projectPage.addInstallment()">+ Add Payment</button>
                     ${hasPaid ? '' : '<button type="button" class="crm-btn-sm" onclick="projectPage.applyPreset5050()">Preset: 50% now / 50% at project start</button>'}
-                    <span id="ppPercentNote" class="crm-inline-note" style="color:${sumOk ? 'var(--color-success, #16794c)' : '#b3261e'}">
+                    <span id="ppPercentNote" class="crm-inline-note" style="color:${sumOk ? 'var(--color-success)' : 'var(--color-danger)'}">
                         ${Math.round(percentSum * 100) / 100}% of 100% allocated
                     </span>
                 </div>`;
@@ -2282,7 +2293,7 @@ class ProjectPage {
         if (note) {
             const percentSum = plan.installments.reduce((sum, inst) => sum + (Number(inst.percent) || 0), 0);
             const sumOk = Math.abs(percentSum - 100) <= 0.01;
-            note.style.color = sumOk ? 'var(--color-success, #16794c)' : '#b3261e';
+            note.style.color = sumOk ? 'var(--color-success)' : 'var(--color-danger)';
             note.textContent = `${Math.round(percentSum * 100) / 100}% of 100% allocated`;
         }
     }

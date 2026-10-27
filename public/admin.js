@@ -20,7 +20,7 @@ class AdminPanel {
             console.error('Admin services init failed:', error);
             const container = document.getElementById('services-container');
             if (container) {
-                container.innerHTML = '<p style="text-align: center; color: #df1b41;">Could not load services. Refresh the page and try again.</p>';
+                container.innerHTML = '<p style="text-align: center; color: var(--color-danger);">Could not load services. Refresh the page and try again.</p>';
             }
         }
     }
@@ -330,7 +330,7 @@ class AdminPanel {
 
         const services = Array.isArray(this.services) ? this.services : [];
         if (services.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #64748b;">No services available. Add your first service above.</p>';
+            container.innerHTML = '<p style="text-align: center; color: var(--color-text-muted);">No services available. Add your first service above.</p>';
             return;
         }
 

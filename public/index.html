@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quote - LumQuote</title>
+    <script>
+    try {
+      if (localStorage.getItem('lumquote_theme') !== 'light') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) {}
+    </script>
     <link rel="stylesheet" href="design-tokens.css">
     <link rel="stylesheet" href="components.css">
     <link rel="stylesheet" href="styles.css">
@@ -301,11 +308,16 @@
                             <input type="text" id="eventCity" placeholder="City" autocomplete="address-level2" required>
                         </div>
                         <div class="form-group">
-                            <label for="eventState">State *</label>
+                            <label for="eventState" id="eventStateLabel">State *</label>
                             <select id="eventState" autocomplete="address-level1" required>
                                 <option value="">Select state</option>
                             </select>
+                            <input type="text" id="eventRegion" hidden placeholder="Province, region, or country" maxlength="80" autocomplete="address-level1">
                         </div>
+                        <label class="place-international">
+                            <input type="checkbox" id="eventInternational">
+                            International
+                        </label>
                     </div>
                     <div class="form-group">
                         <label for="leadSource">Lead Source *</label>

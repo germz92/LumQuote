@@ -142,14 +142,14 @@ textarea:focus:not(:focus-visible) {
 .primary-button:not(:disabled):hover,
 .secondary-button:not(:disabled):hover,
 .tertiary-button:not(:disabled):hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .btn:not(:disabled):active,
 .primary-button:not(:disabled):active,
 .secondary-button:not(:disabled):active,
 .tertiary-button:not(:disabled):active {
-  transform: translateY(0);
+  transform: translateY(1px);
   box-shadow: none;
 }
 
@@ -205,7 +205,7 @@ textarea:focus:not(:focus-visible) {
 .quotes-grid .quote-card:hover {
   border-color: var(--color-border-strong);
   box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+  transform: none;
 }
 
 .quotes-grid .quote-card.menu-open,
@@ -218,9 +218,11 @@ textarea:focus:not(:focus-visible) {
   box-shadow: var(--shadow-md);
 }
 
-.quote-overflow-dropdown {
+.quote-overflow-dropdown,
+.client-dropdown,
+.app-profile-dropdown.is-open {
   transform-origin: top right;
-  animation: ui-menu-in 0.14s var(--ease-out);
+  animation: ui-menu-in 0.16s var(--ease-out);
 }
 
 .overflow-menu-item {
@@ -270,7 +272,7 @@ textarea:focus:not(:focus-visible) {
 @keyframes ui-fade-up {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px) scale(0.985);
   }
   to {
     opacity: 1;
@@ -310,6 +312,73 @@ textarea:focus:not(:focus-visible) {
   to { opacity: 0; }
 }
 
+/* ── Type, numbers, status, loading ─────────────────────────── */
+
+.app-page-title,
+.modal-header h2,
+.editable-title {
+  letter-spacing: -0.022em;
+}
+
+.quotes-table td,
+.crm-table td,
+.total-cell,
+.crm-cell-amount,
+.invoice-metric__value,
+.builder-pricing-total__value,
+.tentative-amount {
+  font-variant-numeric: tabular-nums;
+}
+
+.quotes-table .total-cell,
+.quotes-table td.num,
+.quotes-table th.num,
+.crm-table .num,
+.crm-table th.num {
+  text-align: right;
+}
+
+.status-badge {
+  min-height: 22px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.01em;
+  text-transform: none;
+  line-height: 1;
+}
+
+.loading-overlay {
+  background: rgba(10, 37, 64, 0.28);
+}
+
+html[data-theme="dark"] .loading-overlay {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.loading-spinner {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text-secondary);
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+  border-color: var(--color-border);
+  border-top-color: var(--color-primary);
+}
+
+.quotes-table tbody tr:hover,
+.crm-table tbody tr:hover {
+  background: var(--color-bg);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn,
   .primary-button,
@@ -324,6 +393,8 @@ textarea:focus:not(:focus-visible) {
   .report-card,
   .quotes-grid .quote-card,
   .quote-overflow-dropdown,
+  .client-dropdown,
+  .app-profile-dropdown.is-open,
   .modal,
   .modal-content,
   .app-toast {

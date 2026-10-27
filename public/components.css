@@ -56,18 +56,21 @@
   display: block;
 }
 
-/* Keeps the mobile logo centred while the fixed account menu sits over the right end */
+/* Keeps the mobile logo centred while the fixed account cluster sits over the right end */
 .app-topbar-account-space {
   flex-shrink: 0;
-  width: 44px;
+  width: 88px;
 }
 
-/* Account menu: fixed at the top-right of the viewport on every page */
-.app-profile-menu.app-account {
+/* Account cluster: theme toggle + avatar, fixed at the top-right on every page */
+.app-account-cluster.app-account {
   position: fixed;
   top: 18px;
   right: 48px;
   z-index: 240;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 /* ── Sidebar ───────────────────────────────────────────────── */
@@ -110,6 +113,11 @@
   max-height: 32px;
   width: auto;
   max-width: 160px;
+}
+
+html[data-theme="dark"] .app-brand-logo,
+html[data-theme="dark"] .app-sidebar-brand-full {
+  filter: invert(1) hue-rotate(180deg);
 }
 
 /* The mark's "Q" is white, so it sits on a dark tile to stay visible */
@@ -217,8 +225,8 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: #e11d48;
-  color: #fff;
+  background: var(--color-danger);
+  color: var(--color-text-inverse);
   font-size: 10px;
   font-weight: 700;
   line-height: 18px;
@@ -301,7 +309,7 @@
 
 .app-nav-toggle:hover {
   background: var(--color-bg);
-  border-color: var(--color-border-strong, #cbd5e1);
+  border-color: var(--color-border-strong);
 }
 
 .app-nav-toggle-bars {
@@ -338,6 +346,45 @@
 }
 
 /* ── Profile menu (avatar trigger + dropdown) ─────────────── */
+
+.app-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+    color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.app-theme-toggle:hover {
+  background: var(--color-bg);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.app-theme-toggle:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-focus);
+}
+
+.app-theme-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+html:not([data-theme="dark"]) .app-theme-icon--sun,
+html[data-theme="dark"] .app-theme-icon--moon {
+  display: none;
+}
 
 .app-profile-menu {
   position: relative;
@@ -504,7 +551,7 @@
 }
 
 .app-profile-dropdown-item--danger:hover {
-  background: #fef2f2;
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
@@ -689,12 +736,12 @@
 
 .btn-warning {
   background: var(--color-warning-bg);
-  color: #92400e;
-  border-color: #fcd34d;
+  color: var(--color-warning);
+  border-color: var(--color-warning);
 }
 
 .btn-warning:hover:not(:disabled) {
-  background: #fde68a;
+  filter: brightness(0.96);
   border-color: var(--color-warning);
 }
 
@@ -748,6 +795,12 @@ body.app-has-shell .container {
   overflow: visible;
 }
 
+@media (min-width: 769px) {
+  .app-page-header {
+    padding-right: 96px;
+  }
+}
+
 /* Desktop: content sits to the right of the fixed sidebar */
 @media (min-width: 769px) {
   /* No top bar on desktop: sticky page chrome sits at the viewport top */
@@ -787,7 +840,7 @@ body.app-has-shell .header {
   }
 
   /* Centred in the slim top bar; must match the desktop selector's specificity */
-  .app-profile-menu.app-account {
+  .app-account-cluster.app-account {
     top: 8px;
     right: var(--space-4);
   }
@@ -870,4 +923,41 @@ body.app-has-shell .header {
     margin-left: 0;
     justify-content: flex-start;
   }
+}
+
+html[data-theme="dark"] .tooltip {
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+/* Shared field fill — never leave text controls on the browser default.
+   Status chips and transparent in-table editors override this locally. */
+input:not([type]),
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="number"],
+input[type="password"],
+input[type="date"],
+input[type="tel"],
+input[type="url"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"],
+select:not(.crm-status-select),
+textarea {
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  color-scheme: inherit;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-text);
+  caret-color: var(--color-text);
+  box-shadow: 0 0 0 1000px var(--color-surface) inset;
+  transition: background-color 9999s ease-out;
 }

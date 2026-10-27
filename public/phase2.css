@@ -192,7 +192,7 @@ body[data-app-page="quotes"] .quotes-page-section {
   background: linear-gradient(
     90deg,
     var(--color-bg) 0%,
-    #eef2f6 50%,
+    var(--color-border) 50%,
     var(--color-bg) 100%
   );
   background-size: 200% 100%;
@@ -345,7 +345,7 @@ body[data-app-page="quotes"] .quotes-page-section {
 }
 
 .quotes-table tbody tr.booked-row:hover {
-  background: #fee2e2;
+  background: var(--color-danger-bg);
 }
 
 .quotes-table td {
@@ -357,6 +357,38 @@ body[data-app-page="quotes"] .quotes-page-section {
 .quote-title-cell strong {
   color: var(--color-text);
   font-weight: var(--font-weight-medium);
+}
+
+.quote-title-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.quote-title-line .quote-card-title {
+  min-width: 0;
+}
+
+.quote-project-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.quote-project-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.quote-project-icon:hover {
+  color: var(--color-primary);
 }
 
 .total-cell {
@@ -731,7 +763,7 @@ body[data-app-page="quotes"] .quotes-page-section {
 }
 
 .calendar-event--project {
-  background: #0f766e !important;
+  background: var(--color-success) !important;
 }
 
 .calendar-event--project:hover {
@@ -739,7 +771,7 @@ body[data-app-page="quotes"] .quotes-page-section {
 }
 
 .calendar-event--project-confirmed {
-  background: #b45309 !important;
+  background: var(--color-warning) !important;
 }
 
 .calendar-event--project-confirmed:hover {
@@ -756,11 +788,11 @@ body[data-app-page="quotes"] .quotes-page-section {
 }
 
 .legend-color.project-event {
-  background: #0f766e;
+  background: var(--color-success);
 }
 
 .legend-color.project-confirmed-event {
-  background: #b45309;
+  background: var(--color-warning);
 }
 
 .legend-color.quote-event {

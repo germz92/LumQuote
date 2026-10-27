@@ -320,6 +320,84 @@ const CRM = {
         select.value = match ? match[0] : current;
     },
 
+    isUsState(value) {
+        const current = String(value || '').trim();
+        if (!current) return false;
+        return this.US_STATES.some(([code, name]) =>
+            code.toLowerCase() === current.toLowerCase() || name.toLowerCase() === current.toLowerCase()
+        );
+    },
+
+    placeFields(ids) {
+        return {
+            international: document.getElementById(ids.international),
+            city: document.getElementById(ids.city),
+            state: document.getElementById(ids.state),
+            region: document.getElementById(ids.region),
+            stateLabel: document.getElementById(ids.stateLabel),
+            required: !!ids.required
+        };
+    },
+
+    bindPlaceFields(ids) {
+        const els = this.placeFields(ids);
+        const box = els.international;
+        if (box && box.dataset.placeBound !== '1') {
+            box.dataset.placeBound = '1';
+            box.addEventListener('change', () => this.syncPlaceFields(els));
+        }
+        this.syncPlaceFields(els);
+        return els;
+    },
+
+    syncPlaceFields(els) {
+        const intl = !!els.international?.checked;
+        if (intl && els.region && !els.region.value && els.state?.value && !this.isUsState(els.state.value)) {
+            els.region.value = els.state.value;
+        }
+        if (!intl && els.region?.value && this.isUsState(els.region.value)) {
+            this.fillStateSelect(els.state, els.region.value);
+        }
+        if (els.state) {
+            els.state.hidden = intl;
+            els.state.disabled = intl;
+            if (els.required) els.state.required = !intl;
+        }
+        if (els.region) {
+            els.region.hidden = !intl;
+            els.region.disabled = !intl;
+            if (els.required) els.region.required = intl;
+        }
+        if (els.stateLabel) {
+            const star = els.required ? ' *' : '';
+            els.stateLabel.textContent = intl ? `Region / country${star}` : `State${star}`;
+        }
+    },
+
+    writePlaceFields(els, city, state) {
+        const nextCity = String(city || '').trim();
+        const nextState = String(state || '').trim();
+        const intl = !!(nextState && !this.isUsState(nextState));
+        if (els.city) els.city.value = nextCity;
+        if (els.international) els.international.checked = intl;
+        this.fillStateSelect(els.state, intl ? '' : nextState);
+        if (els.region) els.region.value = intl ? nextState : '';
+        this.syncPlaceFields(els);
+    },
+
+    readPlaceFields(els) {
+        const city = els.city?.value.trim() || '';
+        const state = els.international?.checked
+            ? (els.region?.value.trim() || '')
+            : (els.state?.value.trim() || '');
+        return {
+            city,
+            state,
+            location: this.composeLocation(city, state),
+            international: !!els.international?.checked
+        };
+    },
+
     hotBadge() {
         return `<span class="lead-hot-badge" title="Hot lead" aria-label="Hot lead">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

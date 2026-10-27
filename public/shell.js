@@ -20,6 +20,9 @@ const APP_NAV = [
 ];
 
 const SIDEBAR_COLLAPSED_KEY = 'lumquote_sidebar_collapsed';
+const THEME_KEY = 'lumquote_theme';
+const THEME_ICON_MOON = '<svg class="app-theme-icon app-theme-icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 14.5A8.5 8.5 0 1 1 9.5 3 7 7 0 0 0 21 14.5z"/></svg>';
+const THEME_ICON_SUN = '<svg class="app-theme-icon app-theme-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
 
 // Apply the saved state before the shell mounts so the layout does not jump.
 // The sidebar starts collapsed unless the user has explicitly expanded it.
@@ -52,6 +55,7 @@ const AppShell = {
 
         this.sidebarCollapsed = document.documentElement.classList.contains('app-sidebar-collapsed');
         this.mount(page, { title, subtitle, showBack });
+        this.initThemeToggle();
         this.initProfileMenu();
         this.initMobileNav();
         this.initSidebar();
@@ -172,7 +176,19 @@ const AppShell = {
                     <span class="app-topbar-account-space" aria-hidden="true"></span>
                 </div>
             </header>
-            <div class="app-profile-menu app-account" id="appProfileMenu">
+            <div class="app-account-cluster app-account" id="appAccountCluster">
+                <button
+                    type="button"
+                    class="app-theme-toggle"
+                    id="appThemeToggle"
+                    aria-pressed="${this.isDarkTheme() ? 'true' : 'false'}"
+                    aria-label="${this.isDarkTheme() ? 'Switch to light mode' : 'Switch to dark mode'}"
+                    title="${this.isDarkTheme() ? 'Switch to light mode' : 'Switch to dark mode'}"
+                >
+                    ${THEME_ICON_MOON}
+                    ${THEME_ICON_SUN}
+                </button>
+                <div class="app-profile-menu" id="appProfileMenu">
                 <button
                     type="button"
                     class="app-profile-trigger"
@@ -206,6 +222,7 @@ const AppShell = {
                     <button type="button" class="app-profile-dropdown-item app-profile-dropdown-item--action" id="appProfileRemovePhoto" role="menuitem" hidden>Remove photo</button>
                     <div class="app-profile-dropdown-divider" role="separator"></div>
                     <button type="button" class="app-profile-dropdown-item app-profile-dropdown-item--danger" role="menuitem" onclick="logout()">Log out</button>
+                </div>
                 </div>
             </div>
             <div class="app-sidebar-backdrop" id="appMobileNavBackdrop" aria-hidden="true"></div>
@@ -456,6 +473,48 @@ const AppShell = {
         if (open) {
             document.getElementById('appMobileNavClose')?.focus();
         }
+    },
+
+    isDarkTheme() {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+    },
+
+    applyTheme(theme) {
+        const dark = theme === 'dark';
+        if (dark) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+        }
+        try {
+            localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light');
+        } catch (error) {
+            // Preference simply will not persist without storage.
+        }
+        this.syncThemeToggle();
+    },
+
+    syncThemeToggle() {
+        const button = document.getElementById('appThemeToggle');
+        if (!button) return;
+        const dark = this.isDarkTheme();
+        const label = dark ? 'Switch to light mode' : 'Switch to dark mode';
+        button.setAttribute('aria-pressed', dark ? 'true' : 'false');
+        button.setAttribute('aria-label', label);
+        button.setAttribute('title', label);
+        const moon = button.querySelector('.app-theme-icon--moon');
+        const sun = button.querySelector('.app-theme-icon--sun');
+        if (moon) moon.hidden = dark;
+        if (sun) sun.hidden = !dark;
+    },
+
+    initThemeToggle() {
+        const button = document.getElementById('appThemeToggle');
+        if (!button) return;
+        this.syncThemeToggle();
+        button.addEventListener('click', () => {
+            this.applyTheme(this.isDarkTheme() ? 'light' : 'dark');
+        });
     },
 
     initSidebar() {

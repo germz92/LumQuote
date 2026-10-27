@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Leads - LumQuote</title>
+    <script>
+    try {
+      if (localStorage.getItem('lumquote_theme') !== 'light') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    } catch (e) {}
+    </script>
     <link rel="stylesheet" href="design-tokens.css">
     <link rel="stylesheet" href="components.css">
     <link rel="stylesheet" href="styles.css">
@@ -83,6 +90,9 @@
                         <div id="leadsEmpty" class="crm-empty" style="display: none;">
                             <h3>No leads yet</h3>
                             <p>Inquiries from the website form will show up here.</p>
+                            <div class="crm-empty__actions">
+                                <button type="button" class="btn btn-primary btn-md" onclick="leadsManager.openCreateModal()">New lead</button>
+                            </div>
                         </div>
                     </div>
                 </div>

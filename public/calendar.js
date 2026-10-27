@@ -822,9 +822,9 @@ style.textContent = `
     .day-event-item {
         padding: 12px;
         margin-bottom: 8px;
-        background: #f8fafc;
+        background: var(--color-bg);
         border-radius: 6px;
-        border-left: 4px solid #4f46e5;
+        border-left: 4px solid var(--color-primary);
     }
     
     .day-event-item:last-child {
