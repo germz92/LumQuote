@@ -41,6 +41,9 @@ const THEME_ICON_SUN = '<svg class="app-theme-icon app-theme-icon--sun" viewBox=
 const AppShell = {
     currentUser: null,
     profileMenuOpen: false,
+    notifyOpen: false,
+    notifications: [],
+    unreadCount: 0,
     mobileNavOpen: false,
     sidebarCollapsed: false,
 
@@ -56,6 +59,7 @@ const AppShell = {
         this.sidebarCollapsed = document.documentElement.classList.contains('app-sidebar-collapsed');
         this.mount(page, { title, subtitle, showBack });
         this.initThemeToggle();
+        this.initNotifications();
         this.initProfileMenu();
         this.initMobileNav();
         this.initSidebar();
@@ -177,6 +181,30 @@ const AppShell = {
                 </div>
             </header>
             <div class="app-account-cluster app-account" id="appAccountCluster">
+                <div class="app-notify" id="appNotify">
+                    <button
+                        type="button"
+                        class="app-theme-toggle app-notify-toggle"
+                        id="appNotifyToggle"
+                        aria-haspopup="true"
+                        aria-expanded="false"
+                        aria-controls="appNotifyPanel"
+                        aria-label="Notifications"
+                        title="Notifications"
+                    >
+                        <svg class="app-notify-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <span class="app-notify-badge" id="appNotifyBadge" hidden></span>
+                    </button>
+                    <div class="app-notify-panel" id="appNotifyPanel" role="region" aria-label="Notifications" hidden>
+                        <div class="app-notify-head">
+                            <span class="app-notify-title">Notifications</span>
+                            <button type="button" class="app-notify-mark" id="appNotifyMarkAll" hidden>Mark all read</button>
+                        </div>
+                        <div class="app-notify-list" id="appNotifyList">
+                            <p class="app-notify-empty">No notifications yet.</p>
+                        </div>
+                    </div>
+                </div>
                 <button
                     type="button"
                     class="app-theme-toggle"
@@ -409,6 +437,11 @@ const AppShell = {
                 document.getElementById('appNavToggle')?.focus();
                 return;
             }
+            if (this.notifyOpen) {
+                this.setNotifyOpen(false);
+                document.getElementById('appNotifyToggle')?.focus();
+                return;
+            }
             if (this.profileMenuOpen) {
                 this.setProfileMenuOpen(false);
                 trigger.focus();
@@ -543,8 +576,146 @@ const AppShell = {
         }
     },
 
+    escapeHtml(text) {
+        return String(text ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    },
+
+    notificationTime(value) {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return '';
+        const minutes = Math.round((Date.now() - date.getTime()) / 60000);
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.round(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.round(hours / 24);
+        if (days < 7) return `${days}d ago`;
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    },
+
+    initNotifications() {
+        const root = document.getElementById('appNotify');
+        const toggle = document.getElementById('appNotifyToggle');
+        const list = document.getElementById('appNotifyList');
+        const markAll = document.getElementById('appNotifyMarkAll');
+        if (!root || !toggle) return;
+
+        toggle.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const next = !this.notifyOpen;
+            this.setNotifyOpen(next);
+            if (next) this.refreshNotifications();
+        });
+
+        list?.addEventListener('click', (event) => {
+            const item = event.target.closest('.app-notify-item');
+            if (!item) return;
+            this.openNotification(item.dataset.id, item.dataset.href || '');
+        });
+
+        markAll?.addEventListener('click', (event) => {
+            event.stopPropagation();
+            this.markAllNotificationsRead();
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!this.notifyOpen) return;
+            if (!root.contains(event.target)) this.setNotifyOpen(false);
+        });
+
+        this.refreshNotifications();
+        setInterval(() => {
+            if (document.visibilityState === 'visible') this.refreshNotifications();
+        }, 60000);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') this.refreshNotifications();
+        });
+    },
+
+    setNotifyOpen(open) {
+        this.notifyOpen = open;
+        if (open && this.profileMenuOpen) this.setProfileMenuOpen(false);
+        const toggle = document.getElementById('appNotifyToggle');
+        const panel = document.getElementById('appNotifyPanel');
+        if (!toggle || !panel) return;
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        panel.hidden = !open;
+        panel.classList.toggle('is-open', open);
+    },
+
+    async refreshNotifications() {
+        try {
+            const response = await fetch('/api/notifications', { credentials: 'include' });
+            if (!response.ok) return;
+            const data = await response.json();
+            this.notifications = Array.isArray(data.notifications) ? data.notifications : [];
+            this.unreadCount = Number(data.unreadCount) || 0;
+            this.renderNotifications();
+        } catch (error) {
+            // The bell stays usable if the inbox cannot be loaded.
+        }
+    },
+
+    renderNotifications() {
+        const list = document.getElementById('appNotifyList');
+        const mark = document.getElementById('appNotifyMarkAll');
+        const badge = document.getElementById('appNotifyBadge');
+        const toggle = document.getElementById('appNotifyToggle');
+        const count = this.unreadCount || 0;
+        if (badge) {
+            badge.hidden = count < 1;
+            badge.textContent = count > 99 ? '99+' : String(count);
+        }
+        if (toggle) {
+            const label = count ? `Notifications, ${count} unread` : 'Notifications';
+            toggle.setAttribute('aria-label', label);
+            toggle.setAttribute('title', label);
+        }
+        if (mark) mark.hidden = count < 1;
+        if (!list) return;
+        const items = this.notifications || [];
+        if (!items.length) {
+            list.innerHTML = '<p class="app-notify-empty">No notifications yet.</p>';
+            return;
+        }
+        list.innerHTML = items.map((item) => `
+            <button type="button" class="app-notify-item${item.unread ? ' is-unread' : ''}" data-id="${this.escapeHtml(item._id)}" data-href="${this.escapeHtml(item.href || '')}">
+                <span class="app-notify-item-title">${this.escapeHtml(item.title)}</span>
+                ${item.body ? `<span class="app-notify-item-body">${this.escapeHtml(item.body)}</span>` : ''}
+                <span class="app-notify-item-time">${this.escapeHtml(this.notificationTime(item.createdAt))}</span>
+            </button>
+        `).join('');
+    },
+
+    async openNotification(id, href) {
+        try {
+            await fetch(`/api/notifications/${encodeURIComponent(id)}/read`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (error) {
+            // Navigation still proceeds if the read request fails.
+        }
+        if (href) window.location.href = href;
+        else this.refreshNotifications();
+    },
+
+    async markAllNotificationsRead() {
+        try {
+            await fetch('/api/notifications/read-all', { method: 'POST', credentials: 'include' });
+            await this.refreshNotifications();
+        } catch (error) {
+            // The list stays as it was if the request fails.
+        }
+    },
+
     setProfileMenuOpen(open) {
         this.profileMenuOpen = open;
+        if (open && this.notifyOpen) this.setNotifyOpen(false);
         const trigger = document.getElementById('appProfileTrigger');
         const dropdown = document.getElementById('appProfileDropdown');
         if (!trigger || !dropdown) return;
