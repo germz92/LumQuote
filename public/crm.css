@@ -2524,11 +2524,52 @@ button.client-dropdown-item.is-active {
   flex: 1 1 100%;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+}
+
+.pp-reminders-head {
+  display: flex;
   align-items: flex-start;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--color-border);
+  gap: 10px;
+}
+
+.pp-reminders-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-primary);
+}
+
+.pp-reminders-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pp-reminders-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.pp-reminders-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: var(--line-height-normal);
 }
 
 .pp-reminder-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -2536,6 +2577,7 @@ button.client-dropdown-item.is-active {
 .pp-reminder {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
@@ -2559,8 +2601,9 @@ button.client-dropdown-item.is-active {
   cursor: help;
 }
 
-.invoice-reminder-block { margin-top: 12px; }
+.invoice-reminder-block { margin-top: 16px; }
 .invoice-reminder-block[hidden] { display: none !important; }
+.invoice-reminder-block > .pp-reminders { margin-top: 0; }
 .invoice-full-due[hidden] { display: none !important; }
 .invoice-section {
   margin-top: 28px;

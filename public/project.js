@@ -1707,7 +1707,6 @@ class ProjectPage {
                             <input type="date" id="invDueDate" value="${CRM.escapeHtml(inv.dueDate || '')}">
                         </div>
                         <div class="invoice-reminder-block" id="invoiceReminderBlock">
-                            <label>Reminder emails</label>
                             ${this.reminderEditorHtml(inv.reminders, 'invoice', null)}
                         </div>
                     </div>
@@ -2153,6 +2152,15 @@ class ProjectPage {
             </span>`;
         }).join('');
         return `<div class="pp-reminders">
+            <div class="pp-reminders-head">
+                <span class="pp-reminders-icon" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                </span>
+                <div class="pp-reminders-copy">
+                    <span class="pp-reminders-title">Reminder emails</span>
+                    <span class="pp-reminders-hint">Automatic messages to the client about this payment</span>
+                </div>
+            </div>
             ${rows}
             <span class="pp-reminder-actions">
                 <button type="button" class="crm-btn-sm" onclick="projectPage.addReminder('${kind}', ${indexArg}, 'due')">Add payment due email</button>
@@ -2213,8 +2221,7 @@ class ProjectPage {
     renderInvoiceReminders() {
         const block = document.getElementById('invoiceReminderBlock');
         if (!block) return;
-        block.innerHTML = `<label>Reminder emails</label>
-            ${this.reminderEditorHtml(this.editingInvoice.reminders, 'invoice', null)}`;
+        block.innerHTML = this.reminderEditorHtml(this.editingInvoice.reminders, 'invoice', null);
     }
 
     togglePaymentPlan(enabled) {
