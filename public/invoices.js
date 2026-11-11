@@ -256,6 +256,9 @@ class InvoicesManager {
         } else if (status === 'unpaid') {
             h3.textContent = 'No unpaid invoices';
             p.textContent = 'Draft and sent invoices that still have a balance will show here.';
+        } else if (status === 'partial') {
+            h3.textContent = 'No partially paid invoices';
+            p.textContent = 'Sent invoices with a payment recorded and a balance still due will show here.';
         } else if (search || status) {
             h3.textContent = 'No matching invoices';
             p.textContent = 'Try adjusting your search or filters.';

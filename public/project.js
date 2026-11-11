@@ -286,7 +286,8 @@ class ProjectPage {
             receipt_installment: 'Installment receipt emailed',
             owner_signed: 'Staff notified — contract signed',
             owner_paid: 'Staff notified — invoice paid',
-            owner_paid_installment: 'Staff notified — installment paid'
+            owner_paid_installment: 'Staff notified — installment paid',
+            owner_payment_review: 'Staff alerted — payment needs review'
         };
         return labels[type] || (docKind === 'invoice' ? `Invoice email (${type})` : `Contract email (${type})`);
     }
@@ -909,8 +910,8 @@ class ProjectPage {
             showAlertModal('Open the invoice editor first.', 'error');
             return;
         }
-        if (inv.status === 'paid' || inv.status === 'void') {
-            showAlertModal('Paid and void invoices cannot be edited in the quote editor.', 'error');
+        if (inv.status === 'void') {
+            showAlertModal('Void invoices cannot be edited in the quote editor.', 'error');
             return;
         }
         sessionStorage.removeItem('loadQuoteData');
@@ -1487,8 +1488,31 @@ class ProjectPage {
                             due ? `${overdue ? 'Overdue' : 'Due'} ${CRM.escapeHtml(due)}` : '',
                             paidMeta
                         ]);
+                        const id = CRM.escapeJs(String(inv._id));
+                        const editable = inv.status !== 'void';
+                        const shareable = editable && !!inv.publicToken;
+                        const removable = inv.status === 'draft' || inv.status === 'sent';
+                        const item = (action, label, danger = false) =>
+                            `<button type="button" class="overflow-menu-item${danger ? ' danger' : ''}" onclick="projectPage.invoiceRowAction('${action}', '${id}')">${label}</button>`;
+                        const menu = `
+                            <div class="quote-overflow-menu table-overflow-menu">
+                                <button type="button" class="quote-overflow-btn" onclick="projectPage.toggleInvoiceRowMenu(event)" aria-label="Actions for ${CRM.escapeHtml(inv.invoiceNumber)}" aria-haspopup="true">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="1"></circle>
+                                        <circle cx="12" cy="5" r="1"></circle>
+                                        <circle cx="12" cy="19" r="1"></circle>
+                                    </svg>
+                                </button>
+                                <div class="quote-overflow-dropdown list-overflow-dropdown" style="display: none;">
+                                    ${editable ? item('edit', 'Edit') : ''}
+                                    ${shareable ? item('copy', 'Copy client link') : ''}
+                                    ${shareable ? item('open', 'Open client page') : ''}
+                                    ${item('pdf', 'Download PDF')}
+                                    ${removable ? item('remove', inv.status === 'draft' ? 'Delete' : 'Void', true) : ''}
+                                </div>
+                            </div>`;
                         return `
-                        <tr>
+                        <tr${editable ? ` class="is-clickable" onclick="projectPage.editInvoice('${id}')"` : ''}>
                             <td>
                                 <div class="list-row-primary">
                                     <div>
@@ -1502,20 +1526,75 @@ class ProjectPage {
                             <td class="col-fold-sm">${CRM.escapeHtml(CRM.formatDate(inv.issueDate) || '—')}</td>
                             <td class="col-fold-sm${overdue ? ' invoice-due--overdue' : ''}">${CRM.escapeHtml(due || '—')}</td>
                             <td class="num">${CRM.money(inv.total)}</td>
-                            <td>
-                                <div class="crm-row-actions">
-                                    ${(inv.status === 'draft' || inv.status === 'sent') ? `<button class="crm-btn-sm primary" onclick="projectPage.editInvoice('${inv._id}')">Edit</button>` : ''}
-                                    ${inv.publicToken && inv.status !== 'void' ? `<button class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(`${window.location.origin}/invoice/${inv.publicToken}`)}', this)">Copy link</button>` : ''}
-                                    ${inv.publicToken && inv.status !== 'void' ? `<a class="crm-btn-sm" href="/invoice/${CRM.escapeHtml(inv.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>` : ''}
-                                    <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">PDF</a>
-                                    ${(inv.status === 'draft' || inv.status === 'sent') ? `<button class="crm-btn-sm danger" onclick="projectPage.voidOrDeleteInvoice('${inv._id}', '${inv.status}')">${inv.status === 'draft' ? 'Delete' : 'Void'}</button>` : ''}
-                                </div>
-                            </td>
+                            <td class="actions-cell" onclick="event.stopPropagation()">${menu}</td>
                         </tr>`;
                     }).join('')}
                 </tbody>
             </table>
             </div>`;
+    }
+
+    // ----- Invoice row menu (same pattern as the projects list) -----
+
+    closeInvoiceRowMenus() {
+        if (window.AppA11y?.closeAllOverflowMenus) {
+            window.AppA11y.closeAllOverflowMenus(false);
+            return;
+        }
+        document.querySelectorAll('#invoicesListArea .quote-overflow-dropdown').forEach((dd) => {
+            dd.style.display = 'none';
+        });
+    }
+
+    toggleInvoiceRowMenu(event) {
+        event.stopPropagation();
+        const menu = event.target.closest('.quote-overflow-menu');
+        const dropdown = menu?.querySelector('.quote-overflow-dropdown');
+        if (!dropdown) return;
+
+        const isOpen = dropdown.style.display === 'block';
+        this.closeInvoiceRowMenus();
+        if (isOpen) return;
+
+        // Fixed positioning so the dropdown escapes the table's scroll container
+        const rect = menu.querySelector('.quote-overflow-btn').getBoundingClientRect();
+        dropdown.style.display = 'block';
+        dropdown.style.position = 'fixed';
+        dropdown.style.minWidth = '180px';
+        dropdown.style.zIndex = '1000';
+        dropdown.style.top = `${rect.bottom + 4}px`;
+        dropdown.style.left = 'auto';
+        dropdown.style.right = `${window.innerWidth - rect.right}px`;
+
+        const close = (e) => {
+            if (e.target.closest?.('.quote-overflow-menu')) return;
+            this.closeInvoiceRowMenus();
+            document.removeEventListener('click', close);
+            window.removeEventListener('scroll', close, true);
+        };
+        setTimeout(() => {
+            document.addEventListener('click', close);
+            window.addEventListener('scroll', close, true);
+        }, 0);
+    }
+
+    async invoiceRowAction(action, invoiceId) {
+        this.closeInvoiceRowMenus();
+        const inv = (this.data?.invoices || []).find((row) => String(row._id) === String(invoiceId));
+        if (!inv) return;
+        if (action === 'edit') {
+            await this.editInvoice(inv._id);
+        } else if (action === 'copy') {
+            const ok = await CRM.copyToClipboard(`${window.location.origin}/invoice/${inv.publicToken}`);
+            if (ok) window.showToast?.('Client link copied', 'success');
+            else showAlertModal('Could not copy the link. Open the client page and copy it from the address bar.', 'error');
+        } else if (action === 'open') {
+            window.open(`/invoice/${encodeURIComponent(inv.publicToken)}`, '_blank', 'noopener');
+        } else if (action === 'pdf') {
+            window.location.href = `/api/invoices/${inv._id}/pdf`;
+        } else if (action === 'remove') {
+            await this.voidOrDeleteInvoice(inv._id, inv.status);
+        }
     }
 
     openCreateInvoiceModal() {
@@ -1597,13 +1676,13 @@ class ProjectPage {
     }
 
     invoiceLinkHtml(inv) {
-        const canSend = inv.status === 'draft' || inv.status === 'sent';
+        const canShare = inv.status !== 'void';
         if (!inv.publicToken) {
             return `
                 <section class="invoice-section">
                     <h3>Client link</h3>
                     <p class="crm-inline-note">Create a link when the client should view and pay this invoice.</p>
-                    ${canSend ? `<button type="button" class="secondary-button" onclick="projectPage.sendInvoice()">Create client link</button>` : ''}
+                    ${canShare ? `<button type="button" class="secondary-button" onclick="projectPage.sendInvoice()">Create client link</button>` : ''}
                 </section>`;
         }
         const url = `${window.location.origin}/invoice/${inv.publicToken}`;
@@ -1614,10 +1693,35 @@ class ProjectPage {
                     <input type="text" readonly value="${CRM.escapeHtml(url)}" aria-label="Client invoice link" onclick="this.select()">
                     <button type="button" class="crm-btn-sm" onclick="projectPage.copyLink('${CRM.escapeJs(url)}', this)">Copy link</button>
                     <a class="crm-btn-sm" href="/invoice/${CRM.escapeHtml(inv.publicToken)}" target="_blank" rel="noopener noreferrer">Open</a>
-                    ${canSend ? `<button type="button" class="crm-btn-sm primary" onclick="projectPage.emailInvoice()">Email client</button>` : ''}
+                    ${canShare ? `<button type="button" class="crm-btn-sm primary" onclick="projectPage.emailInvoice()">Email client</button>` : ''}
                 </div>
                 ${this.docTrackingHtml(inv)}
             </section>`;
+    }
+
+    invoicePaymentSummaryHtml(inv) {
+        const paid = Number(inv?.amountPaid) || 0;
+        if (paid <= 0.009) return '';
+        const items = inv?.lineItems || [];
+        const subtotal = items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0), 0);
+        const discountEl = document.getElementById('invDiscount');
+        const discount = discountEl
+            ? (Number(discountEl.value) || 0)
+            : (Number(inv.discountAmount) || 0);
+        const total = Math.max(0, Math.round((subtotal - discount) * 100) / 100);
+        const remaining = Math.max(0, Math.round((total - paid) * 100) / 100);
+        return `
+            <div class="invoice-payment-summary" id="invoicePaymentSummary">
+                <p class="crm-inline-note" style="margin:10px 0 0">
+                    <strong>${CRM.money(paid)}</strong> already paid is kept as recorded.
+                    ${remaining > 0.009
+                        ? ` Remaining balance after save: <strong>${CRM.money(remaining)}</strong>.`
+                        : ' This invoice is covered in full.'}
+                    ${remaining > 0.009 && !inv.paymentPlan?.enabled
+                        ? ' It is saved as its own payment, due on the due date below if that date is today or later, otherwise due immediately.'
+                        : ''}
+                </p>
+            </div>`;
     }
 
     renderInvoiceEditor() {
@@ -1696,6 +1800,7 @@ class ProjectPage {
                         </div>
                         <div class="row grand"><span>Total</span><span id="invTotalDisplay">$0.00</span></div>
                     </div>
+                    ${this.invoicePaymentSummaryHtml(inv)}
                 </section>
 
                 <section class="invoice-section">
@@ -1719,7 +1824,7 @@ class ProjectPage {
                     </div>
                     <div class="crm-actions-row">
                         <button class="primary-button" onclick="projectPage.saveInvoice()">Save Invoice</button>
-                        ${(inv.status === 'draft' || inv.status === 'sent') ? `
+                        ${inv.status !== 'void' ? `
                         <button type="button" class="secondary-button" onclick="projectPage.openInvoiceInQuoteEditor('${inv._id}')">Open in Quote Editor</button>` : ''}
                         <a class="crm-btn-sm" href="/api/invoices/${inv._id}/pdf">Download PDF</a>
                     </div>
@@ -1788,8 +1893,9 @@ class ProjectPage {
         return this.installmentPaidViaStripe(inst, invoice);
     }
 
-    paymentLinesHtml(inst, invoice) {
-        return this.installmentPayments(inst).map((payment) => {
+    /** Pass removeFrom ({ invoiceId, installmentIndex }) to put a Remove button on each payment. */
+    paymentLinesHtml(inst, invoice, removeFrom = null) {
+        return this.installmentPayments(inst).map((payment, paymentIndex) => {
             const stripe = this.paymentViaStripe(payment, inst, invoice);
             const when = this.paidOnLabel(payment.paidAt);
             const methodLabel = CRM.paymentMethodLabel(payment.paymentMethod);
@@ -1801,12 +1907,57 @@ class ProjectPage {
             const note = !stripe && String(payment.paymentNote || '').trim()
                 ? `<div class="crm-inline-note" style="margin-top:2px">${CRM.escapeHtml(payment.paymentNote)}</div>`
                 : '';
+            const remove = removeFrom
+                ? `<button type="button" class="crm-btn-sm danger" style="margin-left:8px" title="Take this payment off the invoice"
+                    onclick="projectPage.removePayment('${removeFrom.invoiceId}', ${removeFrom.installmentIndex}, ${paymentIndex})">Remove</button>`
+                : '';
             return `<div style="margin-top:4px">
                 <span class="crm-chip crm-chip--${tone}" title="${CRM.escapeHtml(title)}">${CRM.escapeHtml(label)}</span>
                 <span style="margin-left:6px">${CRM.money(payment.amount)}</span>
+                ${remove}
                 ${note}
             </div>`;
         }).join('');
+    }
+
+    /** A bank transfer the client started that has not cleared. Shown so nobody chases or double-records it. */
+    pendingPaymentsNoteHtml(inv) {
+        const pending = CRM.pendingBankPayments(inv);
+        if (!pending.length) return '';
+        const lines = pending.map((entry) => {
+            const amount = Number(entry.amount) > 0 ? `<strong>${CRM.money(entry.amount)}</strong>` : 'A payment';
+            const target = entry.label
+                ? ` for ${CRM.escapeHtml(entry.label)}`
+                : (entry.installmentIndex == null ? ' for the remaining balance' : '');
+            const started = CRM.formatDate(entry.startedAt);
+            return `${amount}${target}${started ? `, started ${CRM.escapeHtml(started)}` : ''}`;
+        }).join('; ');
+        return `
+            <p class="crm-inline-note" style="margin:0 0 14px">
+                <span class="crm-chip crm-chip--recorded">Bank transfer processing</span>
+                ${lines}. It is not counted as paid until it clears, usually within a few business days.
+                Reminder emails for it are paused, and the client cannot pay it a second time online.
+            </p>`;
+    }
+
+    removedPaymentsHtml(inv) {
+        const removed = inv?.removedPayments || [];
+        if (!removed.length) return '';
+        const rows = removed.map((payment) => {
+            const how = payment.stripePaymentIntentId
+                ? 'Stripe'
+                : (CRM.paymentMethodLabel(payment.paymentMethod) || 'Recorded');
+            const removedOn = CRM.formatDate(payment.removedAt);
+            return `<div class="crm-inline-note" style="margin-top:4px">
+                ${CRM.money(payment.amount)} · ${CRM.escapeHtml(how)}${CRM.escapeHtml(this.paidOnLabel(payment.paidAt))}${payment.installmentLabel ? ` · ${CRM.escapeHtml(payment.installmentLabel)}` : ''}
+                — removed${removedOn ? ` ${CRM.escapeHtml(removedOn)}` : ''}${payment.removedBy ? ` by ${CRM.escapeHtml(payment.removedBy)}` : ''}${payment.reason ? `: ${CRM.escapeHtml(payment.reason)}` : ''}
+            </div>`;
+        }).join('');
+        return `
+            <div style="margin-top:14px">
+                <div class="crm-inline-note"><strong>Removed payments</strong> (not counted toward this invoice)</div>
+                ${rows}
+            </div>`;
     }
 
     async promptManualPayment(title, message, amountOptions) {
@@ -1908,17 +2059,21 @@ class ProjectPage {
                         const amount = CRM.money(inst.amount || 0);
                         return `<div class="pp-row-static">
                             <strong>${label}</strong> — ${amount}
-                            ${this.paymentLinesHtml(inst, inv)}
+                            ${this.paymentLinesHtml(inst, inv, { invoiceId: inv._id, installmentIndex: i })}
                         </div>`;
                     }).join('')}
                 </div>`
                 : '';
+            const removeFull = hasPlan ? '' : `
+                <button type="button" class="crm-btn-sm danger" style="margin-left:8px" title="Take this payment off the invoice"
+                    onclick="projectPage.removePayment('${inv._id}', null, 0)">Remove payment</button>`;
             return `
                 <div class="invoice-section invoice-record-payment">
                     <h3>Payment</h3>
-                    <p class="crm-inline-note" style="margin:0">${CRM.escapeHtml(paidLine)}</p>
+                    <p class="crm-inline-note" style="margin:0">${CRM.escapeHtml(paidLine)}${removeFull}</p>
                     ${fullNote}
                     ${installmentRows}
+                    ${this.removedPaymentsHtml(inv)}
                 </div>`;
         }
 
@@ -1933,16 +2088,17 @@ class ProjectPage {
                         const stillDue = inst.status === 'partial'
                             ? `<div class="crm-inline-note" style="margin-top:2px">${CRM.money(remaining)} still due</div>`
                             : '';
+                        const removeFrom = { invoiceId: inv._id, installmentIndex: i };
                         if (inst.status === 'paid') {
                             return `<div class="pp-row-static">
                                 <strong>${label}</strong> — ${amount}
-                                ${this.paymentLinesHtml(inst, inv)}
+                                ${this.paymentLinesHtml(inst, inv, removeFrom)}
                             </div>`;
                         }
                         return `<div class="pp-row-static" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between">
                             <div>
                                 <strong>${label}</strong> — ${amount}
-                                ${this.paymentLinesHtml(inst, inv)}
+                                ${this.paymentLinesHtml(inst, inv, removeFrom)}
                                 ${stillDue}
                             </div>
                             <button type="button" class="crm-btn-sm primary" onclick="projectPage.markInstallmentPaid('${inv._id}', ${i})">Record payment</button>
@@ -1955,6 +2111,7 @@ class ProjectPage {
         return `
             <div class="invoice-section invoice-record-payment">
                 <h3>Record a payment</h3>
+                ${this.pendingPaymentsNoteHtml(inv)}
                 <p class="crm-inline-note" style="margin:0 0 14px">
                     For payments received outside Stripe.
                     ${hasPlan
@@ -1968,6 +2125,7 @@ class ProjectPage {
                         Mark invoice paid in full
                     </button>
                 </div>
+                ${this.removedPaymentsHtml(inv)}
             </div>`;
     }
 
@@ -1981,9 +2139,91 @@ class ProjectPage {
     }
 
     planHasPaidInstallment() {
-        return (this.editingInvoice?.paymentPlan?.installments || []).some((i) =>
-            i.status === 'paid' || i.status === 'partial' || (Array.isArray(i.payments) && i.payments.some((p) => Number(p.amount) > 0))
-        );
+        return (this.editingInvoice?.paymentPlan?.installments || []).some((i) => this.installmentLocked(i));
+    }
+
+    /** Money has been received on this payment, so its dollar amount no longer moves. */
+    installmentLocked(inst) {
+        return !!inst && (inst.status === 'paid' || inst.status === 'partial'
+            || (Array.isArray(inst.payments) && inst.payments.some((p) => Number(p.amount) > 0)));
+    }
+
+    /** A one-payment invoice with money on it. The server splits it when a balance is added. */
+    paidWithoutPlan() {
+        const inv = this.editingInvoice;
+        return !!inv && !inv.paymentPlan?.enabled && (Number(inv.amountPaid) || 0) > 0.009;
+    }
+
+    /**
+     * Locked payments keep their dollar amount, so their share changes with the total.
+     * When the total moves, scale the unpaid payments to fill what is left.
+     * Mirrors rebalancePendingPercents in lib/crm-routes.js. Returns true if a percent changed.
+     */
+    rebalancePlanPercents() {
+        const inv = this.editingInvoice;
+        const rows = inv?.paymentPlan?.installments || [];
+        const locked = rows.filter((inst) => this.installmentLocked(inst));
+        if (!locked.length) return false;
+        const round = (n) => Math.round(n * 100) / 100;
+        const total = round(this.getEditorTotal());
+        let changed = false;
+        locked.forEach((inst) => {
+            const share = total > 0 ? round(((Number(inst.amount) || 0) / total) * 100) : 0;
+            if (inst.percent !== share) changed = true;
+            inst.percent = share;
+        });
+        // Only when the total moved, so percents typed by hand are not rewritten mid-edit.
+        if (inv.planBalancedTotal === total) return changed;
+        inv.planBalancedTotal = total;
+        const pending = rows.filter((inst) => !this.installmentLocked(inst));
+        if (!pending.length) {
+            const lockedAmount = round(locked.reduce((sum, inst) => sum + (Number(inst.amount) || 0), 0));
+            if (total - lockedAmount <= 0.02) return changed;
+            // Every payment is settled and the total went up. Show the new balance as a row
+            // so its due date can be set before saving (the server adds the same row if it is missing).
+            const extra = {
+                label: 'Additional balance', percent: 0, dueType: 'immediate', dueDate: null,
+                anchor: 'project_start', offsetDays: 0, sourceIndex: null, reminders: [{ daysBefore: 0 }]
+            };
+            rows.push(extra);
+            pending.push(extra);
+        }
+        const target = Math.max(0, round(100 - round(locked.reduce((sum, inst) => sum + inst.percent, 0))));
+        const pendingSum = pending.reduce((sum, inst) => sum + Math.max(0, Number(inst.percent) || 0), 0);
+        if (Math.abs(pendingSum - target) <= 0.01) return changed;
+        let allocated = 0;
+        pending.forEach((inst, i) => {
+            const isLast = i === pending.length - 1;
+            const share = isLast
+                ? round(target - allocated)
+                : round(pendingSum > 0 ? target * (Math.max(0, Number(inst.percent) || 0) / pendingSum) : 0);
+            inst.percent = Math.max(0, share);
+            allocated = round(allocated + inst.percent);
+        });
+        return true;
+    }
+
+    /** Dollar amount of each payment, worked out the way the server does on save. */
+    planAmounts() {
+        const rows = this.editingInvoice?.paymentPlan?.installments || [];
+        const round = (n) => Math.round(n * 100) / 100;
+        const total = round(this.getEditorTotal());
+        const lockedSum = round(rows.reduce((sum, inst) => (
+            sum + (this.installmentLocked(inst) ? (Number(inst.amount) || 0) : 0)
+        ), 0));
+        const percentSum = rows.reduce((sum, inst) => sum + (Number(inst.percent) || 0), 0);
+        let lastPending = -1;
+        rows.forEach((inst, i) => { if (!this.installmentLocked(inst)) lastPending = i; });
+        // With locked payments and a valid plan, the last unpaid payment takes whatever is left.
+        const absorb = lockedSum > 0 && Math.abs(percentSum - 100) <= 0.05;
+        let allocated = 0;
+        return rows.map((inst, i) => {
+            if (this.installmentLocked(inst)) return Number(inst.amount) || 0;
+            if (absorb && i === lastPending) return Math.max(0, round(total - lockedSum - allocated));
+            const amount = round(total * ((Number(inst.percent) || 0) / 100));
+            allocated = round(allocated + amount);
+            return amount;
+        });
     }
 
     paidInstallmentHtml(inst, i) {
@@ -1994,7 +2234,7 @@ class ProjectPage {
             : '';
         return `
             <div class="pp-row-static">
-                <strong>${label}</strong> — ${inst.percent}% (${CRM.money(inst.amount)})
+                <strong>${label}</strong> — ${CRM.money(inst.amount)} (${Number(inst.percent) || 0}% of total)
                 ${this.paymentLinesHtml(inst)}
                 ${stillDue}
                 ${inst.status === 'partial' ? this.reminderEditorHtml(inst.reminders, 'installment', i) : ''}
@@ -2012,17 +2252,19 @@ class ProjectPage {
 
         const hasPaid = this.planHasPaidInstallment();
         const splitOn = !!(plan.enabled || hasPaid);
+        // Once money is recorded, the invoice cannot change between one payment and split payments.
+        const modeLocked = hasPaid || this.paidWithoutPlan();
         let html = `
             <div class="due-mode" role="radiogroup" aria-label="How this invoice is paid">
                 <label class="due-mode-option">
-                    <input type="radio" name="invoiceDueMode" ${splitOn ? '' : 'checked'} ${hasPaid ? 'disabled' : ''} onchange="if (this.checked) projectPage.togglePaymentPlan(false)">
+                    <input type="radio" name="invoiceDueMode" ${splitOn ? '' : 'checked'} ${modeLocked ? 'disabled' : ''} onchange="if (this.checked) projectPage.togglePaymentPlan(false)">
                     <span>
                         <strong>One payment</strong>
                         <span class="due-mode-hint">The full balance is due on one date.</span>
                     </span>
                 </label>
                 <label class="due-mode-option">
-                    <input type="radio" name="invoiceDueMode" ${splitOn ? 'checked' : ''} ${hasPaid ? 'disabled' : ''} onchange="if (this.checked) projectPage.togglePaymentPlan(true)">
+                    <input type="radio" name="invoiceDueMode" ${splitOn ? 'checked' : ''} ${modeLocked ? 'disabled' : ''} onchange="if (this.checked) projectPage.togglePaymentPlan(true)">
                     <span>
                         <strong>Split payments</strong>
                         <span class="due-mode-hint">A deposit and later payments, each with its own due date.</span>
@@ -2031,18 +2273,21 @@ class ProjectPage {
             </div>`;
 
         if (hasPaid) {
-            html += `<p class="crm-inline-note">Payments with money received stay as recorded. You can still edit or remove payments that have not been paid.</p>`;
+            html += `<p class="crm-inline-note">Payments with money received stay as recorded. Raising the invoice total keeps those payments and adds any new balance as an additional payment due.</p>`;
+        } else if (modeLocked) {
+            html += `<p class="crm-inline-note">A payment is recorded on this invoice, so this cannot be changed. If you raise the total, the new balance is added as its own payment.</p>`;
         }
 
         if (plan.enabled || hasPaid) {
-            const total = this.getEditorTotal();
+            this.rebalancePlanPercents();
+            const amounts = this.planAmounts();
             const percentSum = plan.installments.reduce((sum, inst) => sum + (Number(inst.percent) || 0), 0);
             const sumOk = Math.abs(percentSum - 100) <= 0.01;
 
             html += plan.installments.map((inst, i) => (
                 inst.status === 'paid' || inst.status === 'partial'
                     ? this.paidInstallmentHtml(inst, i)
-                    : this.installmentRowHtml(inst, i, total)
+                    : this.installmentRowHtml(inst, i, amounts[i])
             )).join('');
             html += `
                 <div class="crm-actions-row" style="margin-top:10px">
@@ -2056,8 +2301,7 @@ class ProjectPage {
         box.innerHTML = html;
     }
 
-    installmentRowHtml(inst, i, total) {
-        const amount = total * ((Number(inst.percent) || 0) / 100);
+    installmentRowHtml(inst, i, amount) {
         const offsetAbs = Math.abs(Number(inst.offsetDays) || 0);
         const direction = (Number(inst.offsetDays) || 0) >= 0 ? 'after' : 'before';
         const anchors = [
@@ -2231,6 +2475,10 @@ class ProjectPage {
             this.renderPaymentPlan();
             return;
         }
+        if (this.paidWithoutPlan()) {
+            this.renderPaymentPlan();
+            return;
+        }
         plan.enabled = enabled;
         const fullDue = document.getElementById('invoiceFullDue');
         if (fullDue) fullDue.hidden = !!enabled;
@@ -2291,10 +2539,10 @@ class ProjectPage {
     /** Refresh the derived $ amounts and the percent-sum note without a full re-render. */
     renderPaymentPlanAmounts() {
         const plan = this.editingInvoice.paymentPlan;
-        const total = this.getEditorTotal();
+        const amounts = this.planAmounts();
         plan.installments.forEach((inst, i) => {
             const cell = document.getElementById(`ppAmount-${i}`);
-            if (cell) cell.textContent = CRM.money(total * ((Number(inst.percent) || 0) / 100));
+            if (cell) cell.textContent = CRM.money(amounts[i]);
         });
         const note = document.getElementById('ppPercentNote');
         if (note) {
@@ -2360,8 +2608,21 @@ class ProjectPage {
         const discount = Number(document.getElementById('invDiscount')?.value) || 0;
         document.getElementById('invSubtotalDisplay').textContent = CRM.money(subtotal);
         document.getElementById('invTotalDisplay').textContent = CRM.money(Math.max(0, subtotal - discount));
+        const summary = document.getElementById('invoicePaymentSummary');
+        if (summary) {
+            const wrap = document.createElement('div');
+            wrap.innerHTML = this.invoicePaymentSummaryHtml(this.editingInvoice);
+            const next = wrap.firstElementChild;
+            if (next) summary.replaceWith(next);
+            else summary.remove();
+        } else if ((Number(this.editingInvoice?.amountPaid) || 0) > 0.009) {
+            const totals = document.querySelector('#invoiceEditorCard .invoice-totals');
+            if (totals) totals.insertAdjacentHTML('afterend', this.invoicePaymentSummaryHtml(this.editingInvoice));
+        }
         if (this.editingInvoice?.paymentPlan?.enabled || this.planHasPaidInstallment()) {
-            this.renderPaymentPlanAmounts();
+            // A new total shifts the percents when payments are locked, so the rows are redrawn.
+            if (this.rebalancePlanPercents()) this.renderPaymentPlan();
+            else this.renderPaymentPlanAmounts();
         }
     }
 
@@ -2487,9 +2748,12 @@ class ProjectPage {
     async markInvoicePaid(invoiceId) {
         const inv = this.invoiceForPayment(invoiceId);
         const remaining = Math.max(0, (Number(inv?.total) || 0) - (Number(inv?.amountPaid) || 0));
+        const hasPlan = !!(inv?.paymentPlan?.enabled && (inv.paymentPlan.installments || []).length);
         const payment = await this.promptManualPayment(
             'Mark Invoice Paid',
-            'All unpaid installments will be marked paid.',
+            hasPlan
+                ? 'All unpaid installments will be marked paid.'
+                : 'The full balance will be marked paid.',
             CRM.money(remaining)
         );
         if (!payment) return;
@@ -2542,6 +2806,55 @@ class ProjectPage {
                 ? 'Payment recorded. This installment is paid in full.'
                 : `Payment recorded. ${CRM.money(left)} is still due on this installment.`;
             showAlertModal(message, 'success', null, true);
+            await this.reload();
+            this.showTab('invoices');
+            await this.editInvoice(invoiceId);
+        } catch (error) {
+            showAlertModal(error.message, 'error');
+        }
+    }
+
+    /** Undo a payment recorded by mistake, refunded, or lost to a dispute. installmentIndex is null on a one-payment invoice. */
+    async removePayment(invoiceId, installmentIndex, paymentIndex) {
+        const inv = this.invoiceForPayment(invoiceId);
+        if (!inv) return;
+        const hasPlan = !!(inv.paymentPlan?.enabled && (inv.paymentPlan.installments || []).length);
+        const inst = hasPlan ? inv.paymentPlan.installments[installmentIndex] : null;
+        const payment = hasPlan
+            ? this.installmentPayments(inst)[paymentIndex]
+            : { amount: inv.amountPaid, paidAt: inv.paidAt, paymentMethod: inv.paymentMethod };
+        if (!payment || !(Number(payment.amount) > 0)) return;
+        const viaStripe = hasPlan ? this.paymentViaStripe(payment, inst, inv) : !!inv.stripePaymentIntentId;
+        const how = viaStripe ? 'Stripe' : (CRM.paymentMethodLabel(payment.paymentMethod) || 'recorded');
+        const target = hasPlan ? ` for ${inst.label || `Payment ${installmentIndex + 1}`}` : '';
+        const message = `${CRM.money(payment.amount)} (${how}${this.paidOnLabel(payment.paidAt)})${target} will be taken off this invoice, and that amount goes back to unpaid. `
+            + (viaStripe ? 'This does not refund the client. Refund the charge in Stripe separately if needed. ' : '')
+            + 'The client is not emailed, and a receipt already sent is not recalled.';
+        const values = await showPromptModal({
+            title: 'Remove payment',
+            message,
+            confirmText: 'Remove payment',
+            fields: [{
+                name: 'reason',
+                label: 'Reason (kept with the invoice)',
+                type: 'textarea',
+                required: false,
+                maxLength: 500,
+                placeholder: 'Recorded by mistake, wrong amount, refunded'
+            }]
+        });
+        if (!values) return;
+        try {
+            await CRM.api(`/api/invoices/${invoiceId}/remove-payment`, {
+                method: 'POST',
+                body: {
+                    installmentIndex,
+                    paymentIndex,
+                    amount: payment.amount,
+                    reason: values.reason || ''
+                }
+            });
+            showAlertModal('Payment removed. The invoice shows that amount as unpaid again.', 'success', null, true);
             await this.reload();
             this.showTab('invoices');
             await this.editInvoice(invoiceId);

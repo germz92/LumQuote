@@ -2204,10 +2204,20 @@ button.client-dropdown-item.is-active {
 }
 
 .pay-method-btn .pm-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
 }
+
+.pay-method-btn .pm-icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.pay-method-btn.is-selected .pm-icon { color: var(--color-primary); }
 
 .pay-method-btn .pm-sub {
   font-size: var(--font-size-xs);

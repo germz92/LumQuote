@@ -118,7 +118,13 @@ class InvoicePage {
 
         const isPaid = inv.status === 'paid';
         const installments = inv.installments || null;
-        const nextInstallment = installments ? installments.find((i) => i.status !== 'paid') : null;
+        // Bank transfers the client already started. They take days to clear, so until then the
+        // payment is shown as processing and cannot be paid a second time.
+        const pending = isPaid ? [] : (inv.pendingPayments || []);
+        const wholeBalancePending = pending.some((p) => p.installmentIndex == null);
+        const pendingIndexes = new Set(pending.filter((p) => p.installmentIndex != null).map((p) => Number(p.installmentIndex)));
+        const isProcessing = (inst) => inst.status !== 'paid' && (wholeBalancePending || pendingIndexes.has(inst.index));
+        const nextInstallment = installments ? installments.find((i) => i.status !== 'paid' && !isProcessing(i)) : null;
         this.nextInstallmentIndex = nextInstallment ? nextInstallment.index : null;
 
         if (inv.amountPaid > 0 && !isPaid) {
@@ -136,6 +142,8 @@ class InvoicePage {
                     : Math.max(0, (Number(inst.amount) || 0) - received);
                 if (inst.status === 'paid') {
                     status = `<span style="color:#16794c; font-weight:600">✓ Paid${inst.paidAt ? ` ${new Date(inst.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : ''}</span>`;
+                } else if (isProcessing(inst)) {
+                    status = '<span style="color:#3b4a8a; font-weight:600">Bank transfer processing</span>';
                 } else if (received > 0) {
                     status = `<span style="color:#c2410c; font-weight:600">${this.money(received)} received · ${this.money(remaining)} due</span>`;
                 } else if (nextInstallment && inst.index === nextInstallment.index) {
@@ -178,14 +186,23 @@ class InvoicePage {
             if (receiptBox) receiptBox.style.display = 'none';
             const due = inv.total - (inv.amountPaid || 0);
             document.getElementById('totalDisplay').textContent = this.money(due);
+            this.renderProcessingNotice(pending);
+            // Everything still unpaid is already covered by a bank transfer in progress.
+            const nothingLeftToPay = pending.length > 0
+                && (installments && installments.length > 0 ? !nextInstallment : true);
             if (!inv.stripeEnabled) {
                 document.getElementById('payButton').style.display = 'none';
                 document.querySelector('#payArea p').textContent = 'Please contact us to arrange payment for this invoice.';
+            } else if (nothingLeftToPay) {
+                document.getElementById('payMethodArea').style.display = 'none';
+                document.getElementById('payButton').style.display = 'none';
+                document.getElementById('feeNote').style.display = 'none';
             } else {
                 this.renderPayOptions();
-                // With multiple unpaid installments, offer settling the whole balance at once
+                // With multiple unpaid installments, offer settling the whole balance at once.
+                // Not while a bank transfer is in progress: the full balance would include it.
                 const unpaidCount = installments ? installments.filter((i) => i.status !== 'paid').length : 0;
-                if (unpaidCount > 1) {
+                if (unpaidCount > 1 && pending.length === 0) {
                     const fullBtn = document.getElementById('payFullBtn');
                     fullBtn.style.display = 'inline';
                     fullBtn.textContent = `Or pay the full remaining balance — ${this.money(due)}`;
@@ -194,6 +211,21 @@ class InvoicePage {
         }
 
         document.getElementById('pdfLink').href = `/api/public/invoices/${encodeURIComponent(this.token)}/pdf`;
+    }
+
+    renderProcessingNotice(pending) {
+        const existing = document.getElementById('processingNotice');
+        if (existing) existing.remove();
+        if (!pending.length) return;
+        const total = pending.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        const notice = document.createElement('div');
+        notice.id = 'processingNotice';
+        notice.style.cssText = 'padding:14px 18px; border-radius:10px; background:#eef2ff; color:#3b4a8a; font-size:14px; line-height:1.5; margin-bottom:16px';
+        notice.textContent = `${total > 0 ? `Your bank transfer of ${this.money(total)}` : 'Your bank transfer'} is processing. `
+            + 'Bank transfers usually clear within a few business days, and this page will show the payment once it does. '
+            + 'There is no need to pay it again.';
+        const payArea = document.getElementById('payArea');
+        payArea.insertBefore(notice, payArea.firstChild);
     }
 
     payButtonLabel() {
@@ -227,13 +259,16 @@ class InvoicePage {
         if (opts.achEnabled) {
             methodArea.style.display = 'flex';
             const feeHint = opts.cardFeeEnabled ? `+${opts.cardFeePercent}% fee` : 'instant';
+            const icon = (paths) => `<svg class="pm-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+            const cardIcon = icon('<rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line>');
+            const bankIcon = icon('<path d="M3 10l9-6 9 6"></path><line x1="5" y1="10" x2="5" y2="18"></line><line x1="10" y1="10" x2="10" y2="18"></line><line x1="14" y1="10" x2="14" y2="18"></line><line x1="19" y1="10" x2="19" y2="18"></line><line x1="3" y1="21" x2="21" y2="21"></line>');
             methodArea.innerHTML = `
                 <button type="button" class="pay-method-btn ${this.payMethod === 'card' ? 'is-selected' : ''}" onclick="invoicePage.setPayMethod('card')">
-                    <span class="pm-title">💳 Card</span>
+                    <span class="pm-title">${cardIcon}Card</span>
                     <span class="pm-sub">${this.escapeHtml(feeHint)}</span>
                 </button>
                 <button type="button" class="pay-method-btn ${this.payMethod === 'ach' ? 'is-selected' : ''}" onclick="invoicePage.setPayMethod('ach')">
-                    <span class="pm-title">🏦 Bank Transfer</span>
+                    <span class="pm-title">${bankIcon}Bank Transfer</span>
                     <span class="pm-sub">no fee · via ACH</span>
                 </button>`;
         } else {

@@ -212,10 +212,22 @@ const CRM = {
         return `<span class="crm-chip crm-chip--${this.escapeHtml(status || 'none')}">${this.escapeHtml(label)}</span>`;
     },
 
+    /** Bank transfers the client has started that have not cleared. Mirrors activePendingPayments on the server. */
+    pendingBankPayments(inv) {
+        if (!inv || typeof inv !== 'object' || inv.status === 'paid' || inv.status === 'void') return [];
+        const cutoff = Date.now() - 21 * 24 * 60 * 60 * 1000;
+        return (inv.pendingPayments || []).filter((pending) => {
+            const started = new Date(pending.startedAt).getTime();
+            return !Number.isFinite(started) || started >= cutoff;
+        });
+    },
+
     invoiceStatusChip(inv) {
         const status = this.invoiceDisplayStatus(inv);
         const label = this.INVOICE_STATUS_LABELS[status] || status;
-        return `<span class="crm-chip crm-chip--${this.escapeHtml(status)}">${this.escapeHtml(label)}</span>`;
+        const chip = `<span class="crm-chip crm-chip--${this.escapeHtml(status)}">${this.escapeHtml(label)}</span>`;
+        if (!this.pendingBankPayments(inv).length) return chip;
+        return `${chip} <span class="crm-chip crm-chip--recorded" title="The client started a bank transfer. It is not counted as paid until it clears.">Bank transfer processing</span>`;
     },
 
     async api(url, options = {}) {
